@@ -3204,16 +3204,6 @@ get_binary_release_asset_metadata() {
     fi
 
     release_payload=$(curl -fsSL "$release_api" 2>/dev/null) || true
-    if [ -z "$release_payload" ] && [ "$REBECCA_RELEASE_REPO" != "rebeccapanel/Rebecca" ]; then
-        target_repo="rebeccapanel/Rebecca"
-        if [ "$rebecca_version" = "latest" ]; then
-            release_api="https://api.github.com/repos/${target_repo}/releases/latest"
-        else
-            release_api="https://api.github.com/repos/${target_repo}/releases/tags/${rebecca_version}"
-        fi
-        release_payload=$(curl -fsSL "$release_api" 2>/dev/null) || true
-    fi
-
     if [ -z "$release_payload" ]; then
         colorized_echo red "Unable to read DarkPanel release metadata: $release_api" >&2
         exit 1
@@ -3278,12 +3268,6 @@ get_binary_dev_manifest_metadata() {
 
     manifest_url=$(get_binary_dev_manifest_url)
     manifest_payload=$(curl -fsSL "$manifest_url" 2>/dev/null) || true
-
-    if [ -z "$manifest_payload" ] && [ "$REBECCA_RELEASE_REPO" != "rebeccapanel/Rebecca" ]; then
-        local fallback_manifest_url="https://raw.githubusercontent.com/rebeccapanel/Rebecca/${REBECCA_BINARY_DEV_MANIFEST_BRANCH}/${REBECCA_BINARY_DEV_MANIFEST_PATH}"
-        manifest_payload=$(curl -fsSL "$fallback_manifest_url" 2>/dev/null) || true
-        [ -n "$manifest_payload" ] && manifest_repo="rebeccapanel/Rebecca"
-    fi
 
     if [ -z "$manifest_payload" ]; then
         return 1
@@ -3379,21 +3363,6 @@ get_binary_dev_artifact_metadata() {
         .workflow_runs[]?
         | select(.head_branch == $branch and .event == "push" and .conclusion == "success")
     ' 2>/dev/null | head -n 1)
-
-    if [ -z "$latest_run_json" ] && [ "$REBECCA_RELEASE_REPO" != "rebeccapanel/Rebecca" ]; then
-        target_repo="rebeccapanel/Rebecca"
-        workflow_runs_api="https://api.github.com/repos/${target_repo}/actions/workflows/${nightly_workflow}/runs"
-        workflow_runs_payload=$(curl -fsSLG "$workflow_runs_api" \
-            --data-urlencode "branch=${REBECCA_BINARY_DEV_BRANCH}" \
-            --data-urlencode "event=push" \
-            --data-urlencode "status=success" \
-            --data-urlencode "per_page=100" 2>/dev/null) || true
-
-        latest_run_json=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_BINARY_DEV_BRANCH" '
-            .workflow_runs[]?
-            | select(.head_branch == $branch and .event == "push" and .conclusion == "success")
-        ' 2>/dev/null | head -n 1)
-    fi
 
     if [ -z "$latest_run_json" ]; then
         colorized_echo red "No successful binary dev workflow run was found on branch ${REBECCA_BINARY_DEV_BRANCH}." >&2
@@ -3517,6 +3486,15 @@ install_binary_rebecca() {
 
     binary_arch=$(detect_binary_arch)
     tmp_dir=$(mktemp -d)
+
+    if [ "$rebecca_version" = "latest" ]; then
+        local release_check
+        release_check=$(curl -fsSL "https://api.github.com/repos/${REBECCA_RELEASE_REPO}/releases/latest" 2>/dev/null) || true
+        if [ -z "$release_check" ]; then
+            colorized_echo yellow "No release tag found on ${REBECCA_RELEASE_REPO}; installing latest dev build."
+            rebecca_version="dev"
+        fi
+    fi
 
     if [ -n "${REBECCA_BINARY_SERVER_OVERRIDE:-}" ] || [ -n "${REBECCA_BINARY_CLI_OVERRIDE:-}" ]; then
         if [ ! -f "${REBECCA_BINARY_SERVER_OVERRIDE:-}" ] || [ ! -f "${REBECCA_BINARY_CLI_OVERRIDE:-}" ]; then
