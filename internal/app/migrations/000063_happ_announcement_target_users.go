@@ -19,13 +19,16 @@ func up000063HappAnnouncementTargetUsers(ctx context.Context, tx *sql.Tx) error 
 		mysql  string
 	}{
 		{"happ_announcement_target_type", "VARCHAR(32) NOT NULL DEFAULT 'all'", "VARCHAR(32) NOT NULL DEFAULT 'all'"},
-		{"happ_announcement_target_users", "TEXT NOT NULL DEFAULT ''", "TEXT NOT NULL DEFAULT ''"},
+		{"happ_announcement_target_users", "TEXT NOT NULL DEFAULT ''", "TEXT NULL"},
 	}
 
 	for _, col := range columns {
 		if err := addColumn(ctx, tx, dialect, "subscription_settings", col.name, col.sqlite, col.mysql); err != nil {
 			return err
 		}
+	}
+	if dialect == "mysql" || dialect == "mariadb" {
+		_, _ = tx.ExecContext(ctx, "UPDATE subscription_settings SET happ_announcement_target_users = '' WHERE happ_announcement_target_users IS NULL")
 	}
 	return nil
 }
