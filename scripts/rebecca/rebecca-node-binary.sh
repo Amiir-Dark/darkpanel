@@ -11,13 +11,17 @@ NODE_VERSION_SET=0
 REBECCA_NODE_SCRIPT_FLAVOR="${REBECCA_NODE_SCRIPT_FLAVOR:-binary}"
 REBECCA_NODE_SCRIPT_SOURCE_FILE="${REBECCA_NODE_SCRIPT_SOURCE_FILE:-rebecca-node-binary.sh}"
 
-SCRIPT_PATH="${BASH_SOURCE[0]}"
-SCRIPT_NAME="$(basename "$SCRIPT_PATH")"
+SCRIPT_PATH="${BASH_SOURCE[0]:-$0}"
+SCRIPT_NAME="$(basename "$SCRIPT_PATH" 2>/dev/null || echo "darkpanel-node")"
 SCRIPT_BASENAME="${SCRIPT_NAME%.*}"
 SCRIPT_DEFAULT_APP_NAME="${REBECCA_NODE_DEFAULT_APP_NAME:-$SCRIPT_BASENAME}"
 case "$SCRIPT_DEFAULT_APP_NAME" in
-    rebecca-node-binary|@|bash|sh)
-        SCRIPT_DEFAULT_APP_NAME="rebecca-node"
+    rebecca-node-binary|rebecca-node|darkpanel-node-binary|@|bash|sh|"."|"-s"|"")
+        if [ -d "/opt/rebecca-node" ] && [ ! -d "/opt/darkpanel-node" ]; then
+            SCRIPT_DEFAULT_APP_NAME="rebecca-node"
+        else
+            SCRIPT_DEFAULT_APP_NAME="darkpanel-node"
+        fi
     ;;
 esac
 
@@ -26,9 +30,11 @@ declare -a DISCOVERED_NODE_NAMES=()
 
 ensure_valid_app_name() {
     local candidate="${APP_NAME:-$SCRIPT_DEFAULT_APP_NAME}"
+    if [ -z "$candidate" ] || ! [[ "$candidate" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+        candidate="$SCRIPT_DEFAULT_APP_NAME"
+    fi
     if ! [[ "$candidate" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
-        candidate="rebecca-node"
-        echo "Invalid app name detected. Falling back to default: $candidate"
+        candidate="darkpanel-node"
     fi
     APP_NAME="$candidate"
 }
@@ -155,11 +161,11 @@ if [ -n "${REBECCA_SCRIPT_BASE_URL+x}" ]; then
     REBECCA_SCRIPT_BASE_URL_EXPLICIT=1
 fi
 REBECCA_SCRIPT_BASE_URL="${REBECCA_SCRIPT_BASE_URL:-https://raw.githubusercontent.com/${REBECCA_REPO}/${REBECCA_REF}/scripts/rebecca}"
-REBECCA_NODE_RELEASE_REPO="${REBECCA_NODE_RELEASE_REPO:-Amiir-Dark/darkpanel}"
+REBECCA_NODE_RELEASE_REPO="${REBECCA_NODE_RELEASE_REPO:-rebeccapanel/Rebecca-node}"
 REBECCA_NODE_BINARY_DEV_BRANCH="${REBECCA_NODE_BINARY_DEV_BRANCH:-dev}"
-REBECCA_NODE_BINARY_DEV_RELEASE_TAG="${REBECCA_NODE_BINARY_DEV_RELEASE_TAG:-dev-builds}"
+REBECCA_NODE_BINARY_DEV_RELEASE_TAG="${REBECCA_NODE_BINARY_DEV_RELEASE_TAG:-dev-binaries}"
 REBECCA_NODE_BINARY_WORKFLOW_NAME="${REBECCA_NODE_BINARY_WORKFLOW_NAME:-binary-build}"
-REBECCA_NODE_BINARY_ARTIFACT_PREFIX="${REBECCA_NODE_BINARY_ARTIFACT_PREFIX:-rebecca-binaries}"
+REBECCA_NODE_BINARY_ARTIFACT_PREFIX="${REBECCA_NODE_BINARY_ARTIFACT_PREFIX:-rebecca-node-binaries}"
 DEFAULT_XRAY_CORE_VERSION="${DEFAULT_XRAY_CORE_VERSION:-v26.5.9}"
 
 # Default node channel values
@@ -1287,7 +1293,7 @@ write_node_binary_release_metadata() {
 create_binary_rebecca_node_service() {
     cat > "$BINARY_SERVICE_UNIT" <<EOF
 [Unit]
-Description=Rebecca-node
+Description=DarkPanel-node
 After=network.target
 
 [Service]
@@ -1308,6 +1314,10 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+    systemctl daemon-reload
+    ln -sf "$BINARY_SERVICE_UNIT" /etc/systemd/system/DarkPanel-node.service 2>/dev/null || true
+    ln -sf "$BINARY_SERVICE_UNIT" /etc/systemd/system/darkpanel-node.service 2>/dev/null || true
+    ln -sf "$BINARY_SERVICE_UNIT" /etc/systemd/system/rebecca-node.service 2>/dev/null || true
     systemctl daemon-reload
 }
 
@@ -1526,6 +1536,7 @@ install_rebecca_node_script() {
     fi
     ui_spinner_run "Installing $APP_NAME command script" install -m 755 "$TEMP_SCRIPT" "$TARGET_PATH"
     ln -sf "$TARGET_PATH" /usr/local/bin/DarkPanel-node 2>/dev/null || true
+    ln -sf "$TARGET_PATH" /usr/local/bin/darkpanel-node 2>/dev/null || true
     ln -sf "$TARGET_PATH" /usr/local/bin/rebecca-node 2>/dev/null || true
     rm -f "$TEMP_SCRIPT"
     colorized_echo green "$APP_NAME script installed at $TARGET_PATH"
