@@ -3354,23 +3354,23 @@ get_binary_dev_artifact_metadata() {
     esac
     workflow_runs_api="https://api.github.com/repos/${target_repo}/actions/workflows/${nightly_workflow}/runs"
     workflow_runs_payload=$(curl -fsSLG "$workflow_runs_api" \
-        --data-urlencode "branch=${REBECCA_BINARY_DEV_BRANCH}" \
         --data-urlencode "event=push" \
         --data-urlencode "status=success" \
         --data-urlencode "per_page=100" 2>/dev/null) || true
 
     latest_run_json=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_BINARY_DEV_BRANCH" '
         .workflow_runs[]?
-        | select(.head_branch == $branch and .event == "push" and .conclusion == "success")
+        | select((.head_branch == $branch or .head_branch == "main" or .head_branch == "dev") and .event == "push" and .conclusion == "success")
     ' 2>/dev/null | head -n 1)
 
     if [ -z "$latest_run_json" ]; then
-        colorized_echo red "No successful binary dev workflow run was found on branch ${REBECCA_BINARY_DEV_BRANCH}." >&2
+        colorized_echo red "No successful binary workflow run was found on branch ${REBECCA_BINARY_DEV_BRANCH} or main." >&2
         exit 1
     fi
 
     run_id=$(echo "$latest_run_json" | jq -r '.id // empty')
     head_sha=$(echo "$latest_run_json" | jq -r '.head_sha // empty')
+    selected_branch=$(echo "$latest_run_json" | jq -r '.head_branch // "dev"')
     artifacts_api="https://api.github.com/repos/${target_repo}/actions/runs/${run_id}/artifacts"
     artifacts_payload=$(curl -fsSL "$artifacts_api") || {
         colorized_echo red "Unable to read binary dev workflow artifacts: $artifacts_api" >&2
@@ -3391,7 +3391,7 @@ get_binary_dev_artifact_metadata() {
         exit 1
     fi
 
-    artifact_url="https://nightly.link/${target_repo}/workflows/${nightly_workflow}/${REBECCA_BINARY_DEV_BRANCH}/${artifact_name}.zip"
+    artifact_url="https://nightly.link/${target_repo}/workflows/${nightly_workflow}/${selected_branch}/${artifact_name}.zip"
     printf '%s|%s|%s.zip\n' "dev-${head_sha:0:7}" "$artifact_url" "$artifact_name"
 }
 
