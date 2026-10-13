@@ -49,7 +49,7 @@ CERTBOT_BIN=""
 PARSED_DOMAINS=()
 REBECCA_SCRIPT_FLAVOR="${REBECCA_SCRIPT_FLAVOR:-docker}"
 REBECCA_SCRIPT_SOURCE_FILE="${REBECCA_SCRIPT_SOURCE_FILE:-rebecca.sh}"
-REBECCA_SCRIPT_INSTALL_PATH="${REBECCA_SCRIPT_INSTALL_PATH:-/usr/local/bin/rebecca}"
+REBECCA_SCRIPT_INSTALL_PATH="${REBECCA_SCRIPT_INSTALL_PATH:-/usr/local/bin/darkpanel}"
 
 colorized_echo() {
     local color=$1
@@ -336,7 +336,7 @@ format_rebecca_journal_logs() {
             printf "%s\n" "$message"
             continue
         fi
-        ui_color "38;5;208;1" "Rebecca"
+        ui_color "38;5;208;1" "DarkPanel"
         printf "-"
         ui_color "38;5;245" "$log_time"
         printf ": "
@@ -727,7 +727,7 @@ select_install_mode() {
 
     if [ -n "$forced_mode" ]; then
         if [ -n "$requested_mode" ] && [ "$requested_mode" != "$forced_mode" ]; then
-            colorized_echo red "This script is dedicated to ${forced_mode} installs. Use the matching Rebecca script for $requested_mode." >&2
+            colorized_echo red "This script is dedicated to ${forced_mode} installs. Use the matching DarkPanel script for $requested_mode." >&2
             exit 1
         fi
         echo "$forced_mode"
@@ -744,7 +744,7 @@ select_install_mode() {
         return
     fi
 
-    colorized_echo cyan "Select Rebecca installation mode:" >&2
+    colorized_echo cyan "Select DarkPanel installation mode:" >&2
     colorized_echo yellow "  1) Dockerized (recommended for full database support)" >&2
     colorized_echo yellow "  2) Binary (native systemd service)" >&2
     read -r -p "Install mode [1]: " install_mode_answer
@@ -777,7 +777,7 @@ select_rebecca_version() {
         return
     fi
 
-    colorized_echo cyan "Select Rebecca release channel for ${install_mode} mode:" >&2
+    colorized_echo cyan "Select DarkPanel release channel for ${install_mode} mode:" >&2
     colorized_echo yellow "  1) latest (stable release)" >&2
     if [ "$install_mode" = "binary" ]; then
         colorized_echo yellow "  2) dev (latest successful binary build from branch ${REBECCA_BINARY_DEV_BRANCH})" >&2
@@ -851,15 +851,17 @@ install_rebecca_script() {
     fi
     SCRIPT_URL="$REBECCA_SCRIPT_BASE_URL/$REBECCA_SCRIPT_SOURCE_FILE"
     temp_script=$(mktemp)
-    ui_spinner_run "Downloading Rebecca command script" curl -fsSL "$SCRIPT_URL" -o "$temp_script"
+    ui_spinner_run "Downloading DarkPanel command script" curl -fsSL "$SCRIPT_URL" -o "$temp_script"
     if head -n 1 "$temp_script" | grep -qi "<!DOCTYPE"; then
         rm -f "$temp_script"
         colorized_echo red "Unexpected HTML response while downloading script"
         exit 1
     fi
-    ui_spinner_run "Installing Rebecca command script" install -m 755 "$temp_script" "$REBECCA_SCRIPT_INSTALL_PATH"
+    ui_spinner_run "Installing DarkPanel command script" install -m 755 "$temp_script" "$REBECCA_SCRIPT_INSTALL_PATH"
+    ln -sf "$REBECCA_SCRIPT_INSTALL_PATH" /usr/local/bin/darkpanel 2>/dev/null || true
+    ln -sf "$REBECCA_SCRIPT_INSTALL_PATH" /usr/local/bin/rebecca 2>/dev/null || true
     rm -f "$temp_script"
-    colorized_echo green "rebecca script installed successfully"
+    colorized_echo green "DarkPanel script installed successfully"
 }
 
 trim_string() {
@@ -1314,7 +1316,7 @@ print_database_menu() {
     local names=("MySQL" "SQLite" "MariaDB")
     local descriptions=("(recommended)" "" "")
     local idx
-    ui_header "Rebecca Database" "Choose storage backend for binary install"
+    ui_header "DarkPanel Database" "Choose storage backend for binary install"
     for idx in 1 2 3; do
         printf "  "
         if [ "$idx" -eq "$selected" ]; then
@@ -1665,7 +1667,7 @@ enable_host_phpmyadmin() {
     if command -v nginx >/dev/null 2>&1; then
         nginx -t >/dev/null 2>&1 && systemctl reload nginx >/dev/null 2>&1 || true
     fi
-    colorized_echo green "phpMyAdmin is installed and will be served through Rebecca using local php-fpm."
+    colorized_echo green "phpMyAdmin is installed and will be served through DarkPanel using local php-fpm."
 }
 
 disable_host_phpmyadmin() {
@@ -1739,7 +1741,7 @@ enable_phpmyadmin() {
     done
 
     if ! is_rebecca_installed; then
-        colorized_echo red "Rebecca is not installed. Please install Rebecca first."
+        colorized_echo red "DarkPanel is not installed. Please install DarkPanel first."
         exit 1
     fi
 
@@ -1835,10 +1837,10 @@ perform_ssl_issue() {
         if is_rebecca_installed; then
             detect_compose
             if is_rebecca_up; then
-                colorized_echo blue "Restarting Rebecca to apply SSL configuration..."
+                colorized_echo blue "Restarting DarkPanel to apply SSL configuration..."
                 down_rebecca
                 up_rebecca
-                colorized_echo green "Rebecca restarted with SSL configuration"
+                colorized_echo green "DarkPanel restarted with SSL configuration"
             fi
         fi
         
@@ -1869,14 +1871,14 @@ perform_ssl_issue() {
     sync_ssl_env_paths "$SSL_CERT_DIR"
     colorized_echo green "SSL certificate installed at $SSL_CERT_DIR using $provider_used"
     
-    # Check if Rebecca is installed and running, then restart to apply SSL changes
+    # Check if DarkPanel is installed and running, then restart to apply SSL changes
     if is_rebecca_installed; then
         detect_compose
         if is_rebecca_up; then
-            colorized_echo blue "Restarting Rebecca to apply SSL configuration..."
+            colorized_echo blue "Restarting DarkPanel to apply SSL configuration..."
             down_rebecca
             up_rebecca
-            colorized_echo green "Rebecca restarted with SSL configuration"
+            colorized_echo green "DarkPanel restarted with SSL configuration"
         fi
     fi
     
@@ -2110,7 +2112,7 @@ ssl_renew() {
     perform_ssl_issue "$email" "$provider" "${stored_domains[@]}" || return 1
     colorized_echo green "SSL certificate renewed for $target_domain"
     
-    # Note: perform_ssl_issue already restarts Rebecca if needed
+    # Note: perform_ssl_issue already restarts DarkPanel if needed
 }
 
 ssl_command() {
@@ -2142,11 +2144,11 @@ ensure_script_matches_installed_mode() {
     fi
     installed_mode=$(get_install_mode)
     if [ "$installed_mode" != "$forced_mode" ]; then
-        colorized_echo red "This Rebecca installation is in ${installed_mode} mode, but ${0##*/} is the ${forced_mode} script."
+        colorized_echo red "This DarkPanel installation is in ${installed_mode} mode, but ${0##*/} is the ${forced_mode} script."
         if [ "$installed_mode" = "binary" ]; then
-            colorized_echo yellow "Use the Rebecca binary script."
+            colorized_echo yellow "Use the DarkPanel binary script."
         else
-            colorized_echo yellow "Use the Rebecca Docker script."
+            colorized_echo yellow "Use the DarkPanel Docker script."
         fi
         exit 1
     fi
@@ -2738,7 +2740,7 @@ backup_command() {
     cp "$APP_DIR/.env" "$temp_dir/" 2>>"$log_file" || true
     cp "$APP_DIR/docker-compose.yml" "$temp_dir/" 2>>"$log_file" || true
     if ! rsync -a --delete --exclude 'xray-core' --exclude 'mysql' --exclude 'logs' "$DATA_DIR/" "$temp_dir/rebecca_data/" >>"$log_file" 2>&1; then
-        error_messages+=("Failed to copy Rebecca data files.")
+        error_messages+=("Failed to copy DarkPanel data files.")
     fi
 
     if ! tar -C "$temp_dir" -cf - . | gzip -1 > "$backup_file"; then
@@ -3143,7 +3145,7 @@ EOF
     curl -sL "$FILES_URL_PREFIX/xray_config.json" -o "$DATA_DIR/xray_config.json"
     colorized_echo green "File saved in $DATA_DIR/xray_config.json"
     
-    colorized_echo green "Rebecca's files downloaded successfully"
+    colorized_echo green "DarkPanel files downloaded successfully"
 }
 
 detect_binary_arch() {
@@ -3212,7 +3214,7 @@ get_binary_release_asset_metadata() {
     fi
 
     if [ -z "$release_payload" ]; then
-        colorized_echo red "Unable to read Rebecca release metadata: $release_api" >&2
+        colorized_echo red "Unable to read DarkPanel release metadata: $release_api" >&2
         exit 1
     fi
 
@@ -3464,7 +3466,7 @@ write_binary_release_metadata() {
 create_binary_service() {
     cat > "$BINARY_SERVICE_UNIT" <<EOF
 [Unit]
-Description=Rebecca Panel
+Description=DarkPanel
 After=network-online.target
 Wants=network-online.target
 
@@ -3521,25 +3523,25 @@ install_binary_rebecca() {
             rm -rf "$tmp_dir"
             exit 1
         fi
-        ui_spinner_run "Installing Rebecca custom server binary" install -m 755 "$REBECCA_BINARY_SERVER_OVERRIDE" "$tmp_dir/rebecca-server"
-        ui_spinner_run "Installing Rebecca custom CLI binary" install -m 755 "$REBECCA_BINARY_CLI_OVERRIDE" "$tmp_dir/rebecca-cli"
+        ui_spinner_run "Installing DarkPanel custom server binary" install -m 755 "$REBECCA_BINARY_SERVER_OVERRIDE" "$tmp_dir/rebecca-server"
+        ui_spinner_run "Installing DarkPanel custom CLI binary" install -m 755 "$REBECCA_BINARY_CLI_OVERRIDE" "$tmp_dir/rebecca-cli"
         resolved_version="${REBECCA_BINARY_OVERRIDE_VERSION:-custom}"
         artifact_url="local-override"
     elif [[ "$rebecca_version" = "dev" || "$rebecca_version" == dev-* ]]; then
         IFS='|' read -r resolved_version artifact_url artifact_name < <(get_binary_dev_artifact_metadata "$binary_arch" "$rebecca_version")
         artifact_name="${artifact_name:-rebecca-binaries.zip}"
         package_path="$tmp_dir/$artifact_name"
-        ui_spinner_run "Downloading Rebecca dev binary artifact" curl -fL "$artifact_url" -o "$package_path"
+        ui_spinner_run "Downloading DarkPanel dev binary artifact" curl -fL "$artifact_url" -o "$package_path"
         if [[ "$package_path" == *.zip ]]; then
-            ui_spinner_run "Extracting Rebecca dev artifact" unzip -j -o "$package_path" -d "$tmp_dir"
+            ui_spinner_run "Extracting DarkPanel dev artifact" unzip -j -o "$package_path" -d "$tmp_dir"
             dev_package_path="$tmp_dir/rebecca-linux-${binary_arch}.tar.gz"
             if [ -f "$dev_package_path" ]; then
-                ui_spinner_run "Unpacking Rebecca binary package" tar -xzf "$dev_package_path" -C "$tmp_dir"
+                ui_spinner_run "Unpacking DarkPanel binary package" tar -xzf "$dev_package_path" -C "$tmp_dir"
             elif ls "$tmp_dir"/rebecca-*.tar.gz >/dev/null 2>&1; then
-                ui_spinner_run "Unpacking Rebecca binary package" tar -xzf "$(ls "$tmp_dir"/rebecca-*.tar.gz | head -n 1)" -C "$tmp_dir"
+                ui_spinner_run "Unpacking DarkPanel binary package" tar -xzf "$(ls "$tmp_dir"/rebecca-*.tar.gz | head -n 1)" -C "$tmp_dir"
             fi
         elif [[ "$package_path" == *.tar.gz ]]; then
-            ui_spinner_run "Unpacking Rebecca binary package" tar -xzf "$package_path" -C "$tmp_dir"
+            ui_spinner_run "Unpacking DarkPanel binary package" tar -xzf "$package_path" -C "$tmp_dir"
         else
             colorized_echo red "Unsupported dev binary asset format: $artifact_name" >&2
             rm -rf "$tmp_dir"
@@ -3548,12 +3550,12 @@ install_binary_rebecca() {
     else
         IFS='|' read -r binary_source_type resolved_version server_asset_url cli_asset_url < <(get_binary_release_asset_metadata "$rebecca_version" "$binary_arch")
         if [ "$binary_source_type" = "split" ]; then
-            ui_spinner_run "Downloading Rebecca server binary" curl -fL "$server_asset_url" -o "$tmp_dir/rebecca-server"
-            ui_spinner_run "Downloading Rebecca CLI binary" curl -fL "$cli_asset_url" -o "$tmp_dir/rebecca-cli"
+            ui_spinner_run "Downloading DarkPanel server binary" curl -fL "$server_asset_url" -o "$tmp_dir/rebecca-server"
+            ui_spinner_run "Downloading DarkPanel CLI binary" curl -fL "$cli_asset_url" -o "$tmp_dir/rebecca-cli"
         else
             package_path="$tmp_dir/rebecca-binary.tar.gz"
-            ui_spinner_run "Downloading Rebecca binary package" curl -fL "$server_asset_url" -o "$package_path"
-            ui_spinner_run "Unpacking Rebecca binary package" tar -xzf "$package_path" -C "$tmp_dir"
+            ui_spinner_run "Downloading DarkPanel binary package" curl -fL "$server_asset_url" -o "$package_path"
+            ui_spinner_run "Unpacking DarkPanel binary package" tar -xzf "$package_path" -C "$tmp_dir"
         fi
     fi
 
@@ -3581,7 +3583,7 @@ install_binary_rebecca() {
     if [ ! -f "$DATA_DIR/xray_config.json" ]; then
         curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors "$REBECCA_RAW_BASE/xray_config.json" -o "$DATA_DIR/xray_config.json" 2>/dev/null || {
             rm -f "$DATA_DIR/xray_config.json"
-            colorized_echo yellow "No bundled xray_config.json found; Rebecca will use its built-in default."
+            colorized_echo yellow "No bundled xray_config.json found; DarkPanel will use its built-in default."
         }
     fi
 
@@ -3589,7 +3591,7 @@ install_binary_rebecca() {
     echo "binary" > "$INSTALL_MODE_FILE"
     create_binary_service
     rm -rf "$tmp_dir"
-    colorized_echo green "Rebecca binary files installed successfully"
+    colorized_echo green "DarkPanel binary files installed successfully"
 }
 
 up_rebecca() {
@@ -3935,7 +3937,7 @@ install_command() {
 
     # Check if rebecca is already installed
     if is_rebecca_installed; then
-        colorized_echo red "Rebecca is already installed at $APP_DIR"
+        colorized_echo red "DarkPanel is already installed at $APP_DIR"
         read -p "Do you want to override the previous installation? (y/n) "
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             colorized_echo red "Aborted installation"
@@ -4140,11 +4142,11 @@ show_rebecca_logs() {
 
 rebecca_cli() {
     if is_binary_install; then
-        REBECCA_ENV_FILE="$ENV_FILE" REBECCA_APP_DIR="$APP_DIR" REBECCA_DATA_DIR="$DATA_DIR" CLI_PROG_NAME="rebecca cli" "$BINARY_CLI" "$@"
+        REBECCA_ENV_FILE="$ENV_FILE" REBECCA_APP_DIR="$APP_DIR" REBECCA_DATA_DIR="$DATA_DIR" CLI_PROG_NAME="darkpanel cli" "$BINARY_CLI" "$@"
         return
     fi
 
-    $COMPOSE -f $COMPOSE_FILE -p "$APP_NAME" exec -e CLI_PROG_NAME="rebecca cli" rebecca rebecca-cli "$@"
+    $COMPOSE -f $COMPOSE_FILE -p "$APP_NAME" exec -e CLI_PROG_NAME="darkpanel cli" rebecca rebecca-cli "$@"
 }
 
 
@@ -4171,11 +4173,11 @@ uninstall_command() {
     fi
 
     if [ "$app_exists" -eq 0 ]; then
-        colorized_echo red "Rebecca's not installed!"
+        colorized_echo red "DarkPanel is not installed!"
         exit 1
     fi
 
-    read -p "Do you really want to uninstall Rebecca? (y/n) "
+    read -p "Do you really want to uninstall DarkPanel? (y/n) "
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         colorized_echo red "Aborted"
         exit 1
@@ -4197,21 +4199,21 @@ uninstall_command() {
             uninstall_rebecca_docker_images
         fi
 
-        read -p "Do you want to remove Rebecca's data files too ($DATA_DIR)? (y/n) "
+        read -p "Do you want to remove DarkPanel's data files too ($DATA_DIR)? (y/n) "
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            colorized_echo green "Rebecca uninstalled successfully"
+            colorized_echo green "DarkPanel uninstalled successfully"
         else
             uninstall_rebecca_data_files
-            colorized_echo green "Rebecca uninstalled successfully"
+            colorized_echo green "DarkPanel uninstalled successfully"
         fi
     else
-        colorized_echo green "Legacy Rebecca script removed"
+        colorized_echo green "Legacy DarkPanel script removed"
     fi
 }
 
 uninstall_rebecca_script() {
     if [ -f "/usr/local/bin/rebecca" ]; then
-        colorized_echo yellow "Removing rebecca script"
+        colorized_echo yellow "Removing darkpanel script"
         rm "/usr/local/bin/rebecca"
     fi
 }
@@ -4239,7 +4241,7 @@ uninstall_rebecca_docker_images() {
     images=$(docker images | grep rebecca | awk '{print $3}')
     
     if [ -n "$images" ]; then
-        colorized_echo yellow "Removing Docker images of Rebecca"
+        colorized_echo yellow "Removing Docker images of DarkPanel"
         for image in $images; do
             if docker rmi "$image" >/dev/null 2>&1; then
                 colorized_echo yellow "Image $image removed"
@@ -4257,7 +4259,7 @@ uninstall_rebecca_data_files() {
 
 restart_command() {
     help() {
-        colorized_echo red "Usage: rebecca restart [options]"
+        colorized_echo red "Usage: darkpanel restart [options]"
         echo
         echo "OPTIONS:"
         echo "  -h, --help        display this help message"
@@ -4285,7 +4287,7 @@ restart_command() {
     
     # Check if rebecca is installed
     if ! is_rebecca_installed; then
-        colorized_echo red "Rebecca's not installed!"
+        colorized_echo red "DarkPanel is not installed!"
         exit 1
     fi
     
@@ -4298,11 +4300,11 @@ restart_command() {
     if [ "$no_logs" = false ]; then
         follow_rebecca_logs
     fi
-    colorized_echo green "Rebecca successfully restarted!"
+    colorized_echo green "DarkPanel successfully restarted!"
 }
 logs_command() {
     help() {
-        colorized_echo red "Usage: rebecca logs [options]"
+        colorized_echo red "Usage: darkpanel logs [options]"
         echo ""
         echo "OPTIONS:"
         echo "  -h, --help        display this help message"
@@ -4330,7 +4332,7 @@ logs_command() {
     
     # Check if rebecca is installed
     if ! is_rebecca_installed; then
-        colorized_echo red "Rebecca's not installed!"
+        colorized_echo red "DarkPanel is not installed!"
         exit 1
     fi
     
@@ -4339,7 +4341,7 @@ logs_command() {
     fi
     
     if ! is_rebecca_up; then
-        colorized_echo red "Rebecca is not up."
+        colorized_echo red "DarkPanel is not up."
         exit 1
     fi
     
@@ -4354,7 +4356,7 @@ down_command() {
     
     # Check if rebecca is installed
     if ! is_rebecca_installed; then
-        colorized_echo red "Rebecca's not installed!"
+        colorized_echo red "DarkPanel is not installed!"
         exit 1
     fi
     
@@ -4363,7 +4365,7 @@ down_command() {
     fi
     
     if ! is_rebecca_up; then
-        colorized_echo red "Rebecca's already down"
+        colorized_echo red "DarkPanel is already down"
         exit 1
     fi
     
@@ -4373,7 +4375,7 @@ down_command() {
 cli_command() {
     # Check if rebecca is installed
     if ! is_rebecca_installed; then
-        colorized_echo red "Rebecca's not installed!"
+        colorized_echo red "DarkPanel is not installed!"
         exit 1
     fi
     
@@ -4382,7 +4384,7 @@ cli_command() {
     fi
     
     if ! is_rebecca_up; then
-        colorized_echo red "Rebecca is not up."
+        colorized_echo red "DarkPanel is not up."
         exit 1
     fi
     
@@ -4391,7 +4393,7 @@ cli_command() {
 
 up_command() {
     help() {
-        colorized_echo red "Usage: rebecca up [options]"
+        colorized_echo red "Usage: darkpanel up [options]"
         echo ""
         echo "OPTIONS:"
         echo "  -h, --help        display this help message"
@@ -4419,7 +4421,7 @@ up_command() {
     
     # Check if rebecca is installed
     if ! is_rebecca_installed; then
-        colorized_echo red "Rebecca's not installed!"
+        colorized_echo red "DarkPanel is not installed!"
         exit 1
     fi
     
@@ -4428,7 +4430,7 @@ up_command() {
     fi
     
     if is_rebecca_up; then
-        colorized_echo red "Rebecca's already up"
+        colorized_echo red "DarkPanel is already up"
         exit 1
     fi
     
@@ -4468,7 +4470,7 @@ update_command() {
                 shift 2
                 ;;
             -h|--help)
-                colorized_echo red "Usage: rebecca update [--dev | --version vX.Y.Z|dev-abcdef0]"
+                colorized_echo red "Usage: darkpanel update [--dev | --version vX.Y.Z|dev-abcdef0]"
                 exit 0
                 ;;
             *)
@@ -4480,7 +4482,7 @@ update_command() {
 
     # Check if rebecca is installed
     if ! is_rebecca_installed; then
-        colorized_echo red "Rebecca's not installed!"
+        colorized_echo red "DarkPanel is not installed!"
         exit 1
     fi
 
@@ -4497,7 +4499,7 @@ update_command() {
         detect_compose
     fi
     
-    colorized_echo blue "Updating Rebecca CLI..."
+    colorized_echo blue "Updating DarkPanel CLI..."
     update_rebecca_script "$rebecca_version"
 
     colorized_echo blue "Updating requested version: $rebecca_version"
@@ -4507,14 +4509,14 @@ update_command() {
     fi
     write_rebecca_channel "$rebecca_version"
     
-    colorized_echo blue "Restarting Rebecca's services"
+    colorized_echo blue "Restarting DarkPanel services"
     down_rebecca
     if ! is_binary_install; then
         prune_unused_docker_images
     fi
     up_rebecca
     
-    colorized_echo blue "Rebecca updated successfully"
+    colorized_echo blue "DarkPanel updated successfully"
 }
 
 update_rebecca_script() {
@@ -4526,7 +4528,7 @@ update_rebecca_script() {
         set_rebecca_source_for_version "$(get_installed_rebecca_channel)"
     fi
     SCRIPT_URL="$REBECCA_SCRIPT_BASE_URL/$REBECCA_SCRIPT_SOURCE_FILE"
-    colorized_echo blue "Updating rebecca script"
+    colorized_echo blue "Updating darkpanel script"
     temp_script=$(mktemp)
     curl -fsSL "$SCRIPT_URL" -o "$temp_script"
     if head -n 1 "$temp_script" | grep -qi "<!DOCTYPE"; then
@@ -4536,7 +4538,7 @@ update_rebecca_script() {
     fi
     install -m 755 "$temp_script" "$REBECCA_SCRIPT_INSTALL_PATH"
     rm -f "$temp_script"
-    colorized_echo green "rebecca script updated successfully"
+    colorized_echo green "darkpanel script updated successfully"
 }
 
 set_compose_rebecca_image_tag() {
@@ -4681,7 +4683,7 @@ migrate_docker_to_binary_command() {
                 shift
             ;;
             -h|--help)
-                colorized_echo red "Usage: rebecca migrate-binary [--database sqlite|mysql|mariadb] [--dev | --version vX.Y.Z] [-y]"
+                colorized_echo red "Usage: darkpanel migrate-binary [--database sqlite|mysql|mariadb] [--dev | --version vX.Y.Z] [-y]"
                 exit 0
             ;;
             *)
@@ -4696,7 +4698,7 @@ migrate_docker_to_binary_command() {
         exit 1
     fi
     if is_binary_install; then
-        colorized_echo yellow "Rebecca is already in binary mode."
+        colorized_echo yellow "DarkPanel is already in binary mode."
         exit 0
     fi
     if [ "$rebecca_version_set" != "true" ]; then
@@ -4712,7 +4714,7 @@ migrate_docker_to_binary_command() {
     esac
 
     if [ "$yes" != "true" ]; then
-        colorized_echo yellow "This will migrate Rebecca from Docker to binary mode using $database_type."
+        colorized_echo yellow "This will migrate DarkPanel from Docker to binary mode using $database_type."
         read -p "Continue? (y/n) "
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             colorized_echo red "Aborted"
@@ -4749,7 +4751,7 @@ migrate_docker_to_binary_command() {
     fi
     mv "$COMPOSE_FILE" "$COMPOSE_FILE.docker-migrated" 2>/dev/null || true
 
-    colorized_echo blue "Installing Rebecca binary files"
+    colorized_echo blue "Installing DarkPanel binary files"
     MYSQL_PASSWORD="${MYSQL_PASSWORD:-$(get_env_value "MYSQL_PASSWORD")}"
     MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-$(get_env_value "MYSQL_ROOT_PASSWORD")}"
     install_binary_rebecca "$rebecca_version" "$database_type"
@@ -4837,16 +4839,16 @@ menu_description_for() {
         restart) echo "Restart services" ;;
         status) echo "Show status" ;;
         logs) echo "Show logs" ;;
-        cli) echo "Rebecca CLI" ;;
+        cli) echo "DarkPanel CLI" ;;
         migrate) echo "Run database migrations" ;;
         backup) echo "Manual backup launch" ;;
         backup-service) echo "Backup service (Telegram + cron job)" ;;
-        install) echo "Install Rebecca" ;;
+        install) echo "Install DarkPanel" ;;
         update) echo "Update to latest version" ;;
-        uninstall) echo "Uninstall Rebecca" ;;
-        script-install) echo "Install Rebecca script" ;;
-        script-update) echo "Update Rebecca CLI script" ;;
-        script-uninstall) echo "Uninstall Rebecca script" ;;
+        uninstall) echo "Uninstall DarkPanel" ;;
+        script-install) echo "Install DarkPanel script" ;;
+        script-update) echo "Update DarkPanel CLI script" ;;
+        script-uninstall) echo "Uninstall DarkPanel script" ;;
         core-update) echo "Deprecated; Xray is managed by nodes" ;;
         enable-phpmyadmin) echo "Enable phpMyAdmin on local MySQL/MariaDB" ;;
         disable-phpmyadmin) echo "Disable phpMyAdmin panel bridge" ;;
@@ -4863,7 +4865,7 @@ print_menu() {
     local previous_category=""
     local idx=1
     local cmd category desc is_selected columns tip_width tip
-    ui_header "Rebecca Panel" "Control center"
+    ui_header "DarkPanel" "Control center"
     ui_section "Status"
     print_menu_status_summary
     ui_section "Actions"
@@ -4995,7 +4997,7 @@ read_menu_command() {
 usage() {
     local script_name="${0##*/}"
     colorized_echo blue "=============================="
-    colorized_echo magenta "           Rebecca Help"
+    colorized_echo magenta "           DarkPanel Help"
     colorized_echo blue "=============================="
     colorized_echo cyan "Usage:"
     echo "  ${script_name} [command]"
@@ -5007,16 +5009,16 @@ usage() {
     colorized_echo yellow "  restart         – Restart services"
     colorized_echo yellow "  status          – Show status"
     colorized_echo yellow "  logs            - Show logs"
-    colorized_echo yellow "  cli             - Rebecca CLI"
+    colorized_echo yellow "  cli             - DarkPanel CLI"
     colorized_echo yellow "  migrate         - Run database migrations"
-    colorized_echo yellow "  install         - Install Rebecca"
+    colorized_echo yellow "  install         - Install DarkPanel"
     colorized_echo yellow "  update          - Update to latest/dev or a specific release"
-    colorized_echo yellow "  uninstall       - Uninstall Rebecca"
-    colorized_echo yellow "  script-install  - Install Rebecca script"
-    colorized_echo yellow "  script-update   - Update Rebecca CLI script"
-    colorized_echo yellow "  script-uninstall  - Uninstall Rebecca script"
+    colorized_echo yellow "  uninstall       - Uninstall DarkPanel"
+    colorized_echo yellow "  script-install  - Install DarkPanel script"
+    colorized_echo yellow "  script-update   - Update DarkPanel CLI script"
+    colorized_echo yellow "  script-uninstall  - Uninstall DarkPanel script"
     colorized_echo yellow "  backup          - Manual backup launch"
-    colorized_echo yellow "  backup-service  - Rebecca Backupservice to backup to TG, and a new job in crontab"
+    colorized_echo yellow "  backup-service  - DarkPanel Backupservice to backup to TG, and a new job in crontab"
     colorized_echo yellow "  core-update     - Deprecated; Xray is managed by nodes"
     colorized_echo yellow "  enable-phpmyadmin - Enable phpMyAdmin for local MySQL/MariaDB"
     colorized_echo yellow "  disable-phpmyadmin - Disable phpMyAdmin"

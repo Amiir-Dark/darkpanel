@@ -503,7 +503,7 @@ prompt_node_selection() {
     discover_node_instances
     local count=${#DISCOVERED_NODE_PATHS[@]}
     if [ "$count" -eq 0 ]; then
-        colorized_echo red "No Rebecca-node installations detected under $NODE_DISCOVERY_BASE."
+        colorized_echo red "No DarkPanel-node installations detected under $NODE_DISCOVERY_BASE."
         colorized_echo yellow "Specify the node with --name <node-name> or install the node first."
         exit 1
     fi
@@ -513,7 +513,7 @@ prompt_node_selection() {
         return
     fi
 
-    colorized_echo cyan "Select the Rebecca-node instance:"
+    colorized_echo cyan "Select the DarkPanel-node instance:"
     local idx=0
     for dir in "${DISCOVERED_NODE_PATHS[@]}"; do
         local display="${DISCOVERED_NODE_NAMES[$idx]}"
@@ -566,7 +566,7 @@ prompt_branch_selection() {
     if [[ "$BRANCH" == "dev" ]]; then
         question="Keep using the dev branch? (Y/n): "
     else
-        question="Do you want to install Rebecca-node using the dev branch? (y/N): "
+        question="Do you want to install DarkPanel-node using the dev branch? (y/N): "
     fi
     read -p "$question" -r branch_answer
     if [[ "$BRANCH" == "dev" ]]; then
@@ -658,7 +658,7 @@ select_install_mode() {
 
     if [ -n "$forced_mode" ]; then
         if [ -n "$requested_mode" ] && [ "$requested_mode" != "$forced_mode" ]; then
-            colorized_echo red "This script is dedicated to ${forced_mode} installs. Use the matching Rebecca-node script for $requested_mode." >&2
+            colorized_echo red "This script is dedicated to ${forced_mode} installs. Use the matching DarkPanel-node script for $requested_mode." >&2
             exit 1
         fi
         echo "$forced_mode"
@@ -675,7 +675,7 @@ select_install_mode() {
         return
     fi
 
-    colorized_echo cyan "Select Rebecca-node installation mode:" >&2
+    colorized_echo cyan "Select DarkPanel-node installation mode:" >&2
     colorized_echo yellow "  1) Dockerized" >&2
     colorized_echo yellow "  2) Binary (native systemd service, no Docker)" >&2
     read -r -p "Install mode [1]: " install_mode_answer
@@ -703,11 +703,11 @@ ensure_script_matches_installed_mode() {
     fi
     installed_mode=$(get_install_mode)
     if [ "$installed_mode" != "$forced_mode" ]; then
-        colorized_echo red "This Rebecca-node installation is in ${installed_mode} mode, but ${0##*/} is the ${forced_mode} script."
+        colorized_echo red "This DarkPanel-node installation is in ${installed_mode} mode, but ${0##*/} is the ${forced_mode} script."
         if [ "$installed_mode" = "binary" ]; then
-            colorized_echo yellow "Use the Rebecca-node binary script."
+            colorized_echo yellow "Use the DarkPanel-node binary script."
         else
-            colorized_echo yellow "Use the Rebecca-node Docker script."
+            colorized_echo yellow "Use the DarkPanel-node Docker script."
         fi
         exit 1
     fi
@@ -727,7 +727,7 @@ select_node_version() {
         return
     fi
 
-    colorized_echo cyan "Select Rebecca-node release channel for ${install_mode} mode:" >&2
+    colorized_echo cyan "Select DarkPanel-node release channel for ${install_mode} mode:" >&2
     colorized_echo yellow "  1) latest" >&2
     if [ "$install_mode" = "binary" ]; then
         colorized_echo yellow "  2) dev (latest successful binary build from ${REBECCA_NODE_BINARY_DEV_BRANCH})" >&2
@@ -935,7 +935,7 @@ detect_node_binary_arch() {
             echo "s390x"
         ;;
         *)
-            colorized_echo red "Rebecca-node binary install is not available for architecture: $(uname -m)" >&2
+            colorized_echo red "DarkPanel-node binary install is not available for architecture: $(uname -m)" >&2
             colorized_echo yellow "Use Dockerized install for this server." >&2
             exit 1
         ;;
@@ -988,9 +988,9 @@ get_node_binary_release_asset_metadata() {
     done
 
     if [ -z "$release_payload" ]; then
-        colorized_echo red "Unable to read Rebecca-node release metadata: $release_api" >&2
+        colorized_echo red "Unable to read DarkPanel-node release metadata: $release_api" >&2
     else
-        colorized_echo red "No Rebecca-node binary release assets found for linux-${binary_arch}." >&2
+        colorized_echo red "No DarkPanel-node binary release assets found for linux-${binary_arch}." >&2
         colorized_echo yellow "Use --dev after the dev binary workflow succeeds, or use Dockerized install." >&2
     fi
     exit 1
@@ -1091,7 +1091,7 @@ get_node_binary_dev_artifact_metadata() {
     fi
 
     if [ -z "$matching_runs" ]; then
-        colorized_echo red "No successful Rebecca-node binary workflow run was found on branch ${REBECCA_NODE_BINARY_DEV_BRANCH}." >&2
+        colorized_echo red "No successful DarkPanel-node binary workflow run was found on branch ${REBECCA_NODE_BINARY_DEV_BRANCH}." >&2
         exit 1
     fi
 
@@ -1102,7 +1102,7 @@ get_node_binary_dev_artifact_metadata() {
         head_sha=$(echo "$run_json" | jq -r '.head_sha // empty')
         artifacts_api="https://api.github.com/repos/${target_repo}/actions/runs/${run_id}/artifacts"
         if ! artifacts_payload=$(curl -fsSL "$artifacts_api"); then
-            colorized_echo yellow "Unable to read Rebecca-node binary artifacts for workflow run ${run_id}; checking an older successful run." >&2
+            colorized_echo yellow "Unable to read DarkPanel-node binary artifacts for workflow run ${run_id}; checking an older successful run." >&2
             continue
         fi
 
@@ -1121,10 +1121,10 @@ get_node_binary_dev_artifact_metadata() {
             return 0
         fi
 
-        colorized_echo yellow "Rebecca-node binary workflow run ${run_id} has no usable linux-${binary_arch} artifact; checking an older successful run." >&2
+        colorized_echo yellow "DarkPanel-node binary workflow run ${run_id} has no usable linux-${binary_arch} artifact; checking an older successful run." >&2
     done <<< "$matching_runs"
 
-    colorized_echo red "No usable Rebecca-node linux-${binary_arch} dev artifact was found on branch ${REBECCA_NODE_BINARY_DEV_BRANCH}." >&2
+    colorized_echo red "No usable DarkPanel-node linux-${binary_arch} dev artifact was found on branch ${REBECCA_NODE_BINARY_DEV_BRANCH}." >&2
     colorized_echo yellow "The dev binary workflow must publish ${REBECCA_NODE_BINARY_ARTIFACT_PREFIX}-linux-${binary_arch} before this server can install the dev binary." >&2
     exit 1
 }
@@ -1328,23 +1328,23 @@ install_binary_rebecca_node() {
             rm -rf "$tmp_dir"
             exit 1
         fi
-        ui_spinner_run "Installing Rebecca-node custom binary" install -m 755 "$REBECCA_NODE_BINARY_OVERRIDE" "$tmp_dir/rebecca-node"
+        ui_spinner_run "Installing DarkPanel-node custom binary" install -m 755 "$REBECCA_NODE_BINARY_OVERRIDE" "$tmp_dir/rebecca-node"
         resolved_version="${REBECCA_NODE_BINARY_OVERRIDE_VERSION:-custom}"
         artifact_url="local-override"
     elif [ "$node_version" = "dev" ]; then
         IFS='|' read -r resolved_version artifact_url < <(get_node_binary_dev_artifact_metadata "$binary_arch")
         if [[ "$artifact_url" == *.zip ]]; then
             package_path="$tmp_dir/rebecca-node-binaries.zip"
-            ui_spinner_run "Downloading Rebecca-node dev binary artifact" curl -fL "$artifact_url" -o "$package_path"
-            ui_spinner_run "Extracting Rebecca-node dev artifact" unzip -j -o "$package_path" -d "$tmp_dir"
+            ui_spinner_run "Downloading DarkPanel-node dev binary artifact" curl -fL "$artifact_url" -o "$package_path"
+            ui_spinner_run "Extracting DarkPanel-node dev artifact" unzip -j -o "$package_path" -d "$tmp_dir"
             normalize_node_dev_artifact "$tmp_dir" "$binary_arch"
         else
-            ui_spinner_run "Downloading Rebecca-node dev binary" curl -fL "$artifact_url" -o "$tmp_dir/rebecca-node"
+            ui_spinner_run "Downloading DarkPanel-node dev binary" curl -fL "$artifact_url" -o "$tmp_dir/rebecca-node"
             chmod +x "$tmp_dir/rebecca-node"
         fi
     else
         IFS='|' read -r resolved_version node_asset_url < <(get_node_binary_release_asset_metadata "$node_version" "$binary_arch")
-        ui_spinner_run "Downloading Rebecca-node binary" curl -fL "$node_asset_url" -o "$tmp_dir/rebecca-node"
+        ui_spinner_run "Downloading DarkPanel-node binary" curl -fL "$node_asset_url" -o "$tmp_dir/rebecca-node"
     fi
 
     if [ ! -f "$tmp_dir/rebecca-node" ]; then
@@ -1367,7 +1367,7 @@ install_binary_rebecca_node() {
     echo "binary" > "$INSTALL_MODE_FILE"
     create_binary_rebecca_node_service
     rm -rf "$tmp_dir"
-    colorized_echo green "Rebecca-node binary files installed successfully"
+    colorized_echo green "DarkPanel-node binary files installed successfully"
 }
 
 install_rebecca_node_script() {
@@ -1542,7 +1542,7 @@ uninstall_rebecca_node_docker_images() {
     images=$(docker images | grep rebecca-node | awk '{print $3}')
     
     if [ -n "$images" ]; then
-        colorized_echo yellow "Removing Docker images of Rebecca-node"
+        colorized_echo yellow "Removing Docker images of DarkPanel-node"
         for image in $images; do
             if docker rmi "$image" >/dev/null 2>&1; then
                 colorized_echo yellow "Image $image removed"
@@ -1695,7 +1695,7 @@ install_command() {
 
     # Check if rebecca is already installed
     if is_rebecca_node_installed; then
-        colorized_echo red "Rebecca-node is already installed at $APP_DIR"
+        colorized_echo red "DarkPanel-node is already installed at $APP_DIR"
         read -p "Do you want to override the previous installation? (y/n) "
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             colorized_echo red "Aborted installation"
@@ -1747,7 +1747,7 @@ install_command() {
     up_rebecca_node
     SERVICE_PORT="${SERVICE_PORT:-$(get_env_value "SERVICE_PORT")}"
     XRAY_API_PORT="${XRAY_API_PORT:-$(get_env_value "XRAY_API_PORT")}"
-    echo "Use your IP: $NODE_IP and control port: $SERVICE_PORT to setup your Rebecca Main Panel"
+    echo "Use your IP: $NODE_IP and control port: $SERVICE_PORT to setup your DarkPanel Main Panel"
     colorized_echo yellow "Run '$APP_NAME logs' if you want to follow live node logs."
 }
 
@@ -1766,7 +1766,7 @@ uninstall_command() {
     fi
 
     if [ "$node_exists" -eq 0 ] && [ "$service_exists" -eq 0 ]; then
-        colorized_echo red "Rebecca-node not installed!"
+        colorized_echo red "DarkPanel-node not installed!"
         exit 1
     fi
 
@@ -1790,13 +1790,13 @@ uninstall_command() {
 
         read -p "Do you want to remove Rebecca-node data files too ($DATA_DIR)? (y/n) "
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            colorized_echo green "Rebecca-node uninstalled successfully"
+            colorized_echo green "DarkPanel-node uninstalled successfully"
         else
             uninstall_rebecca_node_data_files
-            colorized_echo green "Rebecca-node uninstalled successfully"
+            colorized_echo green "DarkPanel-node uninstalled successfully"
         fi
     else
-        colorized_echo green "Rebecca-node service/scripts removed"
+        colorized_echo green "DarkPanel-node service/scripts removed"
     fi
 }
 
@@ -1830,7 +1830,7 @@ up_command() {
     
     # Check if rebecca-node is installed
     if ! is_rebecca_node_installed; then
-        colorized_echo red "Rebecca-node's not installed!"
+        colorized_echo red "DarkPanel-node is not installed!"
         exit 1
     fi
     
@@ -1839,7 +1839,7 @@ up_command() {
     fi
     
     if is_rebecca_node_up; then
-        colorized_echo red "Rebecca-node's already up"
+        colorized_echo red "DarkPanel-node is already up"
         exit 1
     fi
     
@@ -1852,7 +1852,7 @@ up_command() {
 down_command() {
     # Check if rebecca-node is installed
     if ! is_rebecca_node_installed; then
-        colorized_echo red "Rebecca-node not installed!"
+        colorized_echo red "DarkPanel-node not installed!"
         exit 1
     fi
     
@@ -1861,7 +1861,7 @@ down_command() {
     fi
     
     if ! is_rebecca_node_up; then
-        colorized_echo red "Rebecca-node already down"
+        colorized_echo red "DarkPanel-node already down"
         exit 1
     fi
     
@@ -1898,7 +1898,7 @@ restart_command() {
     
     # Check if rebecca-node is installed
     if ! is_rebecca_node_installed; then
-        colorized_echo red "Rebecca-node not installed!"
+        colorized_echo red "DarkPanel-node not installed!"
         exit 1
     fi
     
@@ -1983,7 +1983,7 @@ logs_command() {
     
     # Check if rebecca is installed
     if ! is_rebecca_node_installed; then
-        colorized_echo red "Rebecca-node's not installed!"
+        colorized_echo red "DarkPanel-node is not installed!"
         exit 1
     fi
     
@@ -1992,7 +1992,7 @@ logs_command() {
     fi
     
     if ! is_rebecca_node_up; then
-        colorized_echo red "Rebecca-node is not up."
+        colorized_echo red "DarkPanel-node is not up."
         exit 1
     fi
     
@@ -2008,7 +2008,7 @@ update_command() {
     local node_version=""
 
     if ! is_rebecca_node_installed; then
-        colorized_echo red "Rebecca-node not installed!"
+        colorized_echo red "DarkPanel-node not installed!"
         exit 1
     fi
 
@@ -2038,17 +2038,17 @@ update_command() {
     reexec_updated_node_script
 
     if is_binary_install; then
-        colorized_echo blue "Updating Rebecca-node binary files"
+        colorized_echo blue "Updating DarkPanel-node binary files"
     else
         colorized_echo blue "Pulling node image $DOCKER_IMAGE"
     fi
     update_rebecca_node "$node_version"
 
-    colorized_echo blue "Restarting Rebecca-node services"
+    colorized_echo blue "Restarting DarkPanel-node services"
     down_rebecca_node
     up_rebecca_node
 
-    colorized_echo blue "Rebecca-node updated successfully"
+    colorized_echo blue "DarkPanel-node updated successfully"
 }
 
 identify_the_operating_system_and_architecture() {
@@ -2325,7 +2325,7 @@ update_core_command() {
     if is_binary_install; then
         set_env_value "XRAY_EXECUTABLE_PATH" "$DATA_MAIN_DIR/xray-core/xray"
         set_env_value "XRAY_ASSETS_PATH" "$DATA_MAIN_DIR/xray-core"
-        colorized_echo red "Restarting Rebecca-node..."
+        colorized_echo red "Restarting DarkPanel-node..."
         systemctl restart "$APP_NAME.service"
         colorized_echo blue "Installation of XRAY-CORE version $selected_version completed."
         return
@@ -2345,7 +2345,7 @@ update_core_command() {
     fi
     
     # Restart Rebecca-node
-    colorized_echo red "Restarting Rebecca-node..."
+    colorized_echo red "Restarting DarkPanel-node..."
     $APP_NAME restart -n
     colorized_echo blue "Installation of XRAY-CORE version $selected_version completed."
 }
@@ -2430,12 +2430,12 @@ usage() {
     colorized_echo yellow "  restart         – Restart services"
     colorized_echo yellow "  status          – Show status"
     colorized_echo yellow "  logs            – Show logs"
-    colorized_echo yellow "  install         - Install/reinstall Rebecca-node"
+    colorized_echo yellow "  install         - Install/reinstall DarkPanel-node"
     colorized_echo yellow "  update          - Update to latest/dev or a specific version"
-    colorized_echo yellow "  uninstall       - Uninstall Rebecca-node"
-    colorized_echo blue "  script-install  - Install Rebecca-node script"
-    colorized_echo blue "  script-update   - Update Rebecca-node CLI script"
-    colorized_echo blue "  script-uninstall  - Uninstall Rebecca-node script"
+    colorized_echo yellow "  uninstall       - Uninstall DarkPanel-node"
+    colorized_echo blue "  script-install  - Install DarkPanel-node script"
+    colorized_echo blue "  script-update   - Update DarkPanel-node CLI script"
+    colorized_echo blue "  script-uninstall  - Uninstall DarkPanel-node script"
     colorized_echo yellow "  edit            - Edit docker-compose.yml or binary .env (via nano or vi)"
     colorized_echo yellow "  core-update     – Update/Change Xray core"
     
@@ -2502,12 +2502,12 @@ menu_description_for() {
         restart) echo "Restart services" ;;
         status) echo "Show status" ;;
         logs) echo "Show logs" ;;
-        install) echo "Install/reinstall Rebecca-node" ;;
+        install) echo "Install/reinstall DarkPanel-node" ;;
         update) echo "Update to latest version" ;;
-        uninstall) echo "Uninstall Rebecca-node" ;;
-        script-install) echo "Install Rebecca-node script" ;;
-        script-update) echo "Update Rebecca-node CLI script" ;;
-        script-uninstall) echo "Uninstall Rebecca-node script" ;;
+        uninstall) echo "Uninstall DarkPanel-node" ;;
+        script-install) echo "Install DarkPanel-node script" ;;
+        script-update) echo "Update DarkPanel-node CLI script" ;;
+        script-uninstall) echo "Uninstall DarkPanel-node script" ;;
         core-update) echo "Update/Change Xray core" ;;
         edit) echo "Edit docker-compose.yml or binary .env" ;;
         help) echo "Show this help message" ;;
@@ -2520,7 +2520,7 @@ print_menu() {
     local previous_category=""
     local idx=1
     local cmd category desc is_selected columns tip_width tip
-    ui_header "$APP_NAME" "Rebecca-node control center"
+    ui_header "$APP_NAME" "DarkPanel-node control center"
     ui_section "Status"
     print_node_menu_status_summary
     ui_section "Actions"
