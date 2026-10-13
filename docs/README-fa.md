@@ -88,21 +88,15 @@
 برای نصب نسخه اصلی دارک‌پنل (DarkPanel):
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/darkpanel/darkpanel-binary.sh | sudo bash -s -- install
 ```
 
 > **نکته مهم:** نصاب‌ها را با `sudo bash -c "$(curl ...)"` اجرا نکنید؛ متن اسکریپت ممکن است از محدودیت آرگومان لینوکس بزرگ‌تر شود و خطای `Argument list too long` بدهد. همیشه مطابق نمونه بالا دانلود را به `sudo bash -s --` پایپ کنید.
 
-برای نصب کانال توسعه (Dev):
-
-```bash
-curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/dev/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install --dev
-```
-
 برای نصب DarkPanel-node روی سرورهای نود:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/rebecca/rebecca-node-binary.sh | sudo bash -s -- install
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/darkpanel/darkpanel-node-binary.sh | sudo bash -s -- install
 ```
 
 نصاب‌های باینری سرویس‌های native systemd ایجاد می‌کنند و باینری متناسب با معماری سرور را به صورت خودکار دانلود می‌نمایند. سرور اصلی از دیتابیس‌های SQLite، MySQL و MariaDB پشتیبانی می‌کند؛ نصاب نود فقط ران‌تایم نود را نصب کرده و اتصال آن به سرور اصلی با توکن و سرتیفیکیت از داخل پنل برقرار می‌شود.

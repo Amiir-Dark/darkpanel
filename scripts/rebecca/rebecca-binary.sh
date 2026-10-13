@@ -3,13 +3,18 @@ set -e
 
 INSTALL_DIR="/opt"
 if [ -z "$APP_NAME" ]; then
-    APP_NAME="rebecca"
+    if [ -d "/opt/darkpanel" ]; then
+        APP_NAME="darkpanel"
+    elif [ -d "/opt/rebecca" ]; then
+        APP_NAME="rebecca"
+    else
+        APP_NAME="darkpanel"
+    fi
 fi
 ensure_valid_app_name() {
-    local candidate="${APP_NAME:-rebecca}"
+    local candidate="${APP_NAME:-darkpanel}"
     if ! [[ "$candidate" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
-        candidate="rebecca"
-        echo "Invalid app name detected. Falling back to default: $candidate"
+        candidate="darkpanel"
     fi
     APP_NAME="$candidate"
 }

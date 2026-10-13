@@ -19,16 +19,10 @@
 Run the following command on your server to install DarkPanel:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/darkpanel/darkpanel-binary.sh | sudo bash -s -- install
 ```
 
 > **Note:** Always pipe the script into `sudo bash -s --` as shown above. Do not use `sudo bash -c "$(curl ...)"` to prevent argument list length errors on Linux.
-
-For the **development channel**, use:
-
-```bash
-curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/dev/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install --dev
-```
 
 ---
 
@@ -37,7 +31,7 @@ curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/dev/scripts/rebe
 To connect additional node servers, run the node binary installer on each node:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/rebecca/rebecca-node-binary.sh | sudo bash -s -- install
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/darkpanel/darkpanel-node-binary.sh | sudo bash -s -- install
 ```
 
 ---
