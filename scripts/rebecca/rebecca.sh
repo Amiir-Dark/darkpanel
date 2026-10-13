@@ -497,7 +497,7 @@ set_rebecca_source_for_version() {
             set_rebecca_source_ref "$1"
             ;;
         *)
-            set_rebecca_source_ref "master"
+            set_rebecca_source_ref "main"
             ;;
     esac
 }

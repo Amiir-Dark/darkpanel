@@ -498,7 +498,7 @@ set_rebecca_source_for_version() {
             set_rebecca_source_ref "$1"
             ;;
         *)
-            set_rebecca_source_ref "master"
+            set_rebecca_source_ref "main"
             ;;
     esac
 }
@@ -3490,6 +3490,9 @@ WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
+    ln -sf "$BINARY_SERVICE_UNIT" /etc/systemd/system/darkpanel.service 2>/dev/null || true
+    ln -sf "$BINARY_SERVICE_UNIT" /etc/systemd/system/rebecca.service 2>/dev/null || true
+    systemctl daemon-reload
 }
 
 install_binary_rebecca() {
@@ -3608,7 +3611,7 @@ up_rebecca() {
 
 schedule_binary_service_restart() {
     local delay_seconds="${1:-1}"
-    local unit_name="${APP_NAME}-delayed-restart-$(date +%s%N)"
+    local unit_name="darkpanel-delayed-restart-$(date +%s%N)"
     local restart_script="sleep ${delay_seconds}; systemctl restart ${APP_NAME}.service"
 
     if command -v systemd-run >/dev/null 2>&1; then
@@ -3616,7 +3619,7 @@ schedule_binary_service_restart() {
             --unit "$unit_name" \
             --collect \
             --description "DarkPanel delayed service restart" \
-            -- /bin/sh -c "$restart_script" >/dev/null
+            -- /bin/sh -c "$restart_script" >/dev/null 2>&1 || true
         return
     fi
 
