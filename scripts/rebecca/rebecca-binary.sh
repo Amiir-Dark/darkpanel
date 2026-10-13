@@ -860,6 +860,7 @@ install_rebecca_script() {
     fi
     ui_spinner_run "Installing DarkPanel command script" install -m 755 "$temp_script" "$REBECCA_SCRIPT_INSTALL_PATH"
     ln -sf "$REBECCA_SCRIPT_INSTALL_PATH" /usr/local/bin/darkpanel 2>/dev/null || true
+    ln -sf "$REBECCA_SCRIPT_INSTALL_PATH" /usr/local/bin/DarkPanel 2>/dev/null || true
     ln -sf "$REBECCA_SCRIPT_INSTALL_PATH" /usr/local/bin/rebecca 2>/dev/null || true
     rm -f "$temp_script"
     colorized_echo green "DarkPanel script installed successfully"
@@ -3438,6 +3439,8 @@ EOF
 
     chmod 755 "$BINARY_CLI_LAUNCHER"
     ln -sf "$BINARY_CLI_LAUNCHER" /usr/local/bin/darkpanel-cli 2>/dev/null || true
+    ln -sf "$BINARY_CLI_LAUNCHER" /usr/local/bin/DarkPanel-cli 2>/dev/null || true
+    ln -sf "$BINARY_CLI_LAUNCHER" /usr/local/bin/rebecca-cli 2>/dev/null || true
 }
 
 write_binary_release_metadata() {
@@ -4211,7 +4214,24 @@ install_command() {
         create_initial_admin_if_requested
     fi
     up_rebecca
-    follow_rebecca_logs
+    local panel_port
+    panel_port="$(get_env_value "UVICORN_PORT" 2>/dev/null || echo '8000')"
+    panel_port="${panel_port:-8000}"
+    local server_ip
+    server_ip="$(detect_public_ip 2>/dev/null || echo '<SERVER_IP>')"
+    server_ip="${server_ip:-<SERVER_IP>}"
+    echo
+    colorized_echo green "=========================================================="
+    colorized_echo green " DarkPanel installed successfully!"
+    colorized_echo green " Control center command : darkpanel (or DarkPanel)"
+    colorized_echo green " Dashboard web access   : http://${server_ip}:${panel_port}"
+    colorized_echo green " Create initial admin   : darkpanel cli admin create --username <username> --role sudo"
+    colorized_echo green " View service logs      : darkpanel logs"
+    colorized_echo green "=========================================================="
+    echo
+    if [ -t 0 ]; then
+        follow_rebecca_logs
+    fi
 }
 
 install_yq() {
@@ -4395,6 +4415,9 @@ uninstall_rebecca_script() {
         colorized_echo yellow "Removing darkpanel script"
         rm -f "/usr/local/bin/darkpanel"
     fi
+    if [ -f "/usr/local/bin/DarkPanel" ] || [ -L "/usr/local/bin/DarkPanel" ]; then
+        rm -f "/usr/local/bin/DarkPanel"
+    fi
 }
 
 uninstall_rebecca() {
@@ -4408,6 +4431,12 @@ uninstall_rebecca() {
     fi
     if [ -f "/usr/local/bin/darkpanel-cli" ] || [ -L "/usr/local/bin/darkpanel-cli" ]; then
         rm -f "/usr/local/bin/darkpanel-cli"
+    fi
+    if [ -f "/usr/local/bin/DarkPanel-cli" ] || [ -L "/usr/local/bin/DarkPanel-cli" ]; then
+        rm -f "/usr/local/bin/DarkPanel-cli"
+    fi
+    if [ -f "/usr/local/bin/rebecca-cli" ] || [ -L "/usr/local/bin/rebecca-cli" ]; then
+        rm -f "/usr/local/bin/rebecca-cli"
     fi
     if [ -d "$APP_DIR" ]; then
         colorized_echo yellow "Removing directory: $APP_DIR"

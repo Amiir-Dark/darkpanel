@@ -1525,6 +1525,8 @@ install_rebecca_node_script() {
         exit 1
     fi
     ui_spinner_run "Installing $APP_NAME command script" install -m 755 "$TEMP_SCRIPT" "$TARGET_PATH"
+    ln -sf "$TARGET_PATH" /usr/local/bin/DarkPanel-node 2>/dev/null || true
+    ln -sf "$TARGET_PATH" /usr/local/bin/rebecca-node 2>/dev/null || true
     rm -f "$TEMP_SCRIPT"
     colorized_echo green "$APP_NAME script installed at $TARGET_PATH"
 }
