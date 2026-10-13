@@ -507,7 +507,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 								<Input
 									label={t("nodes.nodeName")}
 									size="sm"
-									placeholder="Rebecca-S2"
+									placeholder="DarkPanel-S2"
 									maxLength={120}
 									{...form.register("name")}
 									error={getInputError(form.formState?.errors?.name)}

@@ -41,9 +41,9 @@ func (s *Server) handleMaintenanceBuilds(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	repo := "rebeccapanel/Rebecca"
+	repo := systemapp.PanelUpdateRepo
 	if strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("target")), "node") {
-		repo = "rebeccapanel/Rebecca-node"
+		repo = systemapp.NodeUpdateRepo
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()

@@ -143,7 +143,7 @@ func TestMaintenanceInfoBinaryAndDockerMock(t *testing.T) {
 		info.Panel.Update.Target == nil ||
 		*info.Panel.Update.Target != "dev-abcdef0" ||
 		info.Node != nil ||
-		info.NodeUpdate.Repo != "rebeccapanel/Rebecca-node" {
+		info.NodeUpdate.Repo != systemapp.NodeUpdateRepo {
 		t.Fatalf("unexpected maintenance info: %#v", info)
 	}
 	rec = adminJSONRequest(t, server, http.MethodGet, "/api/maintenance/builds?target=node", token, "")

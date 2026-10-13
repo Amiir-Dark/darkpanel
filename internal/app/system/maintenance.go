@@ -25,11 +25,21 @@ var (
 	devVersionPattern     = regexp.MustCompile(`^dev-[0-9a-fA-F]{7,40}$`)
 )
 
-const (
+var (
 	// PanelUpdateRepo and NodeUpdateRepo are the repositories updates are read from.
-	PanelUpdateRepo = "rebeccapanel/Rebecca"
-	NodeUpdateRepo  = "rebeccapanel/Rebecca-node"
+	PanelUpdateRepo = getEnvRepo("PANEL_UPDATE_REPO", "Amiir-Dark/darkpanel")
+	NodeUpdateRepo  = getEnvRepo("NODE_UPDATE_REPO", "Amiir-Dark/darkpanel")
 )
+
+func getEnvRepo(key, fallback string) string {
+	if val := strings.TrimSpace(os.Getenv(key)); val != "" {
+		return val
+	}
+	if val := strings.TrimSpace(os.Getenv("REBECCA_REPO")); val != "" {
+		return val
+	}
+	return fallback
+}
 
 // versionSwitchFloor is the first stable panel release that runs database schema v60.
 // Older releases cannot open a database migrated past them.

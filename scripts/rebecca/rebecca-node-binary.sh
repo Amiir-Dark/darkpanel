@@ -155,11 +155,11 @@ if [ -n "${REBECCA_SCRIPT_BASE_URL+x}" ]; then
     REBECCA_SCRIPT_BASE_URL_EXPLICIT=1
 fi
 REBECCA_SCRIPT_BASE_URL="${REBECCA_SCRIPT_BASE_URL:-https://raw.githubusercontent.com/${REBECCA_REPO}/${REBECCA_REF}/scripts/rebecca}"
-REBECCA_NODE_RELEASE_REPO="${REBECCA_NODE_RELEASE_REPO:-rebeccapanel/Rebecca-node}"
+REBECCA_NODE_RELEASE_REPO="${REBECCA_NODE_RELEASE_REPO:-Amiir-Dark/darkpanel}"
 REBECCA_NODE_BINARY_DEV_BRANCH="${REBECCA_NODE_BINARY_DEV_BRANCH:-dev}"
-REBECCA_NODE_BINARY_DEV_RELEASE_TAG="${REBECCA_NODE_BINARY_DEV_RELEASE_TAG:-dev-binaries}"
+REBECCA_NODE_BINARY_DEV_RELEASE_TAG="${REBECCA_NODE_BINARY_DEV_RELEASE_TAG:-dev-builds}"
 REBECCA_NODE_BINARY_WORKFLOW_NAME="${REBECCA_NODE_BINARY_WORKFLOW_NAME:-binary-build}"
-REBECCA_NODE_BINARY_ARTIFACT_PREFIX="${REBECCA_NODE_BINARY_ARTIFACT_PREFIX:-rebecca-node-binaries}"
+REBECCA_NODE_BINARY_ARTIFACT_PREFIX="${REBECCA_NODE_BINARY_ARTIFACT_PREFIX:-rebecca-binaries}"
 DEFAULT_XRAY_CORE_VERSION="${DEFAULT_XRAY_CORE_VERSION:-v26.5.9}"
 
 # Default node channel values
@@ -1064,6 +1064,8 @@ get_node_binary_release_asset_metadata() {
                 | select(
                     (.name == $name)
                     or (.name | test("^rebecca-node-.*-linux-" + $arch + "$"))
+                    or (.name | test("^rebecca-linux-" + $arch + "(\\.tar\\.gz)?$"))
+                    or (.name | test("^darkpanel-.*linux-" + $arch))
                 )
                 | select(.browser_download_url != null)
             ]
@@ -1168,7 +1170,7 @@ get_node_binary_dev_artifact_metadata() {
         artifact_name=$(echo "$artifacts_payload" | jq -r --arg preferred "${REBECCA_NODE_BINARY_ARTIFACT_PREFIX}-linux-${binary_arch}" --arg arch "linux-${binary_arch}" '
             [
                 .artifacts[]?
-                | select((.expired | not) and (.name == $preferred or ((.name | startswith("rebecca-node")) and (.name | contains($arch)))))
+                | select((.expired | not) and (.name == $preferred or ((.name | startswith("rebecca-node")) and (.name | contains($arch))) or ((.name | startswith("rebecca-linux-")) and (.name | contains($arch))) or ((.name | startswith("darkpanel")) and (.name | contains($arch)))))
             ]
             | sort_by(if .name == $preferred then 0 else 1 end, .created_at)
             | .[0].name // empty

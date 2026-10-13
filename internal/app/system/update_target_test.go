@@ -123,9 +123,9 @@ func TestGitHubCatalogServesLastCatalogWhenGitHubFails(t *testing.T) {
 			return
 		}
 		switch r.URL.Path {
-		case "/repos/rebeccapanel/Rebecca-node/releases":
+		case "/repos/" + NodeUpdateRepo + "/releases":
 			_ = json.NewEncoder(w).Encode([]map[string]any{{"tag_name": "v1.6.0"}})
-		case "/rebeccapanel/Rebecca-node/dev-build-manifest/dev-builds.json":
+		case "/" + NodeUpdateRepo + "/dev-build-manifest/dev-builds.json":
 			_ = json.NewEncoder(w).Encode(map[string]any{"builds": []map[string]any{}})
 		default:
 			http.NotFound(w, r)
@@ -167,13 +167,13 @@ func TestGitHubCatalogServesLastCatalogWhenGitHubFails(t *testing.T) {
 func TestGitHubStatusTargetSkipsReleasesBelowTheFloor(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/repos/rebeccapanel/Rebecca/releases/latest":
+		case "/repos/" + PanelUpdateRepo + "/releases/latest":
 			_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": "v1.5.1", "name": "v1.5.1"})
-		case "/repos/rebeccapanel/Rebecca/releases":
+		case "/repos/" + PanelUpdateRepo + "/releases":
 			_ = json.NewEncoder(w).Encode([]map[string]any{{"tag_name": "v1.5.1"}, {"tag_name": "v1.6.0"}})
-		case "/rebeccapanel/Rebecca/dev-build-manifest/dev-builds.json":
+		case "/" + PanelUpdateRepo + "/dev-build-manifest/dev-builds.json":
 			_ = json.NewEncoder(w).Encode(map[string]any{"builds": []map[string]any{}})
-		case "/repos/rebeccapanel/Rebecca/actions/workflows/binary-build.yml/runs":
+		case "/repos/" + PanelUpdateRepo + "/actions/workflows/binary-build.yml/runs":
 			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{}})
 		default:
 			http.NotFound(w, r)
