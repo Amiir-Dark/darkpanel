@@ -2962,12 +2962,15 @@ services:
       - --character_set_server=utf8mb4            # Sets UTF-8 character set for full Unicode support
       - --collation_server=utf8mb4_unicode_ci     # Defines collation for Unicode
       - --host-cache-size=0                       # Disables host cache to prevent DNS issues
-      - --innodb-open-files=1024                  # Sets the limit for InnoDB open files
-      - --innodb-buffer-pool-size=256M            # Allocates buffer pool size for InnoDB
-      - --binlog_expire_logs_seconds=1209600      # Sets binary log expiration to 14 days (2 weeks)
-      - --innodb-log-file-size=64M                # Sets InnoDB log file size to balance log retention and performance
+      - --performance_schema=OFF                  # Disables Performance Schema to save ~150MB RAM
+      - --innodb-open-files=256                   # Sets the limit for InnoDB open files
+      - --innodb-buffer-pool-size=64M             # Allocates buffer pool size for InnoDB (optimized for low RAM)
+      - --binlog_expire_logs_seconds=259200       # Sets binary log expiration to 3 days
+      - --innodb-log-file-size=16M                # Sets InnoDB log file size
       - --innodb-log-files-in-group=2             # Uses two log files to balance recovery and disk I/O
       - --innodb-doublewrite=0                    # Disables doublewrite buffer (reduces disk I/O; may increase data loss risk)
+      - --max_connections=80                      # Limits max concurrent connections
+      - --table_open_cache=150                    # Caches open tables to reduce memory
       - --general_log=0                           # Disables general query log to reduce disk usage
       - --slow_query_log=1                        # Enables slow query log for identifying performance issues
       - --slow_query_log_file=/var/lib/mysql/slow.log # Logs slow queries for troubleshooting
@@ -3058,15 +3061,18 @@ services:
       MYSQL_PASSWORD: \${MYSQL_PASSWORD}
     command:
       - --mysqlx=OFF                             # Disables MySQL X Plugin to save resources if X Protocol isn't used
+      - --performance_schema=OFF                  # Disables Performance Schema to save 150-200MB memory
       - --bind-address=127.0.0.1                  # Restricts access to localhost for increased security
       - --character_set_server=utf8mb4            # Sets UTF-8 character set for full Unicode support
       - --collation_server=utf8mb4_unicode_ci     # Defines collation for Unicode
       - --log-bin=mysql-bin                       # Enables binary logging for point-in-time recovery
-      - --binlog_expire_logs_seconds=1209600      # Sets binary log expiration to 14 days
+      - --binlog_expire_logs_seconds=259200       # Sets binary log expiration to 3 days
       - --host-cache-size=0                       # Disables host cache to prevent DNS issues
-      - --innodb-open-files=1024                  # Sets the limit for InnoDB open files
-      - --innodb-buffer-pool-size=256M            # Allocates buffer pool size for InnoDB
-      - --innodb-redo-log-capacity=128M           # Sets redo log capacity to balance recovery and disk I/O
+      - --innodb-open-files=256                   # Sets the limit for InnoDB open files
+      - --innodb-buffer-pool-size=64M             # Allocates buffer pool size for InnoDB (optimized for low RAM)
+      - --innodb-redo-log-capacity=24M            # Sets redo log capacity
+      - --max_connections=80                      # Limits max concurrent connections
+      - --table_open_cache=150                    # Caches open tables to reduce memory
       - --general_log=0                           # Disables general query log for lower disk usage
       - --slow_query_log=1                        # Enables slow query log for performance analysis
       - --slow_query_log_file=/var/lib/mysql/slow.log # Logs slow queries for troubleshooting
