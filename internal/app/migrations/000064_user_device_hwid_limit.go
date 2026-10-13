@@ -36,10 +36,10 @@ func up000064UserDeviceHWIDLimit(ctx context.Context, tx *sql.Tx) error {
 	)`
 
 	mysqlSQL := `CREATE TABLE user_hwids (
-		id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-		user_id BIGINT NOT NULL,
+		id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
+		user_id INTEGER NOT NULL,
 		hwid VARCHAR(128) NOT NULL,
-		user_agent TEXT NOT NULL,
+		user_agent TEXT NULL,
 		last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		CONSTRAINT fk_user_hwids_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
