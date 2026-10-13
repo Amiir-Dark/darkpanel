@@ -80,6 +80,7 @@ import {
 	createDefaultInboundForm,
 	createDefaultTlsCertificate,
 	type InboundFormValues,
+	type Protocol,
 	protocolOptions,
 	type RawInbound,
 	rawInboundToFormValues,
@@ -601,27 +602,13 @@ export const InboundFormModal: FC<Props> = ({
 		return unique.map((label) => ({ label, value: label }));
 	}, [defaultVlessAuthLabels, vlessAuthOptions]);
 	const visibleProtocolOptions = useMemo(() => {
-		const l2tpExists = existingInbounds.some(
-			(inbound) =>
-				String(inbound.protocol || "").toLowerCase() === "l2tp" &&
-				String(inbound.tag || "") !== String(initialValue?.tag || ""),
-		);
-		const ikev2Exists = existingInbounds.some(
-			(inbound) =>
-				String(inbound.protocol || "").toLowerCase() === "ikev2" &&
-				String(inbound.tag || "") !== String(initialValue?.tag || ""),
-		);
-		if (isEditMode) {
-			return protocolOptions;
+		const current = String(initialValue?.protocol || "").toLowerCase() as Protocol;
+		const options = [...protocolOptions];
+		if (isEditMode && current && !options.includes(current)) {
+			options.push(current);
 		}
-		return protocolOptions.filter(
-			(option) =>
-				option !== "http" &&
-				option !== "socks" &&
-				!(option === "l2tp" && l2tpExists) &&
-				!(option === "ikev2" && ikev2Exists),
-		);
-	}, [existingInbounds, initialValue?.tag, isEditMode]);
+		return options;
+	}, [initialValue?.protocol, isEditMode]);
 	const availableTargets = useMemo<CoreConfigTarget[]>(
 		() =>
 			configTargets.length

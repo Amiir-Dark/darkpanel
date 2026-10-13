@@ -544,20 +544,8 @@ export const protocolOptions: Protocol[] = [
 	"trojan",
 	"shadowsocks",
 	"hysteria",
-	"ssh",
 	"mtproto",
-	"web",
 	"openvpn",
-	"wireguard",
-	"amneziawg",
-	"sstp",
-	"gre",
-	"l2tp",
-	"pptp",
-	"ikev2",
-	"anyconnect",
-	"http",
-	"socks",
 ];
 export const shadowsocksNetworkOptions: InboundFormValues["shadowsocksNetwork"][] =
 	["tcp,udp", "tcp", "udp"];
