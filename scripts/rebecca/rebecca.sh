@@ -461,14 +461,36 @@ get_xray_runtime_status() {
 
 print_menu_status_summary() {
     local container_id service_status="stopped"
-    local version uptime xray_status
-    container_id=$(get_docker_container_id)
-    if [ -n "$container_id" ] && [ "$(docker inspect -f '{{.State.Running}}' "$container_id" 2>/dev/null)" = "true" ]; then
-        service_status="running"
+    local version uptime="-" xray_status="stopped"
+    if is_binary_install; then
+        if systemctl is-active --quiet "$APP_NAME.service" 2>/dev/null; then
+            service_status="running"
+            local active_enter started_epoch now
+            active_enter=$(systemctl show "$APP_NAME.service" --property=ActiveEnterTimestamp --value 2>/dev/null || echo "")
+            if [ -n "$active_enter" ]; then
+                started_epoch=$(date -d "$active_enter" +%s 2>/dev/null || echo "")
+                now=$(date +%s)
+                if [ -n "$started_epoch" ] && [ "$started_epoch" -gt 0 ]; then
+                    uptime=$(humanize_seconds "$((now - started_epoch))")
+                else
+                    uptime="active"
+                fi
+            else
+                uptime="active"
+            fi
+        fi
+        if pgrep -x xray >/dev/null 2>&1; then
+            xray_status="running"
+        fi
+    else
+        container_id=$(get_docker_container_id)
+        if [ -n "$container_id" ] && [ "$(docker inspect -f '{{.State.Running}}' "$container_id" 2>/dev/null)" = "true" ]; then
+            service_status="running"
+        fi
+        uptime=$(get_docker_uptime)
+        xray_status=$(get_xray_runtime_status)
     fi
     version=$(get_current_rebecca_version)
-    uptime=$(get_docker_uptime)
-    xray_status=$(get_xray_runtime_status)
     ui_status_row "Version" "${version}"
     ui_status_row "Service" "${service_status}"
     ui_status_row "Mode" "$(get_install_mode)"
