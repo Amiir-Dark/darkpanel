@@ -858,9 +858,10 @@ install_rebecca_script() {
         colorized_echo red "Unexpected HTML response while downloading script"
         exit 1
     fi
-    ui_spinner_run "Installing Rebecca command script" install -m 755 "$temp_script" "$REBECCA_SCRIPT_INSTALL_PATH"
+    ui_spinner_run "Installing DarkPanel command script" install -m 755 "$temp_script" "$REBECCA_SCRIPT_INSTALL_PATH"
+    ln -sf "$REBECCA_SCRIPT_INSTALL_PATH" /usr/local/bin/darkpanel 2>/dev/null || true
     rm -f "$temp_script"
-    colorized_echo green "rebecca script installed successfully"
+    colorized_echo green "darkpanel script installed successfully"
 }
 
 trim_string() {
@@ -3399,6 +3400,7 @@ exec "$BINARY_CLI" "\$@"
 EOF
 
     chmod 755 "$BINARY_CLI_LAUNCHER"
+    ln -sf "$BINARY_CLI_LAUNCHER" /usr/local/bin/darkpanel-cli 2>/dev/null || true
 }
 
 write_binary_release_metadata() {
@@ -4345,9 +4347,13 @@ uninstall_command() {
 }
 
 uninstall_rebecca_script() {
-    if [ -f "/usr/local/bin/rebecca" ]; then
+    if [ -f "/usr/local/bin/rebecca" ] || [ -L "/usr/local/bin/rebecca" ]; then
         colorized_echo yellow "Removing rebecca script"
-        rm "/usr/local/bin/rebecca"
+        rm -f "/usr/local/bin/rebecca"
+    fi
+    if [ -f "/usr/local/bin/darkpanel" ] || [ -L "/usr/local/bin/darkpanel" ]; then
+        colorized_echo yellow "Removing darkpanel script"
+        rm -f "/usr/local/bin/darkpanel"
     fi
 }
 
@@ -4359,6 +4365,9 @@ uninstall_rebecca() {
     fi
     if [ -f "$BINARY_CLI_LAUNCHER" ] || [ -L "$BINARY_CLI_LAUNCHER" ]; then
         rm -f "$BINARY_CLI_LAUNCHER"
+    fi
+    if [ -f "/usr/local/bin/darkpanel-cli" ] || [ -L "/usr/local/bin/darkpanel-cli" ]; then
+        rm -f "/usr/local/bin/darkpanel-cli"
     fi
     if [ -d "$APP_DIR" ]; then
         colorized_echo yellow "Removing directory: $APP_DIR"

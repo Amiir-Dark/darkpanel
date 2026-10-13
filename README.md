@@ -66,7 +66,7 @@ Next, create a sudo admin for logging into the DarkPanel dashboard by running:
 This will prompt you for the username and password securely:
 
 ```bash
-rebecca cli admin create --role sudo
+darkpanel cli admin create --role sudo
 ```
 
 *(or `--role full_access` for full administrative access)*
@@ -75,13 +75,13 @@ rebecca cli admin create --role sudo
 You can pass the username and password directly:
 
 ```bash
-rebecca cli admin create YOUR_USERNAME --role sudo --password YOUR_PASSWORD
+darkpanel cli admin create YOUR_USERNAME --role sudo --password YOUR_PASSWORD
 ```
 
 For super-admin with full access:
 
 ```bash
-rebecca cli admin create YOUR_USERNAME --role full_access --password YOUR_PASSWORD
+darkpanel cli admin create YOUR_USERNAME --role full_access --password YOUR_PASSWORD
 ```
 
 #### Admin Roles Explained:
@@ -90,7 +90,7 @@ rebecca cli admin create YOUR_USERNAME --role full_access --password YOUR_PASSWO
 
 > **Tip:** If you ever need to change or promote an existing admin's role, run:
 > ```bash
-> rebecca cli admin change-role --username YOUR_USERNAME --role full_access
+> darkpanel cli admin change-role --username YOUR_USERNAME --role full_access
 > ```
 
 ---
@@ -100,9 +100,9 @@ rebecca cli admin create YOUR_USERNAME --role full_access --password YOUR_PASSWO
 Manage your DarkPanel service using the built-in CLI:
 
 ```bash
-rebecca status     # Check panel status
-rebecca restart    # Restart panel service
-rebecca logs       # View live panel logs
-rebecca cli --help # CLI commands and options
-rebecca help       # Control center menu
+darkpanel status     # Check panel status
+darkpanel restart    # Restart panel service
+darkpanel logs       # View live panel logs
+darkpanel cli --help # CLI commands and options
+darkpanel help       # Control center menu
 ```
