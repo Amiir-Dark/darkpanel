@@ -29,7 +29,7 @@ if [ -n "${REBECCA_SCRIPT_BASE_URL+x}" ]; then
 fi
 REBECCA_SCRIPT_BASE_URL="${REBECCA_SCRIPT_BASE_URL:-${REBECCA_RAW_BASE}/scripts/rebecca}"
 REBECCA_RELEASE_REPO="${REBECCA_RELEASE_REPO:-Amiir-Dark/darkpanel}"
-REBECCA_BINARY_DEV_BRANCH="${REBECCA_BINARY_DEV_BRANCH:-dev}"
+REBECCA_BINARY_DEV_BRANCH="${REBECCA_BINARY_DEV_BRANCH:-main}"
 REBECCA_BINARY_WORKFLOW_NAME="${REBECCA_BINARY_WORKFLOW_NAME:-binary-build}"
 REBECCA_BINARY_DEV_MANIFEST_BRANCH="${REBECCA_BINARY_DEV_MANIFEST_BRANCH:-dev-build-manifest}"
 REBECCA_BINARY_DEV_MANIFEST_PATH="${REBECCA_BINARY_DEV_MANIFEST_PATH:-dev-builds.json}"
@@ -3399,7 +3399,7 @@ get_binary_dev_artifact_metadata() {
 
     run_id=$(echo "$latest_run_json" | jq -r '.id // empty')
     head_sha=$(echo "$latest_run_json" | jq -r '.head_sha // empty')
-    selected_branch=$(echo "$latest_run_json" | jq -r '.head_branch // "dev"')
+    selected_branch=$(echo "$latest_run_json" | jq -r '.head_branch // "main"')
     artifacts_api="https://api.github.com/repos/${target_repo}/actions/runs/${run_id}/artifacts"
     artifacts_payload=$(curl -fsSL "$artifacts_api") || {
         colorized_echo red "Unable to read binary dev workflow artifacts: $artifacts_api" >&2
