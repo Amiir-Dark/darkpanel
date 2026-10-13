@@ -3,6 +3,7 @@ package migrations
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/pressly/goose/v3"
 )
@@ -35,18 +36,29 @@ func up000064UserDeviceHWIDLimit(ctx context.Context, tx *sql.Tx) error {
 		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 	)`
 
-	mysqlSQL := `CREATE TABLE user_hwids (
+	userColType := "INTEGER"
+	if dialect == "mysql" || dialect == "mariadb" {
+		_ = tx.QueryRowContext(ctx, "SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'id'").Scan(&userColType)
+		if userColType == "" {
+			userColType = "INTEGER"
+		}
+	}
+
+	mysqlSQL := fmt.Sprintf(`CREATE TABLE user_hwids (
 		id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
-		user_id INTEGER NOT NULL,
+		user_id %s NOT NULL,
 		hwid VARCHAR(128) NOT NULL,
 		user_agent TEXT NULL,
 		last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		CONSTRAINT fk_user_hwids_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`, userColType)
 
 	if err := createTable(ctx, tx, dialect, "user_hwids", sqliteSQL, mysqlSQL); err != nil {
 		return err
+	}
+
+	if dialect == "mysql" || dialect == "mariadb" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE user_hwids ADD CONSTRAINT fk_user_hwids_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE`)
 	}
 
 	if err := createIndex(ctx, tx, dialect, "user_hwids", "uq_user_hwids_user_hwid", []string{"user_id", "hwid"}, true); err != nil {
