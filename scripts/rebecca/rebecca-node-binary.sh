@@ -17,11 +17,7 @@ SCRIPT_BASENAME="${SCRIPT_NAME%.*}"
 SCRIPT_DEFAULT_APP_NAME="${REBECCA_NODE_DEFAULT_APP_NAME:-$SCRIPT_BASENAME}"
 case "$SCRIPT_DEFAULT_APP_NAME" in
     rebecca-node-binary|rebecca-node|darkpanel-node-binary|@|bash|sh|"."|"-s"|"")
-        if [ -d "/opt/rebecca-node" ] && [ ! -d "/opt/darkpanel-node" ]; then
-            SCRIPT_DEFAULT_APP_NAME="rebecca-node"
-        else
-            SCRIPT_DEFAULT_APP_NAME="darkpanel-node"
-        fi
+        SCRIPT_DEFAULT_APP_NAME="darkpanel-node"
     ;;
 esac
 
@@ -503,7 +499,7 @@ discover_node_instances() {
         local dir
         dir=$(dirname "$(dirname "$binary_file")")
         add_discovered_node_instance "$dir" "$(basename "$dir")"
-    done < <(find "$NODE_DISCOVERY_BASE" -mindepth 2 -maxdepth 3 -type f -path "*/bin/rebecca-node" -print0 2>/dev/null || true)
+    done < <(find "$NODE_DISCOVERY_BASE" -mindepth 2 -maxdepth 3 -type f \( -path "*/bin/rebecca-node" -o -path "*/bin/darkpanel-node" \) -print0 2>/dev/null || true)
 }
 
 prompt_node_selection() {
@@ -707,9 +703,12 @@ prompt_node_name() {
     fi
 
     local default_name="${APP_NAME:-$SCRIPT_DEFAULT_APP_NAME}"
+    default_name="${default_name:-darkpanel-node}"
     local node_name
     while true; do
-        read -r -p "Node name [$default_name]: " node_name
+        read -r -p "Node name [$default_name]: " node_name || true
+        node_name="${node_name%$'\r'}"
+        node_name=$(echo "$node_name" | tr -d '\r' | xargs 2>/dev/null || echo "$node_name")
         node_name="${node_name:-$default_name}"
         if [[ "$node_name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
             APP_NAME="$node_name"
