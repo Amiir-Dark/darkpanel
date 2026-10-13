@@ -3267,7 +3267,13 @@ get_binary_dev_manifest_metadata() {
     local selected
 
     manifest_url=$(get_binary_dev_manifest_url)
-    manifest_payload=$(curl -fsSL "$manifest_url" 2>/dev/null) || true
+    local cache_buster_url
+    if [[ "$manifest_url" == *\?* ]]; then
+        cache_buster_url="${manifest_url}&t=$(date +%s)"
+    else
+        cache_buster_url="${manifest_url}?t=$(date +%s)"
+    fi
+    manifest_payload=$(curl -fsSL -H "Cache-Control: no-cache" "$cache_buster_url" 2>/dev/null || curl -fsSL "$manifest_url" 2>/dev/null) || true
 
     if [ -z "$manifest_payload" ]; then
         return 1
