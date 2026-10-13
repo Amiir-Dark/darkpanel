@@ -6,7 +6,11 @@
 	"linter": {
 		"rules": {
 			"suspicious": {
-				"noExplicitAny": "off"
+				"noExplicitAny": "off",
+				"noDocumentCookie": "off"
+			},
+			"a11y": {
+				"noSvgWithoutTitle": "off"
 			},
 			"style": {
 				"noNonNullAssertion": "off"

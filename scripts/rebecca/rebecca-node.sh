@@ -1035,17 +1035,35 @@ get_node_binary_dev_artifact_metadata() {
         fi
     fi
 
+    if [ "$REBECCA_NODE_RELEASE_REPO" != "rebeccapanel/Rebecca-node" ]; then
+        local fallback_release_api="https://api.github.com/repos/rebeccapanel/Rebecca-node/releases/tags/${REBECCA_NODE_BINARY_DEV_RELEASE_TAG}"
+        if release_payload=$(curl -fsSL "$fallback_release_api" 2>/dev/null); then
+            release_asset_url=$(echo "$release_payload" | jq -r --arg name "$release_asset_name" '
+                .assets[]?
+                | select(.name == $name)
+                | .browser_download_url
+            ' | head -n 1)
+            if [ -n "$release_asset_url" ] && [ "$release_asset_url" != "null" ]; then
+                release_target=$(echo "$release_payload" | jq -r '.target_commitish // empty')
+                if [[ "$release_target" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+                    printf '%s|%s\n' "dev-${release_target:0:7}" "$release_asset_url"
+                else
+                    printf '%s|%s\n' "dev-${REBECCA_NODE_BINARY_DEV_BRANCH}" "$release_asset_url"
+                fi
+                return 0
+            fi
+        fi
+    fi
+
     nightly_workflow="$REBECCA_NODE_BINARY_WORKFLOW_NAME"
     case "$nightly_workflow" in
         *.yml|*.yaml) ;;
         *) nightly_workflow="${nightly_workflow}.yml" ;;
     esac
     workflow_path=".github/workflows/${nightly_workflow}"
-    workflow_runs_api="https://api.github.com/repos/${REBECCA_NODE_RELEASE_REPO}/actions/runs?per_page=50"
-    workflow_runs_payload=$(curl -fsSL "$workflow_runs_api") || {
-        colorized_echo red "Unable to read Rebecca-node binary workflow metadata: $workflow_runs_api" >&2
-        exit 1
-    }
+    local target_repo="${REBECCA_NODE_RELEASE_REPO}"
+    workflow_runs_api="https://api.github.com/repos/${target_repo}/actions/runs?per_page=50"
+    workflow_runs_payload=$(curl -fsSL "$workflow_runs_api" 2>/dev/null) || true
 
     matching_runs=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_NODE_BINARY_DEV_BRANCH" --arg workflow_path "$workflow_path" '
         .workflow_runs[]?
@@ -1055,7 +1073,22 @@ get_node_binary_dev_artifact_metadata() {
             and .conclusion == "success"
             and .path == $workflow_path
         )
-    ')
+    ' 2>/dev/null)
+
+    if [ -z "$matching_runs" ] && [ "$REBECCA_NODE_RELEASE_REPO" != "rebeccapanel/Rebecca-node" ]; then
+        target_repo="rebeccapanel/Rebecca-node"
+        workflow_runs_api="https://api.github.com/repos/${target_repo}/actions/runs?per_page=50"
+        workflow_runs_payload=$(curl -fsSL "$workflow_runs_api" 2>/dev/null) || true
+        matching_runs=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_NODE_BINARY_DEV_BRANCH" --arg workflow_path "$workflow_path" '
+            .workflow_runs[]?
+            | select(
+                .head_branch == $branch
+                and (.event == "push" or .event == "workflow_dispatch")
+                and .conclusion == "success"
+                and .path == $workflow_path
+            )
+        ' 2>/dev/null)
+    fi
 
     if [ -z "$matching_runs" ]; then
         colorized_echo red "No successful Rebecca-node binary workflow run was found on branch ${REBECCA_NODE_BINARY_DEV_BRANCH}." >&2
@@ -1067,7 +1100,7 @@ get_node_binary_dev_artifact_metadata() {
 
         run_id=$(echo "$run_json" | jq -r '.id // empty')
         head_sha=$(echo "$run_json" | jq -r '.head_sha // empty')
-        artifacts_api="https://api.github.com/repos/${REBECCA_NODE_RELEASE_REPO}/actions/runs/${run_id}/artifacts"
+        artifacts_api="https://api.github.com/repos/${target_repo}/actions/runs/${run_id}/artifacts"
         if ! artifacts_payload=$(curl -fsSL "$artifacts_api"); then
             colorized_echo yellow "Unable to read Rebecca-node binary artifacts for workflow run ${run_id}; checking an older successful run." >&2
             continue
@@ -1083,7 +1116,7 @@ get_node_binary_dev_artifact_metadata() {
         ')
 
         if [ -n "$artifact_name" ]; then
-            artifact_url="https://nightly.link/${REBECCA_NODE_RELEASE_REPO}/workflows/${nightly_workflow}/${REBECCA_NODE_BINARY_DEV_BRANCH}/${artifact_name}.zip"
+            artifact_url="https://nightly.link/${target_repo}/workflows/${nightly_workflow}/${REBECCA_NODE_BINARY_DEV_BRANCH}/${artifact_name}.zip"
             printf '%s|%s\n' "dev-${head_sha:0:7}" "$artifact_url"
             return 0
         fi

@@ -3195,16 +3195,28 @@ get_binary_release_asset_metadata() {
     local server_asset_name
     local cli_asset_name
 
+    local target_repo="$REBECCA_RELEASE_REPO"
     if [ "$rebecca_version" = "latest" ]; then
-        release_api="https://api.github.com/repos/${REBECCA_RELEASE_REPO}/releases/latest"
+        release_api="https://api.github.com/repos/${target_repo}/releases/latest"
     else
-        release_api="https://api.github.com/repos/${REBECCA_RELEASE_REPO}/releases/tags/${rebecca_version}"
+        release_api="https://api.github.com/repos/${target_repo}/releases/tags/${rebecca_version}"
     fi
 
-    release_payload=$(curl -fsSL "$release_api") || {
+    release_payload=$(curl -fsSL "$release_api" 2>/dev/null) || true
+    if [ -z "$release_payload" ] && [ "$REBECCA_RELEASE_REPO" != "rebeccapanel/Rebecca" ]; then
+        target_repo="rebeccapanel/Rebecca"
+        if [ "$rebecca_version" = "latest" ]; then
+            release_api="https://api.github.com/repos/${target_repo}/releases/latest"
+        else
+            release_api="https://api.github.com/repos/${target_repo}/releases/tags/${rebecca_version}"
+        fi
+        release_payload=$(curl -fsSL "$release_api" 2>/dev/null) || true
+    fi
+
+    if [ -z "$release_payload" ]; then
         colorized_echo red "Unable to read Rebecca release metadata: $release_api" >&2
         exit 1
-    }
+    fi
 
     resolved_tag=$(echo "$release_payload" | jq -r '.tag_name // empty')
     package_asset_name="rebecca-linux-${binary_arch}.tar.gz"
@@ -3260,15 +3272,26 @@ get_binary_dev_manifest_metadata() {
     local requested_version="${2:-dev}"
     local manifest_url
     local manifest_payload
+    local manifest_repo="$REBECCA_RELEASE_REPO"
     local selected
 
     manifest_url=$(get_binary_dev_manifest_url)
-    manifest_payload=$(curl -fsSL "$manifest_url") || return 1
+    manifest_payload=$(curl -fsSL "$manifest_url" 2>/dev/null) || true
+
+    if [ -z "$manifest_payload" ] && [ "$REBECCA_RELEASE_REPO" != "rebeccapanel/Rebecca" ]; then
+        local fallback_manifest_url="https://raw.githubusercontent.com/rebeccapanel/Rebecca/${REBECCA_BINARY_DEV_MANIFEST_BRANCH}/${REBECCA_BINARY_DEV_MANIFEST_PATH}"
+        manifest_payload=$(curl -fsSL "$fallback_manifest_url" 2>/dev/null) || true
+        [ -n "$manifest_payload" ] && manifest_repo="rebeccapanel/Rebecca"
+    fi
+
+    if [ -z "$manifest_payload" ]; then
+        return 1
+    fi
 
     selected=$(echo "$manifest_payload" | jq -r \
         --arg arch "linux-${binary_arch}" \
         --arg requested "$requested_version" \
-        --arg repo "$REBECCA_RELEASE_REPO" \
+        --arg repo "$manifest_repo" \
         --arg release_tag "$REBECCA_BINARY_DEV_RELEASE_TAG" '
         def legacy_build:
             .latest? as $latest
@@ -3328,6 +3351,7 @@ get_binary_dev_artifact_metadata() {
     local artifacts_payload
     local artifact_url
     local nightly_workflow
+    local target_repo="$REBECCA_RELEASE_REPO"
 
     if get_binary_dev_manifest_metadata "$binary_arch" "$requested_version"; then
         return
@@ -3343,20 +3367,32 @@ get_binary_dev_artifact_metadata() {
         *.yml|*.yaml) ;;
         *) nightly_workflow="${nightly_workflow}.yml" ;;
     esac
-    workflow_runs_api="https://api.github.com/repos/${REBECCA_RELEASE_REPO}/actions/workflows/${nightly_workflow}/runs"
+    workflow_runs_api="https://api.github.com/repos/${target_repo}/actions/workflows/${nightly_workflow}/runs"
     workflow_runs_payload=$(curl -fsSLG "$workflow_runs_api" \
         --data-urlencode "branch=${REBECCA_BINARY_DEV_BRANCH}" \
         --data-urlencode "event=push" \
         --data-urlencode "status=success" \
-        --data-urlencode "per_page=100") || {
-        colorized_echo red "Unable to read binary dev workflow metadata: $workflow_runs_api" >&2
-        exit 1
-    }
+        --data-urlencode "per_page=100" 2>/dev/null) || true
 
     latest_run_json=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_BINARY_DEV_BRANCH" '
         .workflow_runs[]?
         | select(.head_branch == $branch and .event == "push" and .conclusion == "success")
-    ' | head -n 1)
+    ' 2>/dev/null | head -n 1)
+
+    if [ -z "$latest_run_json" ] && [ "$REBECCA_RELEASE_REPO" != "rebeccapanel/Rebecca" ]; then
+        target_repo="rebeccapanel/Rebecca"
+        workflow_runs_api="https://api.github.com/repos/${target_repo}/actions/workflows/${nightly_workflow}/runs"
+        workflow_runs_payload=$(curl -fsSLG "$workflow_runs_api" \
+            --data-urlencode "branch=${REBECCA_BINARY_DEV_BRANCH}" \
+            --data-urlencode "event=push" \
+            --data-urlencode "status=success" \
+            --data-urlencode "per_page=100" 2>/dev/null) || true
+
+        latest_run_json=$(echo "$workflow_runs_payload" | jq -c --arg branch "$REBECCA_BINARY_DEV_BRANCH" '
+            .workflow_runs[]?
+            | select(.head_branch == $branch and .event == "push" and .conclusion == "success")
+        ' 2>/dev/null | head -n 1)
+    fi
 
     if [ -z "$latest_run_json" ]; then
         colorized_echo red "No successful binary dev workflow run was found on branch ${REBECCA_BINARY_DEV_BRANCH}." >&2
@@ -3365,7 +3401,7 @@ get_binary_dev_artifact_metadata() {
 
     run_id=$(echo "$latest_run_json" | jq -r '.id // empty')
     head_sha=$(echo "$latest_run_json" | jq -r '.head_sha // empty')
-    artifacts_api="https://api.github.com/repos/${REBECCA_RELEASE_REPO}/actions/runs/${run_id}/artifacts"
+    artifacts_api="https://api.github.com/repos/${target_repo}/actions/runs/${run_id}/artifacts"
     artifacts_payload=$(curl -fsSL "$artifacts_api") || {
         colorized_echo red "Unable to read binary dev workflow artifacts: $artifacts_api" >&2
         exit 1
@@ -3385,7 +3421,7 @@ get_binary_dev_artifact_metadata() {
         exit 1
     fi
 
-    artifact_url="https://nightly.link/${REBECCA_RELEASE_REPO}/workflows/${nightly_workflow}/${REBECCA_BINARY_DEV_BRANCH}/${artifact_name}.zip"
+    artifact_url="https://nightly.link/${target_repo}/workflows/${nightly_workflow}/${REBECCA_BINARY_DEV_BRANCH}/${artifact_name}.zip"
     printf '%s|%s|%s.zip\n' "dev-${head_sha:0:7}" "$artifact_url" "$artifact_name"
 }
 
