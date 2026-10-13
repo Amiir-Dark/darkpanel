@@ -506,7 +506,7 @@ func (DefaultCommandScheduler) Schedule(args []string) error {
 		if systemdRun, err := exec.LookPath("systemd-run"); err == nil && systemdRun != "" {
 			unit := fmt.Sprintf("rebecca-host-action-%d", time.Now().UnixNano())
 			command = append(
-				[]string{systemdRun, "--unit", unit, "--collect", "--description", "Rebecca host action", "--"},
+				[]string{systemdRun, "--unit", unit, "--collect", "--description", "DarkPanel host action", "--"},
 				command...,
 			)
 		}
@@ -588,7 +588,7 @@ func resolveRebeccaCLI() (string, error) {
 			return candidate, nil
 		}
 	}
-	return "", MaintenanceError{Status: http.StatusServiceUnavailable, Detail: "Rebecca CLI was not found on this host"}
+	return "", MaintenanceError{Status: http.StatusServiceUnavailable, Detail: "DarkPanel CLI was not found on this host"}
 }
 
 type GitHubUpdateChecker struct {

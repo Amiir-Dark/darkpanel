@@ -172,7 +172,7 @@ func (s *MaintenanceOperationStore) Finish(id string, err error) {
 	}
 	if s.latest.Action == "update" || s.latest.Action == "restart" || s.latest.Action == "soft-reload" {
 		s.latest.Phase = "restarting"
-		s.latest.Message = "Rebecca is restarting. Waiting for the API to come back."
+		s.latest.Message = "DarkPanel is restarting. Waiting for the API to come back."
 		s.latest.Restarting = true
 		s.latest.NeedsReload = true
 		s.setProgressAtLeastLocked(100)
@@ -232,18 +232,18 @@ func classifyMaintenanceLine(line string, action string) (string, string) {
 	lower := strings.ToLower(line)
 	switch {
 	case strings.Contains(lower, "download"):
-		return "downloading", "Downloading the new Rebecca image"
+		return "downloading", "Downloading the new DarkPanel image"
 	case strings.Contains(lower, "extract") || strings.Contains(lower, "unpack"):
 		return "installing", "Extracting and installing the new binary"
 	case strings.Contains(lower, "install"):
-		return "installing", "Installing Rebecca files"
+		return "installing", "Installing DarkPanel files"
 	case strings.Contains(lower, "migrat"):
 		return "migrating", "Running database migrations"
 	case strings.Contains(lower, "restart") || strings.Contains(lower, "stopping") || strings.Contains(lower, "started"):
-		return "restarting", "Rebecca is restarting"
+		return "restarting", "DarkPanel is restarting"
 	case strings.Contains(lower, "selected") || strings.Contains(lower, "update"):
 		if action == "update" {
-			return "updating", "Updating Rebecca"
+			return "updating", "Updating DarkPanel"
 		}
 	}
 	return "", ""

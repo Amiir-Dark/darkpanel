@@ -3005,8 +3005,15 @@ func boolToDB(value bool) int {
 	return 0
 }
 
+func cliProgName() string {
+	if prog := strings.TrimSpace(os.Getenv("CLI_PROG_NAME")); prog != "" {
+		return prog
+	}
+	return "darkpanel cli"
+}
+
 func printUsage() {
-	fmt.Println("Usage: rebecca cli <command> [options]")
+	fmt.Printf("Usage: %s <command> [options]\n", cliProgName())
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  admin          Manage admins")
@@ -3016,7 +3023,7 @@ func printUsage() {
 }
 
 func printAdminUsage() {
-	fmt.Println("Usage: rebecca cli admin <command> [options]")
+	fmt.Printf("Usage: %s admin <command> [options]\n", cliProgName())
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  list                 List admins, with --json for automation")
@@ -3032,17 +3039,22 @@ func printAdminUsage() {
 }
 
 func printUserUsage() {
-	fmt.Println("Usage: rebecca cli user <command> [options]")
+	fmt.Printf("Usage: %s user <command> [options]\n", cliProgName())
 	fmt.Println("Commands: list, set-owner")
 }
 
 func printSubscriptionUsage() {
-	fmt.Println("Usage: rebecca cli subscription <command> [options]")
+	fmt.Printf("Usage: %s subscription <command> [options]\n", cliProgName())
 	fmt.Println("Commands: get-link, get-config")
 }
 
 func printMigrateUsage() {
-	fmt.Println("Usage: rebecca migrate <command>")
+	prog := cliProgName()
+	prefix := "darkpanel"
+	if strings.HasSuffix(prog, " cli") {
+		prefix = strings.TrimSuffix(prog, " cli")
+	}
+	fmt.Printf("Usage: %s migrate <command>\n", prefix)
 	fmt.Println("Commands: up [--to version], status")
 	fmt.Println("Downgrades are intentionally unsupported.")
 }
