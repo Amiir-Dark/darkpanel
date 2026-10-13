@@ -1,31 +1,25 @@
 <p align="center">
-  <a href="https://github.com/rebeccapanel/Rebecca" target="_blank" rel="noopener noreferrer">
-    <img width="160" height="160" src="../dashboard/src/assets/logo.svg" alt="Rebecca logo">
+  <a href="https://github.com/Amiir-Dark/darkpanel" target="_blank" rel="noopener noreferrer">
+    <img width="160" height="160" src="../dashboard/src/assets/logo.svg" alt="DarkPanel logo">
   </a>
 </p>
 
-<h1 align="center"/>رِبِکا</h1>
+<h1 align="center">دارک‌پنل (DarkPanel)</h1>
 
 <p align="center">
-     راه حل یکپارچه برای مدیریت پروتکل های مختلف. قدرت گرفته از <a href="https://github.com/XTLS/Xray-core">Xray</a>
+     راهکار یکپارچه و مدرن مدیریت پروکسی و ضد فیلترینگ با هسته قدرتمند <a href="https://github.com/XTLS/Xray-core">Xray</a>
 </p>
 
 <br/>
 <p align="center">
-  <a href="#">
-    <img src="https://img.shields.io/github/actions/workflow/status/rebeccapanel/Rebecca/build.yml?style=flat-square" />
+  <a href="https://github.com/Amiir-Dark/darkpanel/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/Amiir-Dark/darkpanel/build.yml?style=flat-square" />
   </a>
-  <a href="https://hub.docker.com/r/rebeccapanel/rebecca" target="_blank">
-    <img src="https://img.shields.io/docker/pulls/rebeccapanel/rebecca?style=flat-square&logo=docker" />
+  <a href="https://github.com/Amiir-Dark/darkpanel/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/Amiir-Dark/darkpanel?style=flat-square" />
   </a>
-  <a href="#">
-    <img src="https://img.shields.io/github/license/rebeccapanel/Rebecca?style=flat-square" />
-  </a>
-  <a href="https://t.me/rebeccapanel_rebecca" target="_blank">
-    <img src="https://img.shields.io/badge/telegram-channel-blue?style=flat-square&logo=telegram" />
-  </a>
-  <a href="#">
-    <img src="https://img.shields.io/github/stars/rebeccapanel/Rebecca?style=social" />
+  <a href="https://github.com/Amiir-Dark/darkpanel/stargazers">
+    <img src="https://img.shields.io/github/stars/Amiir-Dark/darkpanel?style=social" />
   </a>
 </p>
 
@@ -49,7 +43,7 @@
 
 ## فهرست مطالب
 - [بررسی اجمالی](#بررسی-اجمالی)
-  - [چرا رِبِکا؟](#چرا-رِبِکا)
+  - [چرا دارک‌پنل؟](#چرا-دارک‌پنل)
     - [امکانات](#امکانات)
 - [راهنمای نصب](#راهنمای-نصب)
 - [تنظیمات](#تنظیمات)
@@ -62,83 +56,84 @@
 
 # بررسی اجمالی
 
-رِبِکا یک نرم‌افزار (وب‌اپلیکیشن) مدیریت پروکسی است که امکان مدیریت چندصد حساب پروکسی را با سادگی و قدرت بالا فراهم می‌کند. رِبِکا از [Xray-core](https://github.com/XTLS/Xray-core) قدرت گرفته و با بک‌اند Go و داشبورد React پیاده‌سازی شده است.
+دارک‌پنل (DarkPanel) یک نرم‌افزار جامع مدیریت پروکسی با رابط کاربری مدرن و واکنش‌گرا است که امکان مدیریت حرفه‌ای صدها حساب پروکسی را فراهم می‌کند. این پنل از [Xray-core](https://github.com/XTLS/Xray-core) قدرت گرفته و با بک‌اند پرسرعت Go و فرانت‌اند React پیاده‌سازی شده است.
 
-## چرا رِبِکا؟
+## چرا دارک‌پنل؟
 
-رِبِکا دارای یک رابط کاربری ساده و در عین حال پرامکانات است. رِبِکا امکان ایجاد چند نوع پروکسی برای کاربران را فراهم می‌کند بدون اینکه به تنظیمات پیچیده نیاز داشته باشید. با رابط کاربری تحت وب، می‌توانید کاربران را مانیتور، ویرایش و در صورت نیاز محدود کنید.
+دارک‌پنل دارای یک رابط کاربری ساده، زیبا و پرامکانات است که امکان ایجاد انواع پروتکل‌های پروکسی را بدون نیاز به پیکربندی‌های پیچیده فراهم می‌کند. با استفاده از داشبورد اختصاصی، می‌توانید مصرف کاربران را مانیتور کنید، محدودیت دستگاه اعمال نمایید، هاست‌ها را مرتب‌سازی کنید و به سادگی کل سرورها را مدیریت نمایید.
 
 ### امکانات
 
-- **رابط کاربری تحت وب** آماده
-- به صورت **REST API** پیاده سازی شده
-- پشتیبانی از پروتکل های **Vmess**, **VLESS**, **Trojan** و **Shadowsocks**
-- امکان فعالسازی **چندین پروتکل** برای هر یوزر
-- امکان ساخت **چندین کاربر** بر روی یک inbound
-- پشتیبانی از **چندین inbound** بر روی **یک port** (به کمک fallbacks)
-- محدودیت بر اساس مصرف **ترافیک** و **تاریخ انقضا**
-- محدودیت **ترافیک دوره ای** (به عنوان مثال روزانه، هفتگی و غیره)
-- پشتیبانی از **Subscription link** سازگار با **V2ray** _(مثل نرم افزار های V2RayNG, SingBox, Nekoray و...)_ و **Clash**
-- ساخت **لینک اشتراک گذاری** و **QRcode** به صورت خودکار
-- مانیتورینگ منابع سرور و **مصرف ترافیک**
-- پشتیبانی از تنظیمات xray
-- پشتیبانی از **TLS**
-- **ربات تلگرام**
-- **رابط خط فرمان (CLI)** داخلی
-- قابلیت ایجاد **چندین مدیر** (تکمیل نشده است)
+- **رابط کاربری مدرن تحت وب** با تم تاریک، انیمیشن‌های نرم و طراحی رسپانسیو
+- معماری استاندارد بر پایه **REST API**
+- پشتیبانی از **چند نود (Multi-Node)** برای توزیع بار و مقیاس‌پذیری زیرساخت
+- پشتیبانی کامل از پروتکل‌های **Vmess**, **VLESS**, **Trojan**, **Shadowsocks** و **WireGuard**
+- امکان فعال‌سازی **چند پروتکل** برای هر کاربر
+- امکان ساخت **چند کاربر** بر روی یک اینباند
+- پشتیبانی از **چندین اینباند** بر روی **یک پورت** (از طریق Fallbacks)
+- محدودیت ترافیک و تاریخ انقضا
+- محدودیت ترافیک دوره‌ای (روزانه، هفتگی و...)
+- **محدودیت تعداد دستگاه همزمان و شناسه سخت‌افزار (HWID Limiter)**
+- پشتیبانی از **لینک اشتراک (Subscription)** سازگار با V2RayNG، Sing-Box، Nekoray، Clash و ClashMeta
+- تولید خودکار **لینک اشتراک‌گذاری** و **QR Code**
+- مانیتورینگ منابع سرور و **آمار مصرف لحظه‌ای**
+- **فیلتر پیشرفته اینباندها و اولویت‌بندی ترتیبی هاست‌ها از بالا تا پایین**
+- پشتیبانی از **TLS**، **REALITY** و **ECH**
+- **ربات تلگرام** هوشمند و سیستم وب‌هوک
+- **رابط خط فرمان (CLI)** قدرتمند
+- سیستم مدیریت چند ادمین با سطوح دسترسی مختلف
 
 # راهنمای نصب
 
-برای نصب باینری Master رِبِکا:
+برای نصب نسخه اصلی دارک‌پنل (DarkPanel):
 
 ```bash
-curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install
 ```
 
-نصاب‌ها را با `sudo bash -c "$(curl ...)"` اجرا نکنید؛ متن اسکریپت ممکن است از محدودیت single argument لینوکس بزرگ‌تر شود و خطای `Argument list too long` بدهد. همیشه دانلود را مثل نمونه بالا به `sudo bash -s --` pipe کنید.
+> **نکته مهم:** نصاب‌ها را با `sudo bash -c "$(curl ...)"` اجرا نکنید؛ متن اسکریپت ممکن است از محدودیت آرگومان لینوکس بزرگ‌تر شود و خطای `Argument list too long` بدهد. همیشه مطابق نمونه بالا دانلود را به `sudo bash -s --` پایپ کنید.
 
-برای نصب کانال dev:
+برای نصب کانال توسعه (Dev):
 
 ```bash
-curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/dev/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install --dev
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/dev/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install --dev
 ```
 
-برای نصب باینری Rebecca-node روی هر سرور نود:
+برای نصب DarkPanel-node روی سرورهای نود:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca-node-binary.sh | sudo bash -s -- install
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/rebecca/rebecca-node-binary.sh | sudo bash -s -- install
 ```
 
-نصاب‌های باینری سرویس native systemd می‌سازند و asset مناسب معماری سرور را خودکار دانلود می‌کنند. Master دیتابیس‌های SQLite، MySQL و MariaDB را از طریق گزینه‌های نصب پشتیبانی می‌کند؛ نصاب نود فقط runtime نود را نصب می‌کند و اتصال آن به Master از طریق certificate/token داخل پنل انجام می‌شود.
+نصاب‌های باینری سرویس‌های native systemd ایجاد می‌کنند و باینری متناسب با معماری سرور را به صورت خودکار دانلود می‌نمایند. سرور اصلی از دیتابیس‌های SQLite، MySQL و MariaDB پشتیبانی می‌کند؛ نصاب نود فقط ران‌تایم نود را نصب کرده و اتصال آن به سرور اصلی با توکن و سرتیفیکیت از داخل پنل برقرار می‌شود.
 
-وقتی نصب تمام شد:
+پس از پایان نصب:
 
-- شما لاگ های رِبِکا رو مشاهده میکنید که می‌توانید با بستن ترمینال یا فشار دادن `Ctrl+C` از آن خارج شوید
-- فایل‌های رِبِکا در پوشه `/opt/rebecca` قرار می‌گیرند
-- فایل تنظیمات در مسیر `/opt/rebecca/.env` قرار می‌گیرد ([تنظیمات](#تنظیمات) را مشاهده کنید)
-- فایل‌های مهم رِبِکا در مسیر `/var/lib/rebecca` قرار می‌گیرند
-به دلایل امنیتی، داشبورد رِبِکا از طریق آی‌پی قابل دسترسی نیست. بنابراین باید برای دامنه خود گواهی SSL تهیه کنید و از طریق آدرس https://YOUR_DOMAIN:8000/dashboard/ وارد داشبورد شوید (نام دامنه خود را جایگزین YOUR_DOMAIN کنید)
-- همچنین می‌توانید از فوروارد کردن پورت SSH برای دسترسی لوکال به داشبورد رِبِکا بدون دامنه استفاده کنید. نام کاربری و آیپی سرور خود را جایگزین `user@serverip` کنید و دستور زیر را اجرا کنید:
+- فایل‌های اجرایی در مسیر `/opt/rebecca` قرار می‌گیرند.
+- فایل تنظیمات در مسیر `/opt/rebecca/.env` قرار دارد ([تنظیمات](#تنظیمات) را مشاهده کنید).
+- داده‌های برنامه در مسیر `/var/lib/rebecca` ذخیره می‌شوند.
+- به دلایل امنیتی، داشبورد به طور مستقیم با آی‌پی خام بدون SSL باز نمی‌شود. شما می‌توانید دامنه خود را متصل کرده و از طریق `https://YOUR_DOMAIN:8000/dashboard/` وارد داشبورد شوید (نام دامنه خود را جایگزین YOUR_DOMAIN کنید).
+- همچنین برای تست اولیه بدون دامنه، می‌توانید از SSH Port Forwarding استفاده کنید:
 
 ```bash
 ssh -L 8000:localhost:8000 user@serverip
 ```
 
-در نهایت، می‌توانید لینک زیر را در مرورگر خود وارد کنید تا به داشبورد رِبِکا دسترسی پیدا کنید:
+سپس در مرورگر خود آدرس زیر را باز کنید:
 
+```
 http://localhost:8000/dashboard/
-
-به محض بستن ترمینال SSH، دسترسی شما به داشبورد قطع خواهد شد. بنابراین، این روش تنها برای تست  کردن توصیه می‌شود.
-
-در مرحله بعد، باید یک ادمین سودو بسازید
-
-```bash
-rebecca cli admin create --sudo
 ```
 
-تمام! حالا با این اطلاعات می‌توانید وارد رِبِکا شوید
+در مرحله بعد، با دستور زیر یک مدیر با دسترسی کامل (Full Access) بسازید:
 
-برای مشاهده راهنمای اسکریپت رِبِکا دستور زیر را اجرا کنید
+```bash
+rebecca cli admin create --role full_access
+```
+
+تبریک! اکنون با اطلاعات ایجاد شده می‌توانید وارد داشبورد دارک‌پنل شوید.
+
+برای مشاهده راهنمای دستورات خط فرمان:
 
 ```bash
 rebecca --help
@@ -158,8 +153,8 @@ curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | bash 
 پروژه را clone کنید و داشبورد و باینری‌های Go را بسازید.
 
 ```bash
-git clone https://github.com/rebeccapanel/Rebecca.git
-cd Rebecca
+git clone https://github.com/Amiir-Dark/darkpanel.git
+cd darkpanel
 cd dashboard
 npm ci
 VITE_BASE_API=/api/ npm run build -- --outDir=build --assetsDir=statics
@@ -340,16 +335,16 @@ Body:
 
 
 # مشارکت در توسعه
-این ❤️‍🔥 تقدیم به همه‌ی کسانی که در توسعه رِبِکا مشارکت می‌کنند! اگر می‌خواهید مشارکت داشته باشید، لطفاً [دستورالعمل‌های مشارکت](CONTRIBUTING.md) را بررسی کنید و در صورت تمایل Pull Request ارسال کنید یا یک Issue باز کنید.
+این ❤️‍🔥 تقدیم به همه‌ی کسانی که در توسعه دارک‌پنل مشارکت می‌کنند! اگر می‌خواهید مشارکت داشته باشید، لطفاً [دستورالعمل‌های مشارکت](CONTRIBUTING.md) را بررسی کنید و در صورت تمایل Pull Request ارسال کنید یا یک Issue باز کنید.
 
-لطفاً با بررسی [لیست کارها](https://github.com/rebeccapanel/Rebecca/issues) به ما در بهبود رِبِکا کمک کنید. کمک‌های شما با آغوش باز پذیرفته می‌شود.
+لطفاً با بررسی [لیست کارها و مشکلات](https://github.com/Amiir-Dark/darkpanel/issues) به ما در بهبود دارک‌پنل کمک کنید. کمک‌های شما با آغوش باز پذیرفته می‌شود.
 
 <p align="center">
-با تشکر از همه همکارانی که به بهبود رِبِکا کمک کردند:
+با تشکر از همه کسانی که به بهبود دارک‌پنل کمک کرده‌اند:
 </p>
 <p align="center">
-<a href="https://github.com/rebeccapanel/Rebecca/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=rebeccapanel/Rebecca" />
+<a href="https://github.com/Amiir-Dark/darkpanel/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Amiir-Dark/darkpanel" />
 </a>
 </p>
 <p align="center">

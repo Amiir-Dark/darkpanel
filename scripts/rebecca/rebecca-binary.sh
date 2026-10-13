@@ -20,8 +20,8 @@ COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 ENV_FILE="$APP_DIR/.env"
 LAST_XRAY_CORES=10
 CERTS_BASE="/var/lib/$APP_NAME/certs"
-REBECCA_REPO="${REBECCA_REPO:-rebeccapanel/Rebecca}"
-REBECCA_REF="${REBECCA_REF:-master}"
+REBECCA_REPO="${REBECCA_REPO:-Amiir-Dark/darkpanel}"
+REBECCA_REF="${REBECCA_REF:-main}"
 REBECCA_RAW_BASE="${REBECCA_RAW_BASE:-https://raw.githubusercontent.com/${REBECCA_REPO}/${REBECCA_REF}}"
 REBECCA_SCRIPT_BASE_URL_EXPLICIT=0
 if [ -n "${REBECCA_SCRIPT_BASE_URL+x}" ]; then

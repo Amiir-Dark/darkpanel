@@ -1,10 +1,10 @@
 <p align="center">
-  <a href="https://github.com/rebeccapanel/Rebecca" target="_blank" rel="noopener noreferrer">
-    <img width="160" height="160" src="./dashboard/src/assets/logo.svg" alt="Rebecca logo">
+  <a href="https://github.com/Amiir-Dark/darkpanel" target="_blank" rel="noopener noreferrer">
+    <img width="160" height="160" src="./dashboard/src/assets/logo.svg" alt="DarkPanel logo">
   </a>
 </p>
 
-<h1 align="center"/>Rebecca</h1>
+<h1 align="center">DarkPanel</h1>
 
 <p align="center">
     Unified GUI Censorship Resistant Solution Powered by <a href="https://github.com/XTLS/Xray-core">Xray</a>
@@ -12,20 +12,14 @@
 
 <br/>
 <p align="center">
-  <a href="#">
-    <img src="https://img.shields.io/github/actions/workflow/status/rebeccapanel/Rebecca/build.yml?style=flat-square" />
+  <a href="https://github.com/Amiir-Dark/darkpanel/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/Amiir-Dark/darkpanel/build.yml?style=flat-square" />
   </a>
-  <a href="https://hub.docker.com/r/rebeccapanel/rebecca" target="_blank">
-    <img src="https://img.shields.io/docker/pulls/rebeccapanel/rebecca?style=flat-square&logo=docker" />
+  <a href="https://github.com/Amiir-Dark/darkpanel/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/Amiir-Dark/darkpanel?style=flat-square" />
   </a>
-  <a href="#">
-    <img src="https://img.shields.io/github/license/rebeccapanel/Rebecca?style=flat-square" />
-  </a>
-  <a href="https://t.me/rebeccapanel_rebecca" target="_blank">
-    <img src="https://img.shields.io/badge/telegram-channel-blue?style=flat-square&logo=telegram" />
-  </a>
-  <a href="#">
-    <img src="https://img.shields.io/github/stars/rebeccapanel/Rebecca?style=social" />
+  <a href="https://github.com/Amiir-Dark/darkpanel/stargazers">
+    <img src="https://img.shields.io/github/stars/Amiir-Dark/darkpanel?style=social" />
   </a>
 </p>
 
@@ -50,7 +44,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
-  - [Why using Rebecca?](#why-using-rebecca)
+  - [Why using DarkPanel?](#why-using-darkpanel)
     - [Features](#features)
 - [Installation guide](#installation-guide)
 - [Configuration](#configuration)
@@ -60,52 +54,54 @@
 
 # Overview
 
-Rebecca is a proxy management tool that provides a simple and easy-to-use user interface for managing hundreds of proxy accounts powered by [Xray-core](https://github.com/XTLS/Xray-core) and built with a Go backend and React dashboard.
+DarkPanel is a proxy management tool that provides a simple and easy-to-use user interface for managing hundreds of proxy accounts powered by [Xray-core](https://github.com/XTLS/Xray-core) and built with a high-performance Go backend and modern React dashboard.
 
-## Why use Rebecca?
+## Why use DarkPanel?
 
-Rebecca is user-friendly, feature-rich and reliable. It lets you create different proxies for your users without any complicated configuration. Using its built-in web UI, you can monitor, modify and limit users.
+DarkPanel is user-friendly, feature-rich and reliable. It lets you create different proxies for your users without any complicated configuration. Using its built-in web UI, you can monitor, modify and limit users.
 
 ### Features
 
-- Built-in **Web UI**
+- Built-in **Modern Web UI** with dark mode & responsive layout
 - Fully **REST API** backend
 - **Multiple Nodes** support (for infrastructure distribution & scalability)
-- Supports protocols **Vmess**, **VLESS**, **Trojan** and **Shadowsocks**
+- Supports protocols **Vmess**, **VLESS**, **Trojan**, **Shadowsocks**, and **WireGuard**
 - **Multi-protocol** for a single user
 - **Multi-user** on a single inbound
 - **Multi-inbound** on a **single port** (fallbacks support)
 - **Traffic** and **expiry date** limitations
 - **Periodic** traffic limit (e.g. daily, weekly, etc.)
+- **Hardware ID (HWID)** and concurrent device connection limiter
 - **Subscription link** compatible with **V2ray** _(such as V2RayNG, SingBox, Nekoray, etc.)_, **Clash** and **ClashMeta**
 - Automated **Share link** and **QRcode** generator
 - System monitoring and **traffic statistics**
+- Advanced host sorting and inbound filtering
 - Customizable xray configuration
-- **TLS** and **REALITY** support
+- **TLS**, **REALITY**, and **ECH** support
 - Integrated **Command Line Interface (CLI)**
-- **Multi-language**
-- **Multi-admin** support (WIP)
+- **Multi-language** support (English, فارسی, 简体中文, Русский)
+- **Multi-admin** support with granular roles
 
 # Installation guide
 
-Install Rebecca master with the binary installer:
+Install DarkPanel with the binary installer:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install
 ```
 
-Do not run the installers with `sudo bash -c "$(curl ...)"`; the downloaded script can exceed Linux's single-argument limit and fail with `Argument list too long`. Always pipe the download into `sudo bash -s --` as shown above.
+> **Note:** Do not run the installers with `sudo bash -c "$(curl ...)"`; the downloaded script can exceed Linux's single-argument limit and fail with `Argument list too long`. Always pipe the download into `sudo bash -s --` as shown above.
 
 For the dev channel, use:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/dev/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install --dev
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/dev/scripts/rebecca/rebecca-binary.sh | sudo bash -s -- install --dev
 ```
 
-Install Rebecca-node on each node server with the binary node installer:
+Install DarkPanel-node on each node server with the binary node installer:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/rebeccapanel/Rebecca/master/scripts/rebecca/rebecca-node-binary.sh | sudo bash -s -- install
+curl -sL https://raw.githubusercontent.com/Amiir-Dark/darkpanel/main/scripts/rebecca/rebecca-node-binary.sh | sudo bash -s -- install
 ```
 
 The binary installers create native systemd services and automatically download the matching Linux release asset for the server architecture. The master installer supports SQLite, MySQL, and MariaDB through its install options; the node installer installs only the node runtime and connects it to the master through the certificate/token flow in the panel.
@@ -113,35 +109,35 @@ The binary installers create native systemd services and automatically download 
 Once the installation is complete:
 
 - You will see the logs that you can stop watching them by closing the terminal or pressing `Ctrl+C`
-- The Rebecca files will be located at `/opt/rebecca`
+- The application files will be located at `/opt/rebecca`
 - The configuration file can be found at `/opt/rebecca/.env` (refer to [configurations](#configuration) section to see variables)
 - The data files will be placed at `/var/lib/rebecca`
-- For security reasons, the Rebecca dashboard is not accessible via IP address. Therefore, you must obtain an SSL certificate and access your Rebecca dashboard by opening a web browser and navigating to `https://YOUR_DOMAIN:8000/dashboard/` (replace YOUR_DOMAIN with your actual domain)
-- You can also use SSH port forwarding to access the Rebecca dashboard locally without a domain. Replace `user@serverip` with your actual SSH username and server IP and Run the command below:
+- For security reasons, the DarkPanel dashboard is not accessible via IP address directly by default. Therefore, you must obtain an SSL certificate and access your DarkPanel dashboard by navigating to `https://YOUR_DOMAIN:8000/dashboard/` (replace YOUR_DOMAIN with your actual domain).
+- You can also use SSH port forwarding to access the DarkPanel dashboard locally without a domain. Replace `user@serverip` with your actual SSH username and server IP and run:
 
 ```bash
 ssh -L 8000:localhost:8000 user@serverip
 ```
 
-Finally, you can enter the following link in your browser to access your Rebecca dashboard:
+Then open the link in your browser:
 
+```
 http://localhost:8000/dashboard/
+```
 
-You will lose access to the dashboard as soon as you close the SSH terminal. Therefore, this method is recommended only for testing purposes.
-
-Next, you need to create a sudo admin for logging into the Rebecca dashboard by the following command
+Next, create a sudo admin for logging into the DarkPanel dashboard by running:
 
 ```bash
 rebecca cli admin create --role full_access
 ```
 
-That's it! You can login to your dashboard using these credentials
+That's it! You can now login to your dashboard using these credentials.
 
 > **Full access admins** can only be created by another full access admin from the dashboard or by using the on-box `rebecca cli`.  
-> If you ever need to promote an existing sudo admin, run  
+> If you ever need to promote an existing sudo admin, run:  
 > `rebecca cli admin change-role --username YOUR_ADMIN --role full_access`
 
-To see the help message of the Rebecca script, run the following command
+To see the help message of the CLI tool, run:
 
 ```bash
 rebecca --help
@@ -162,8 +158,8 @@ curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | bash 
 Clone this project and build the dashboard and Go binaries:
 
 ```bash
-git clone https://github.com/rebeccapanel/Rebecca.git
-cd Rebecca
+git clone https://github.com/Amiir-Dark/darkpanel.git
+cd darkpanel
 cd dashboard
 npm ci
 VITE_BASE_API=/api/ npm run build -- --outDir=build --assetsDir=statics
@@ -344,14 +340,14 @@ Made in [Unknown!] and published under [AGPL-3.0](./LICENSE).
 
 We ❤️‍🔥 contributors! If you'd like to contribute, please check out our [Contributing Guidelines](docs/CONTRIBUTING.md) and feel free to submit a pull request or open an issue.
 
-Check [open issues](https://github.com/rebeccapanel/Rebecca/issues) to help the progress of this project.
+Check [open issues](https://github.com/Amiir-Dark/darkpanel/issues) to help the progress of this project.
 
 <p align="center">
-Thanks to the all contributors who have helped improve Rebecca:
+Thanks to the all contributors who have helped improve DarkPanel:
 </p>
 <p align="center">
-<a href="https://github.com/rebeccapanel/Rebecca/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=rebeccapanel/Rebecca" />
+<a href="https://github.com/Amiir-Dark/darkpanel/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Amiir-Dark/darkpanel" />
 </a>
 </p>
 <p align="center">
