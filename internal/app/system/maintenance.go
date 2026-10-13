@@ -28,7 +28,7 @@ var (
 var (
 	// PanelUpdateRepo and NodeUpdateRepo are the repositories updates are read from.
 	PanelUpdateRepo = getEnvRepo("PANEL_UPDATE_REPO", "Amiir-Dark/darkpanel")
-	NodeUpdateRepo  = getEnvRepo("NODE_UPDATE_REPO", "Amiir-Dark/darkpanel")
+	NodeUpdateRepo  = getEnvRepo("NODE_UPDATE_REPO", "rebeccapanel/Rebecca-node")
 )
 
 func getEnvRepo(key, fallback string) string {
@@ -222,7 +222,17 @@ func ResolveUpdateVersion(ctx context.Context, checker UpdateChecker, repo strin
 		return "", err
 	}
 	if target == "latest" {
-		return newestStableVersion(catalog.Stable), nil
+		if len(catalog.Stable) > 0 {
+			return newestStableVersion(catalog.Stable), nil
+		}
+		if len(catalog.Dev) > 0 {
+			return catalog.Dev[0].Version, nil
+		}
+	}
+	if target == "dev" {
+		if len(catalog.Dev) > 0 {
+			return catalog.Dev[0].Version, nil
+		}
 	}
 	return version, nil
 }
@@ -259,7 +269,11 @@ func resolveUpdateTarget(ctx context.Context, checker UpdateChecker, repo string
 		}
 	case target == "latest":
 		if len(catalog.Stable) == 0 {
-			return "", BuildCatalog{}, refuse
+			if len(catalog.Dev) > 0 {
+				target = "dev"
+			} else {
+				return "", BuildCatalog{}, refuse
+			}
 		}
 	case strings.HasPrefix(target, "dev-"):
 		if !hasDevBuild(catalog.Dev, target) {
@@ -576,10 +590,12 @@ func splitMaintenanceOutput(data []byte, atEOF bool) (advance int, token []byte,
 
 func resolveRebeccaCLI() (string, error) {
 	candidates := []string{strings.TrimSpace(os.Getenv("REBECCA_SCRIPT_BIN"))}
-	if path, err := exec.LookPath("rebecca"); err == nil {
-		candidates = append(candidates, path)
+	for _, name := range []string{"darkpanel", "DarkPanel", "rebecca"} {
+		if path, err := exec.LookPath(name); err == nil {
+			candidates = append(candidates, path)
+		}
+		candidates = append(candidates, "/usr/local/bin/"+name)
 	}
-	candidates = append(candidates, "/usr/local/bin/rebecca")
 	for _, candidate := range candidates {
 		if candidate == "" {
 			continue
@@ -748,12 +764,12 @@ func (c *GitHubUpdateChecker) statusUncached(ctx context.Context, repo string, c
 	status.LatestRelease = latestRelease
 	status.LatestDev = latestDev
 	target := latestRelease
-	if currentChannel == "dev" {
+	if currentChannel == "dev" || target == nil {
 		target = latestDev
 	}
 	if target != nil {
 		if tag := strings.TrimSpace(stringFromAny((*target)["tag"])); tag != "" {
-			if currentChannel != "dev" && !versionAtLeast(tag, floorForRepo(repo)) {
+			if currentChannel != "dev" && latestRelease != nil && !versionAtLeast(tag, floorForRepo(repo)) {
 				tag = c.newestListedStable(ctx, repo)
 			}
 			if tag != "" {
@@ -846,6 +862,9 @@ func cloneReleaseInfo(info ReleaseInfo) ReleaseInfo {
 func (c *GitHubUpdateChecker) latestRelease(ctx context.Context, repo string) (*ReleaseInfo, error) {
 	var data map[string]any
 	if err := c.getJSON(ctx, strings.TrimRight(c.APIBase, "/")+"/repos/"+repo+"/releases/latest", &data); err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return nil, nil
+		}
 		return nil, err
 	}
 	tag := firstNonEmptyString(stringFromAny(data["tag_name"]), stringFromAny(data["name"]))
@@ -888,6 +907,9 @@ func (c *GitHubUpdateChecker) buildStableVersions(ctx context.Context, repo stri
 	var data []map[string]any
 	url := strings.TrimRight(c.APIBase, "/") + "/repos/" + repo + "/releases?per_page=100"
 	if err := c.getJSON(ctx, url, &data); err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return []BuildVersion{}, nil
+		}
 		return nil, err
 	}
 	versions := make([]BuildVersion, 0, len(data))
