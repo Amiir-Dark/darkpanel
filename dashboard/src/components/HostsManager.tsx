@@ -51,6 +51,8 @@ import {
 	ArrowDownIcon,
 	ArrowPathIcon,
 	ArrowUpIcon,
+	ArrowsUpDownIcon,
+	Bars3Icon,
 	CheckCircleIcon,
 	ChevronDownIcon,
 	ChevronUpIcon,
@@ -74,6 +76,7 @@ import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import { type HostsSchema, useHosts } from "contexts/HostsContext";
 import { type NodeType, useNodesQuery } from "contexts/NodesContext";
 import {
+	type DragEvent,
 	type FC,
 	lazy,
 	type ReactNode,
@@ -2019,6 +2022,10 @@ export const HostsManager: FC = () => {
 		getHostsCustomOrder(),
 	);
 	const [selectedInboundFilter, setSelectedInboundFilter] = useState<string>("all");
+	const [isReorderMode, setIsReorderMode] = useState<boolean>(false);
+	const [draggedUid, setDraggedUid] = useState<string | null>(null);
+	const [dragOverUid, setDragOverUid] = useState<string | null>(null);
+	const [animatingUid, setAnimatingUid] = useState<string | null>(null);
 	const [bulkAction, setBulkAction] = useState<
 		"enable" | "disable" | "delete" | null
 	>(null);
@@ -2189,6 +2196,8 @@ export const HostsManager: FC = () => {
 			setHostsCustomOrder(nextOrder);
 			setCustomOrder(nextOrder);
 			applyHostItems((prev) => sortHosts(prev, nextOrder));
+			setAnimatingUid(targetHost.uid);
+			setTimeout(() => setAnimatingUid(null), 1200);
 			toast({
 				title: t("hostsPage.orderUpdated"),
 				status: "success",
@@ -2220,6 +2229,8 @@ export const HostsManager: FC = () => {
 			setHostsCustomOrder(nextOrder);
 			setCustomOrder(nextOrder);
 			applyHostItems((prev) => sortHosts(prev, nextOrder));
+			setAnimatingUid(targetHost.uid);
+			setTimeout(() => setAnimatingUid(null), 1200);
 			toast({
 				title: t("hostsPage.orderUpdated"),
 				status: "success",
@@ -2229,6 +2240,41 @@ export const HostsManager: FC = () => {
 			});
 		},
 		[applyHostItems, customOrder, getInboundPeers, t, toast],
+	);
+
+	const handleDragDrop = useCallback(
+		(sourceUid: string, targetUid: string) => {
+			if (sourceUid === targetUid) return;
+			const targetHost = _hostItemsState.find((h) => h.uid === targetUid);
+			if (!targetHost) return;
+			const peers = getInboundPeers(targetHost);
+			const sourceIdx = peers.findIndex((h) => h.uid === sourceUid);
+			const targetIdx = peers.findIndex((h) => h.uid === targetUid);
+			if (sourceIdx === -1 || targetIdx === -1 || sourceIdx === targetIdx) return;
+
+			const nextPeers = [...peers];
+			const [moved] = nextPeers.splice(sourceIdx, 1);
+			nextPeers.splice(targetIdx, 0, moved);
+
+			const nextOrder = { ...customOrder };
+			nextPeers.forEach((h, index) => {
+				nextOrder[getHostOrderKey(h)] = index;
+			});
+
+			setHostsCustomOrder(nextOrder);
+			setCustomOrder(nextOrder);
+			applyHostItems((prev) => sortHosts(prev, nextOrder));
+			setAnimatingUid(sourceUid);
+			setTimeout(() => setAnimatingUid(null), 1200);
+			toast({
+				title: t("hostsPage.orderUpdated"),
+				status: "success",
+				duration: 2000,
+				isClosable: true,
+				position: "top",
+			});
+		},
+		[_hostItemsState, applyHostItems, customOrder, getInboundPeers, t, toast],
 	);
 
 	const handleResetOrder = useCallback(() => {
@@ -2753,9 +2799,9 @@ export const HostsManager: FC = () => {
 				id: "order",
 				header: t("hostsPage.order"),
 				priority: "high",
-				width: "95px",
-				minWidth: "90px",
-				maxWidth: "110px",
+				width: isReorderMode ? "130px" : "95px",
+				minWidth: isReorderMode ? "115px" : "90px",
+				maxWidth: isReorderMode ? "150px" : "110px",
 				mobilePriority: 1,
 				mobileMetaLabel: t("hostsPage.order"),
 				cell: (host) => {
@@ -2763,16 +2809,84 @@ export const HostsManager: FC = () => {
 					const idx = peers.findIndex((h) => h.uid === host.uid);
 					const isFirst = idx <= 0;
 					const isLast = idx === -1 || idx >= peers.length - 1;
+					const isMoved = animatingUid === host.uid;
+					const isOver = dragOverUid === host.uid && draggedUid !== host.uid;
+					const isDragging = draggedUid === host.uid;
+
 					return (
-						<HStack spacing={1} align="center">
+						<HStack
+							spacing={1.5}
+							align="center"
+							py={0.5}
+							px={1}
+							borderRadius="md"
+							bg={isOver ? "purple.500Alpha.200" : isMoved ? "purple.500Alpha.100" : "transparent"}
+							borderWidth="1px"
+							borderStyle={isOver ? "dashed" : "solid"}
+							borderColor={isOver ? "purple.400" : isMoved ? "purple.300" : "transparent"}
+							opacity={isDragging ? 0.35 : 1}
+							transform={isMoved ? "scale(1.05)" : "scale(1)"}
+							transition="all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
+							onDragOver={(e) => {
+								if (isReorderMode && draggedUid && draggedUid !== host.uid) {
+									e.preventDefault();
+									if (dragOverUid !== host.uid) setDragOverUid(host.uid);
+								}
+							}}
+							onDragLeave={() => {
+								if (dragOverUid === host.uid) setDragOverUid(null);
+							}}
+							onDrop={(e) => {
+								e.preventDefault();
+								setDragOverUid(null);
+								if (draggedUid && draggedUid !== host.uid) {
+									handleDragDrop(draggedUid, host.uid);
+									setDraggedUid(null);
+								}
+							}}
+						>
+							{isReorderMode && (
+								<Box
+									as="button"
+									type="button"
+									cursor="grab"
+									draggable
+									display={{ base: "none", md: "inline-flex" }}
+									alignItems="center"
+									justifyContent="center"
+									p={1}
+									borderRadius="md"
+									color="purple.300"
+									bg="purple.500Alpha.100"
+									_hover={{ color: "purple.200", bg: "purple.500Alpha.200", transform: "scale(1.1)" }}
+									_active={{ cursor: "grabbing", transform: "scale(0.95)" }}
+									transition="all 0.15s ease-in-out"
+									title={t("hostsPage.dragHandle")}
+									aria-label={t("hostsPage.dragHandle")}
+									onDragStart={(e: DragEvent<HTMLElement>) => {
+										e.dataTransfer.setData("text/plain", host.uid);
+										e.dataTransfer.effectAllowed = "move";
+										setDraggedUid(host.uid);
+									}}
+									onDragEnd={() => {
+										setDraggedUid(null);
+										setDragOverUid(null);
+									}}
+								>
+									<Bars3Icon width={16} height={16} />
+								</Box>
+							)}
 							<Badge
-								colorScheme="purple"
-								variant="subtle"
+								colorScheme={isMoved ? "teal" : "purple"}
+								variant={isMoved ? "solid" : "subtle"}
 								fontSize="11px"
 								px={1.5}
 								py={0.5}
 								borderRadius="md"
 								fontWeight="bold"
+								boxShadow={isMoved ? "0 0 10px rgba(79, 209, 197, 0.6)" : "none"}
+								transform={isMoved ? "scale(1.15)" : "scale(1)"}
+								transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
 							>
 								#{idx >= 0 ? idx + 1 : "-"}
 							</Badge>
@@ -2783,7 +2897,17 @@ export const HostsManager: FC = () => {
 									icon={<ChevronUpIcon width={14} height={14} />}
 									size="xs"
 									variant="ghost"
+									colorScheme={isMoved ? "purple" : "gray"}
 									isDisabled={isFirst}
+									_hover={{
+										transform: "translateY(-2px)",
+										bg: "purple.500Alpha.200",
+										color: "purple.300",
+									}}
+									_active={{
+										transform: "scale(0.85)",
+									}}
+									transition="all 0.15s ease-in-out"
 									onClick={(e) => {
 										e.stopPropagation();
 										handleMoveHost(host, -1);
@@ -2795,7 +2919,17 @@ export const HostsManager: FC = () => {
 									icon={<ChevronDownIcon width={14} height={14} />}
 									size="xs"
 									variant="ghost"
+									colorScheme={isMoved ? "purple" : "gray"}
 									isDisabled={isLast}
+									_hover={{
+										transform: "translateY(2px)",
+										bg: "purple.500Alpha.200",
+										color: "purple.300",
+									}}
+									_active={{
+										transform: "scale(0.85)",
+									}}
+									transition="all 0.15s ease-in-out"
 									onClick={(e) => {
 										e.stopPropagation();
 										handleMoveHost(host, 1);
@@ -2974,7 +3108,18 @@ export const HostsManager: FC = () => {
 				),
 			},
 		],
-		[getInboundPeers, handleMoveHost, inboundOptions, renderRotationValues, t],
+		[
+			animatingUid,
+			dragOverUid,
+			draggedUid,
+			getInboundPeers,
+			handleDragDrop,
+			handleMoveHost,
+			inboundOptions,
+			isReorderMode,
+			renderRotationValues,
+			t,
+		],
 	);
 
 	const hostRowActions = (host: HostState): DataTableRowAction<HostState>[] => {
@@ -3128,6 +3273,26 @@ export const HostsManager: FC = () => {
 					>
 						{t("hostsPage.showDisabled")}
 					</Checkbox>
+					<Button
+						size="sm"
+						variant={isReorderMode ? "solid" : "outline"}
+						colorScheme="purple"
+						leftIcon={
+							isReorderMode ? (
+								<CheckCircleIcon width={16} />
+							) : (
+								<ArrowsUpDownIcon width={16} />
+							)
+						}
+						onClick={() => setIsReorderMode((prev) => !prev)}
+						h="32px"
+						borderRadius="md"
+						title={t("hostsPage.reorderMode")}
+					>
+						{isReorderMode
+							? t("hostsPage.reorderDone")
+							: t("hostsPage.reorderMode")}
+					</Button>
 					{Object.keys(customOrder).length > 0 && (
 						<Button
 							size="xs"
@@ -3140,6 +3305,35 @@ export const HostsManager: FC = () => {
 						</Button>
 					)}
 				</Stack>
+				{isReorderMode && (
+					<HStack
+						mt={3}
+						p={3}
+						bg="purple.500Alpha.100"
+						borderWidth="1px"
+						borderColor="purple.500Alpha.300"
+						borderRadius="md"
+						fontSize="xs"
+						color="purple.200"
+						justify="space-between"
+						align="center"
+						flexWrap="wrap"
+						gap={2}
+					>
+						<HStack spacing={2}>
+							<ArrowsUpDownIcon width={16} height={16} />
+							<Text>{t("hostsPage.reorderHint")}</Text>
+						</HStack>
+						<Button
+							size="xs"
+							colorScheme="purple"
+							variant="ghost"
+							onClick={() => setIsReorderMode(false)}
+						>
+							{t("hostsPage.reorderDone")}
+						</Button>
+					</HStack>
+				)}
 			</ResourceListCard>
 
 			<DataTable
