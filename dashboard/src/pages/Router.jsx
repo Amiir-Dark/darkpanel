@@ -6,15 +6,9 @@ import { createBrowserRouter, isRouteErrorResponse, Navigate, redirect, useNavig
 import { fetch } from "../service/http";
 import { recoverFromStaleChunk } from "../utils/chunkRecovery";
 import { Login } from "./Login";
-const AppLayout = lazy(async () => ({
-    default: (await import("../components/AppLayout")).AppLayout,
-}));
-const DashboardPage = lazy(async () => ({
-    default: (await import("./DashboardPage")).DashboardPage,
-}));
-const UsersPage = lazy(async () => ({
-    default: (await import("./UsersPage")).UsersPage,
-}));
+import { AppLayout } from "../components/AppLayout";
+import { DashboardPage } from "./DashboardPage";
+import { UsersPage } from "./UsersPage";
 const AccessInsightsPage = lazy(() => import("./AccessInsightsPage"));
 const AdminsPage = lazy(async () => ({
     default: (await import("./AdminsPage")).AdminsPage,
@@ -23,12 +17,10 @@ const ApiDocsPage = lazy(async () => ({
     default: (await import("./ApiDocsPage")).ApiDocsPage,
 }));
 const BulkActionsPage = lazy(() => import("./BulkActionsPage"));
-const CoreSettingsPage = lazy(() => import("./CoreSettingsPage"));
+import CoreSettingsPage from "./CoreSettingsPage";
 const HostsPage = lazy(() => import("./HostsPage"));
 const HAProxyPage = lazy(() => import("./HAProxyPage"));
-const IntegrationSettingsPage = lazy(async () => ({
-    default: (await import("./IntegrationSettingsPage")).IntegrationSettingsPage,
-}));
+import { IntegrationSettingsPage } from "./IntegrationSettingsPage";
 const PlaceholderSettingsPage = lazy(() => import("./PlaceholderSettingsPage"));
 const RecentActionsPage = lazy(async () => ({
     default: (await import("./RecentActionsPage")).RecentActionsPage,
@@ -169,18 +161,18 @@ const fetchAdminLoader = async ({ request }) => {
 export const router = createBrowserRouter([
     {
         path: "/",
-        element: <LazyPage Page={AppLayout}/>,
+        element: <AppLayout />,
         hydrateFallbackElement: <PageLoading />,
         errorElement: <RouteErrorPage />,
         loader: fetchAdminLoader,
         children: [
             {
                 index: true,
-                element: <LazyPage Page={DashboardPage}/>,
+                element: <DashboardPage />,
             },
             {
                 path: "users",
-                element: <LazyPage Page={UsersPage}/>,
+                element: <UsersPage />,
             },
             {
                 path: "bulk-actions",
@@ -220,7 +212,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "settings",
-                element: <LazyPage Page={IntegrationSettingsPage}/>,
+                element: <IntegrationSettingsPage />,
             },
             {
                 path: "placeholders",
@@ -232,7 +224,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "xray-settings",
-                element: <LazyPage Page={CoreSettingsPage}/>,
+                element: <CoreSettingsPage />,
             },
             {
                 path: "xray-logs",

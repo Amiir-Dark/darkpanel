@@ -649,36 +649,78 @@ func nodeIDFromTarget(target string, nodeIDValue string) (int64, bool, error) {
 	return id, true, nil
 }
 
+var (
+	cachedIPv4   string
+	cachedIPv4At time.Time
+	cachedIPv6   string
+	cachedIPv6At time.Time
+	cachedIPMu   sync.RWMutex
+)
+
 func masterPublicIPv4(ctx context.Context) string {
+	cachedIPMu.RLock()
+	if cachedIPv4 != "" && time.Since(cachedIPv4At) < 10*time.Minute {
+		ip := cachedIPv4
+		cachedIPMu.RUnlock()
+		return ip
+	}
+	cachedIPMu.RUnlock()
+
+	var found string
 	for _, endpoint := range []string{
 		"http://api4.ipify.org/",
 		"http://ipv4.icanhazip.com/",
 		"https://ifconfig.io/ip",
 	} {
 		if ip := fetchPublicIP(ctx, endpoint, true); ip != "" {
-			return ip
+			found = ip
+			break
 		}
 	}
-	if ip := localOutboundIPv4(); ip != "" {
-		return ip
+	if found == "" {
+		if ip := localOutboundIPv4(); ip != "" {
+			found = ip
+		} else {
+			found = "127.0.0.1"
+		}
 	}
-	return "127.0.0.1"
+
+	cachedIPMu.Lock()
+	cachedIPv4 = found
+	cachedIPv4At = time.Now()
+	cachedIPMu.Unlock()
+	return found
 }
 
 func masterPublicIPv6(ctx context.Context) string {
+	cachedIPMu.RLock()
+	if cachedIPv6 != "" && time.Since(cachedIPv6At) < 10*time.Minute {
+		ip := cachedIPv6
+		cachedIPMu.RUnlock()
+		return ip
+	}
+	cachedIPMu.RUnlock()
+
+	var found = "[::1]"
 	for _, endpoint := range []string{
 		"http://api6.ipify.org/",
 		"http://ipv6.icanhazip.com/",
 	} {
 		if ip := fetchPublicIP(ctx, endpoint, false); ip != "" {
-			return "[" + ip + "]"
+			found = "[" + ip + "]"
+			break
 		}
 	}
-	return "[::1]"
+
+	cachedIPMu.Lock()
+	cachedIPv6 = found
+	cachedIPv6At = time.Now()
+	cachedIPMu.Unlock()
+	return found
 }
 
 func fetchPublicIP(ctx context.Context, endpoint string, wantIPv4 bool) string {
-	requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	requestCtx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
 	defer cancel()
 	request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, endpoint, nil)
 	if err != nil {

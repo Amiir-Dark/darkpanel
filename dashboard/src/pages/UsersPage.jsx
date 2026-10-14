@@ -13,16 +13,9 @@ import { Trans, useTranslation } from "react-i18next";
 import { fetch } from "service/http";
 import { AdminStatus } from "types/Admin";
 const AUTO_REFRESH_INTERVALS = [3_000, 5_000, 10_000, 30_000];
-const UserDialog = lazy(async () => ({
-    default: (await import("components/UserDialog")).UserDialog,
-}));
-const QRCodeDialog = lazy(async () => ({
-    default: (await import("components/QRCodeDialog")).QRCodeDialog,
-}));
-const UserQuickEditModal = lazy(async () => ({
-    default: (await import("components/users/UserQuickEditModal"))
-        .UserQuickEditModal,
-}));
+import { UserDialog } from "components/UserDialog";
+import { QRCodeDialog } from "components/QRCodeDialog";
+import { UserQuickEditModal } from "components/users/UserQuickEditModal";
 const ResetIcon = chakra(ArrowPathIcon, {
     baseStyle: { w: 5, h: 5 },
 });
@@ -260,17 +253,11 @@ export const UsersPage = () => {
 				<Pagination />
 			</VStack>
 
-			{isUserDialogOpen && (<Suspense fallback={null}>
-					<UserDialog />
-				</Suspense>)}
-			{isQRCodeDialogOpen && (<Suspense fallback={null}>
-					<QRCodeDialog />
-				</Suspense>)}
+			{isUserDialogOpen && <UserDialog />}
+			{isQRCodeDialogOpen && <QRCodeDialog />}
 			<UserActionDialog action="reset"/>
 			<UserActionDialog action="revoke"/>
-			{isQuickEditOpen && (<Suspense fallback={null}>
-					<UserQuickEditModal />
-				</Suspense>)}
+			{isQuickEditOpen && <UserQuickEditModal />}
 		</Box>);
 };
 export default UsersPage;
