@@ -51,6 +51,7 @@ const USER_ONLY_TEMPLATE: PermissionTemplate = {
 		self_sessions: true,
 		self_2fa: true,
 		self_placeholders: false,
+		self_subscription: false,
 	},
 	sudo: {
 		[AdminSudoScope.Nodes]: false,
@@ -102,6 +103,7 @@ const SUDO_TEMPLATE: PermissionTemplate = {
 		self_sessions: true,
 		self_2fa: true,
 		self_placeholders: true,
+		self_subscription: true,
 	},
 	sudo: {
 		[AdminSudoScope.Nodes]: true,
@@ -153,6 +155,7 @@ const FULL_ACCESS_TEMPLATE: PermissionTemplate = {
 		self_sessions: true,
 		self_2fa: true,
 		self_placeholders: true,
+		self_subscription: true,
 	},
 	sudo: {
 		[AdminSudoScope.Nodes]: true,

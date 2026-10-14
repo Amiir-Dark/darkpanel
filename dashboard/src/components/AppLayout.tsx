@@ -276,6 +276,11 @@ export function AppLayout() {
 		(userData.role === AdminRole.Sudo &&
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
 		Boolean(userData.permissions?.self_permissions?.self_placeholders);
+	const canManageSubscription =
+		userData.role === AdminRole.FullAccess ||
+		(userData.role === AdminRole.Sudo &&
+			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
+		Boolean(userData.permissions?.self_permissions?.self_subscription);
 
 	const settingsMenuItems = useMemo(() => {
 		const items: Array<SettingsMenuItem | null> = [
@@ -311,11 +316,16 @@ export function AppLayout() {
 						icon: NodesIcon,
 					}
 				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Integrations]
+			(isPrivilegedAdmin && sectionAccess?.[AdminSection.Integrations]) ||
+			canManageSubscription
 				? {
 						key: "settings",
 						label: t("header.integrationSettings"),
-						to: "/settings",
+						to:
+							isPrivilegedAdmin &&
+							sectionAccess?.[AdminSection.Integrations]
+								? "/settings"
+								: "/settings#subscriptions",
 						icon: MasterSettingsIcon,
 					}
 				: null,

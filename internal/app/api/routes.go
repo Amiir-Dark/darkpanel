@@ -191,8 +191,8 @@ func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings/subscriptions/certificates/import", s.requireSudo(s.handleCertificateImport))
 	r.HandleFunc("/settings/subscriptions/certificates/renew", s.requireSudo(s.handleCertificateRenew))
 	r.HandleFunc("/settings/subscriptions/certificates/*", s.requireSudo(s.handleCertificatePath))
-	r.HandleFunc("/settings/subscriptions/admins/*", s.requireSudo(s.handleAdminSubscriptionSettingsPath))
-	r.HandleFunc("/settings/subscriptions", s.requireSudo(s.handleSubscriptionSettings))
+	r.HandleFunc("/settings/subscriptions/admins/*", s.requireAdmin(s.handleAdminSubscriptionSettingsPath))
+	r.HandleFunc("/settings/subscriptions", s.requireAdmin(s.handleSubscriptionSettings))
 }
 
 func (s *Server) registerServiceRoutes(r chi.Router) {

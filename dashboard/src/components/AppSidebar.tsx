@@ -146,6 +146,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		self_change_password: false,
 		self_api_keys: false,
 		self_placeholders: false,
+		self_subscription: false,
 	};
 	const baseSelf =
 		userData.permissions?.self_permissions ?? defaultSelfPermissions;
@@ -166,6 +167,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		(userData.role === AdminRole.Sudo &&
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
 		Boolean(baseSelf.self_placeholders);
+	const canManageSubscription =
+		isFullAccess ||
+		(userData.role === AdminRole.Sudo &&
+			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
+		Boolean(baseSelf.self_subscription);
 	const [hasNewTutorials, setHasNewTutorials] = useState(false);
 
 	const checkTutorialUpdates = useCallback(async () => {
@@ -223,10 +229,12 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 					icon: NodeIconStyled,
 				}
 			: null,
-		sectionAccess?.[AdminSection.Integrations]
+		sectionAccess?.[AdminSection.Integrations] || canManageSubscription
 			? {
 					title: t("header.integrationSettings"),
-					url: "/settings",
+					url: sectionAccess?.[AdminSection.Integrations]
+						? "/settings"
+						: "/settings#subscriptions",
 					icon: MasterSettingsIconStyled,
 				}
 			: null,

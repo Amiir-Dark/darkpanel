@@ -134,6 +134,10 @@ const selfPermissionKeys: Array<{ key: SelfPermissionToggle; label: string }> =
 			key: SelfPermissionToggle.SelfPlaceholders,
 			label: "admins.self.placeholders",
 		},
+		{
+			key: SelfPermissionToggle.SelfSubscription,
+			label: "admins.self.subscription",
+		},
 	];
 
 const sudoPermissionKeys: Array<{ key: AdminSudoScope; label: string }> = [

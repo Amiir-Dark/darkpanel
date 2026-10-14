@@ -119,6 +119,7 @@ const adminPermissionsSchema: z.ZodType<AdminPermissions> = z.object({
 		self_sessions: z.boolean(),
 		self_2fa: z.boolean(),
 		self_placeholders: z.boolean(),
+		self_subscription: z.boolean(),
 	}),
 	sections: z.object({
 		usage: z.boolean(),

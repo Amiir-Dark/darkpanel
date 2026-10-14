@@ -1945,6 +1945,7 @@
 	"settings.subscriptions.placeholderRemark": "Placeholder config name",
 	"settings.subscriptions.placeholderRemarkHint": "Supports variables such as {USERNAME} and {STATUS_TEXT}.",
 	"admins.self.placeholders": "Manage own placeholders",
+	"admins.self.subscription": "Manage own subscription & Client Apps",
 	"placeholders.menu": "Placeholder",
 	"placeholders.settingsMenu": "Placeholder settings",
 	"placeholders.title": "Subscription placeholders",

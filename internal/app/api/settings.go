@@ -9,6 +9,7 @@ import (
 
 	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
 	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
+	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 )
 
 type allSettingsRequest struct {
@@ -176,6 +177,13 @@ func (s *Server) handleSubscriptionSettings(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	manageAll := principal.Role == string(adminapp.RoleFullAccess) ||
+		(principal.Role == string(adminapp.RoleSudo) && principal.Context.Admin.Permissions.Sudo.Subscriptions)
+	if !manageAll && !hasSelfPermission(principal.Context.Admin, "self_subscription") {
+		writeError(w, http.StatusForbidden, "You're not allowed")
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
 		bundle, err := s.settingsRepo.SubscriptionBundle(r.Context())
@@ -183,16 +191,37 @@ func (s *Server) handleSubscriptionSettings(w http.ResponseWriter, r *http.Reque
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		bundle.Certificates, err = s.certificateManager.List(r.Context())
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
-			return
+		if manageAll {
+			bundle.Certificates, err = s.certificateManager.List(r.Context())
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		} else {
+			var selfAdmins []settingsapp.AdminSubscriptionSettings
+			for _, adm := range bundle.Admins {
+				if adm.ID == principal.ID {
+					selfAdmins = append(selfAdmins, adm)
+					break
+				}
+			}
+			bundle.Admins = selfAdmins
+			bundle.Certificates = []settingsapp.SubscriptionCertificate{}
 		}
 		writeJSON(w, http.StatusOK, bundle)
 	case http.MethodPut:
 		raw, err := decodeRawJSONMap(r)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if !manageAll {
+			adminSettings, err := s.settingsRepo.UpdateAdminSubscriptionSettings(r.Context(), principal.ID, raw)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, adminSettings)
 			return
 		}
 		settings, err := s.settingsRepo.UpdateSubscriptionSettings(r.Context(), raw)
@@ -216,6 +245,15 @@ func (s *Server) handleAdminSubscriptionSettingsPath(w http.ResponseWriter, r *h
 	if err != nil || adminID <= 0 {
 		writeError(w, http.StatusNotFound, "not found")
 		return
+	}
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	manageAll := principal.Role == string(adminapp.RoleFullAccess) ||
+		(principal.Role == string(adminapp.RoleSudo) && principal.Context.Admin.Permissions.Sudo.Subscriptions)
+	if !manageAll {
+		if adminID != principal.ID || !hasSelfPermission(principal.Context.Admin, "self_subscription") {
+			writeError(w, http.StatusForbidden, "You're not allowed")
+			return
+		}
 	}
 	if r.Method != http.MethodPut {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")

@@ -1935,6 +1935,7 @@
 	"settings.subscriptions.placeholderRemark": "نام کانفیگ جایگزین",
 	"settings.subscriptions.placeholderRemarkHint": "از متغیرهایی مانند {USERNAME} و {STATUS_TEXT} پشتیبانی می‌کند.",
 	"admins.self.placeholders": "مدیریت پلیسهولدرهای خود",
+	"admins.self.subscription": "مدیریت سابسکریپشن و کلاینت‌ها (Client Apps)",
 	"placeholders.menu": "پلیسهولدر",
 	"placeholders.settingsMenu": "تنظیمات پلیسهولدر",
 	"placeholders.title": "پلیسهولدر اشتراک",

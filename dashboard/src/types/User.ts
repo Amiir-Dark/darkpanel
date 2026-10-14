@@ -165,6 +165,7 @@ export type UserCreateWithService = Pick<
 };
 
 export type UserApi = {
+	id?: number;
 	role: AdminRole;
 	permissions: AdminPermissions;
 	telegram_id: number | string;

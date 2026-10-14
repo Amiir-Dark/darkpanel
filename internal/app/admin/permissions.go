@@ -55,6 +55,7 @@ func RoleDefaultPermissions(role AdminRole) AdminPermissions {
 	selfPermissions := defaultSelfPermissions()
 	if role.IsGlobal() {
 		selfPermissions["self_placeholders"] = true
+		selfPermissions["self_subscription"] = true
 	}
 	return AdminPermissions{
 		Users:           baseUsers,
@@ -108,6 +109,7 @@ func defaultSelfPermissions() map[string]bool {
 		"self_sessions":        true,
 		"self_2fa":             true,
 		"self_placeholders":    false,
+		"self_subscription":    false,
 	}
 }
 

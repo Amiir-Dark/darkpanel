@@ -56,6 +56,7 @@ export enum SelfPermissionToggle {
 	SelfSessions = "self_sessions",
 	Self2FA = "self_2fa",
 	SelfPlaceholders = "self_placeholders",
+	SelfSubscription = "self_subscription",
 }
 
 export enum AdminSudoScope {
@@ -91,6 +92,7 @@ export type AdminPermissions = {
 		self_sessions: boolean;
 		self_2fa: boolean;
 		self_placeholders: boolean;
+		self_subscription: boolean;
 	};
 	sudo: SudoPermissionSettings;
 };

@@ -88,6 +88,7 @@ import {
 	type TelegramSettingsUpdatePayload,
 	type AllSettingsUpdatePayload,
 	updateAllSettings,
+	updateAdminSubscriptionSettings,
 	updateSubscriptionCertificateServing,
 	revokeSubscriptionCertificate,
 } from "service/settings";
@@ -835,6 +836,12 @@ export const IntegrationSettingsPage = () => {
 	const canManageIntegrations =
 		getUserIsSuccess &&
 		(isSudoOrFull || Boolean(userData.permissions?.sections.integrations));
+	const canManageSubscription =
+		getUserIsSuccess &&
+		(canManageIntegrations ||
+			Boolean(userData.permissions?.self_permissions?.self_subscription));
+	const isSelfOnlySubscription = !canManageIntegrations && canManageSubscription;
+	const currentAdminId = userData.id ?? 0;
 	const canReadMaintenance =
 		getUserIsSuccess &&
 		(userData.role === "full_access" ||
@@ -842,8 +849,14 @@ export const IntegrationSettingsPage = () => {
 				Boolean(userData.permissions?.sudo.maintenance)));
 	const queryClient = useQueryClient();
 	const [activeIntegrationTab, setActiveIntegrationTab] = useState(
-		() => readSettingsHash().index,
+		() => (isSelfOnlySubscription ? 2 : readSettingsHash().index),
 	);
+
+	useEffect(() => {
+		if (isSelfOnlySubscription && activeIntegrationTab !== 2) {
+			setActiveIntegrationTab(2);
+		}
+	}, [isSelfOnlySubscription, activeIntegrationTab]);
 
 	const { data, isLoading, refetch } = useQuery(
 		"telegram-settings",
@@ -902,7 +915,9 @@ export const IntegrationSettingsPage = () => {
 			refetchOnWindowFocus: false,
 			staleTime: 60_000,
 			keepPreviousData: true,
-			enabled: canManageIntegrations && activeIntegrationTab >= 2,
+			enabled:
+				canManageSubscription &&
+				(activeIntegrationTab >= 2 || isSelfOnlySubscription),
 		},
 	);
 
@@ -1507,14 +1522,36 @@ export const IntegrationSettingsPage = () => {
 			}),
 		[adminOverrides, subscriptionBundle?.admins],
 	);
-	const hasUnsavedChanges =
-		runtimeDirty ||
-		panelDirty ||
-		isDirty ||
-		isSubscriptionDirty ||
-		dirtyAdminUpdates.length > 0;
+	const adminSelfSaveMutation = useMutation(
+		(payload: AdminSubscriptionUpdatePayload) =>
+			updateAdminSubscriptionSettings(currentAdminId, payload),
+		{
+			onSuccess: () => {
+				generateSuccessMessage(t("settings.savedSuccessfully"), toast);
+				void refetchSubscriptionSettings();
+			},
+			onError: (err) => {
+				generateErrorMessage(err, toast);
+			},
+		},
+	);
+
+	const hasUnsavedChanges = isSelfOnlySubscription
+		? dirtyAdminUpdates.length > 0
+		: runtimeDirty ||
+		  panelDirty ||
+		  isDirty ||
+		  isSubscriptionDirty ||
+		  dirtyAdminUpdates.length > 0;
 
 	const handleSaveAll = async () => {
+		if (isSelfOnlySubscription) {
+			const myAdmin = adminOverrides[currentAdminId];
+			if (!myAdmin) return;
+			adminSelfSaveMutation.mutate(buildAdminSubscriptionPayload(myAdmin));
+			return;
+		}
+
 		const [telegramValid, subscriptionsValid] = await Promise.all([
 			isDirty ? validateTelegram() : true,
 			isSubscriptionDirty ? validateSubscriptions() : true,
@@ -1877,7 +1914,7 @@ export const IntegrationSettingsPage = () => {
 		return <PageLoadingSkeleton />;
 	}
 
-	if (!canManageIntegrations) {
+	if (!canManageIntegrations && !canManageSubscription) {
 		return (
 			<VStack spacing={4} align="stretch">
 				<Heading size="lg">{t("header.integrationSettings")}</Heading>
@@ -2000,32 +2037,43 @@ export const IntegrationSettingsPage = () => {
 						"&::-webkit-scrollbar": { display: "none" },
 						button: { flexShrink: 0 },
 					}}
-					tabs={[
-						{
-							value: "panel",
-							isActive: activeIntegrationTab === 0,
-							onClick: () => handleIntegrationTabChange(0),
-							label: t("settings.panel.tabTitle"),
-						},
-						{
-							value: "telegram",
-							isActive: activeIntegrationTab === 1,
-							onClick: () => handleIntegrationTabChange(1),
-							label: t("settings.telegram"),
-						},
-						{
-							value: "subscriptions",
-							isActive: activeIntegrationTab === 2,
-							onClick: () => handleIntegrationTabChange(2),
-							label: t("settings.subscriptions.tabTitle"),
-						},
-						{
-							value: "ssl",
-							isActive: activeIntegrationTab === 3,
-							onClick: () => handleIntegrationTabChange(3),
-							label: t("settings.ssl.tabTitle"),
-						},
-					]}
+					tabs={
+						isSelfOnlySubscription
+							? [
+									{
+										value: "subscriptions",
+										isActive: true,
+										onClick: () => handleIntegrationTabChange(2),
+										label: t("settings.subscriptions.tabTitle"),
+									},
+								]
+							: [
+									{
+										value: "panel",
+										isActive: activeIntegrationTab === 0,
+										onClick: () => handleIntegrationTabChange(0),
+										label: t("settings.panel.tabTitle"),
+									},
+									{
+										value: "telegram",
+										isActive: activeIntegrationTab === 1,
+										onClick: () => handleIntegrationTabChange(1),
+										label: t("settings.telegram"),
+									},
+									{
+										value: "subscriptions",
+										isActive: activeIntegrationTab === 2,
+										onClick: () => handleIntegrationTabChange(2),
+										label: t("settings.subscriptions.tabTitle"),
+									},
+									{
+										value: "ssl",
+										isActive: activeIntegrationTab === 3,
+										onClick: () => handleIntegrationTabChange(3),
+										label: t("settings.ssl.tabTitle"),
+									},
+								]
+					}
 				/>
 				<Button
 					flexShrink={0}
@@ -2033,8 +2081,14 @@ export const IntegrationSettingsPage = () => {
 					colorScheme="primary"
 					leftIcon={<SaveIcon />}
 					onClick={handleSaveAll}
-					isLoading={saveAllMutation.isLoading}
-					isDisabled={!hasUnsavedChanges || saveAllMutation.isLoading}
+					isLoading={
+						saveAllMutation.isLoading || adminSelfSaveMutation.isLoading
+					}
+					isDisabled={
+						!hasUnsavedChanges ||
+						saveAllMutation.isLoading ||
+						adminSelfSaveMutation.isLoading
+					}
 				>
 					{t("settings.save")}
 				</Button>
@@ -2812,7 +2866,487 @@ export const IntegrationSettingsPage = () => {
 					) : (
 						<form onSubmit={(event) => event.preventDefault()}>
 							<VStack align="stretch" spacing={6}>
-								<Box className="master-settings-card">
+								{isSelfOnlySubscription ? (
+									<Box className="master-settings-card">
+										{(() => {
+											const admin = adminOverrides[currentAdminId] || {
+												id: currentAdminId,
+												username: userData.username,
+												subscription_domain: null,
+												subscription_settings: {},
+											};
+											const settings = admin.subscription_settings || {};
+											return (
+												<VStack spacing={5} align="stretch">
+													<Flex
+														justify="space-between"
+														align={{ base: "flex-start", md: "center" }}
+														flexDirection={{ base: "column", md: "row" }}
+														gap={3}
+													>
+														<Box>
+															<Heading size="sm" mb={1}>
+																{t(
+																	"settings.subscriptions.myTitle",
+																	"تنظیمات سابسکریپشن اختصاصی",
+																)}
+															</Heading>
+															<Text fontSize="sm" color="gray.500">
+																{t(
+																	"settings.subscriptions.myDescription",
+																	"تنظیم دامنه اختصاصی، پیام‌ها و مدیریت کلاینت‌های مجاز برای کاربران شما",
+																)}
+															</Text>
+														</Box>
+														<HStack spacing={2}>
+															{admin.subscription_domain ? (
+																<Badge colorScheme="blue">
+																	{admin.subscription_domain}
+																</Badge>
+															) : null}
+															<Button
+																variant="outline"
+																size="sm"
+																leftIcon={<RefreshIcon />}
+																onClick={() => refetchSubscriptionSettings()}
+															>
+																{t("refresh")}
+															</Button>
+														</HStack>
+													</Flex>
+
+													{/* Client Apps for this admin */}
+													<Box
+														p={4}
+														borderRadius="xl"
+														borderWidth="1px"
+														borderColor={borderColor}
+														bg={subCardBg}
+													>
+														<Heading size="xs" mb={1}>
+															{t(
+																"settings.subscriptions.clientAppsTitle",
+																"Client Apps",
+															)}
+														</Heading>
+														<Text fontSize="xs" color="gray.500" mb={3.5}>
+															{t(
+																"settings.subscriptions.clientAppsDescription",
+																"Choose which apps your users may use to update their subscriptions. Blocked apps get a \"not allowed\" response.",
+															)}
+														</Text>
+														<SimpleGrid
+															columns={{ base: 1, md: 2, lg: 3 }}
+															spacing={3.5}
+														>
+															{CLIENT_APPS_LIST.map((app) => {
+																const blocked =
+																	(settings.blocked_client_apps as string[]) ||
+																	[];
+																const isBlocked = blocked.some(
+																	(b) =>
+																		b.toLowerCase() ===
+																		app.key.toLowerCase(),
+																);
+																const isAllowed = !isBlocked;
+																const stats =
+																	subscriptionBundle?.settings
+																		?.client_app_stats || {};
+																const pct =
+																	stats[app.key] !== undefined
+																		? `${stats[app.key].toFixed(1)}%`
+																		: "0.0%";
+
+																return (
+																	<Flex
+																		key={app.key}
+																		p={3.5}
+																		borderRadius="xl"
+																		borderWidth="1px"
+																		borderColor={
+																			colorMode === "dark"
+																				? "whiteAlpha.100"
+																				: "gray.200"
+																		}
+																		bg={
+																			colorMode === "dark"
+																				? "whiteAlpha.50"
+																				: "gray.50"
+																		}
+																		justify="space-between"
+																		align="center"
+																		transition="all 0.2s ease"
+																		_hover={{
+																			borderColor:
+																				colorMode === "dark"
+																					? "whiteAlpha.200"
+																					: "gray.300",
+																			bg:
+																				colorMode === "dark"
+																					? "whiteAlpha.100"
+																					: "gray.100",
+																		}}
+																	>
+																		<Box>
+																			<Text
+																				fontWeight="semibold"
+																				fontSize="sm"
+																			>
+																				{app.name}
+																			</Text>
+																			<Text
+																				fontSize="xs"
+																				color="gray.500"
+																				mt={0.5}
+																			>
+																				{t(
+																					`settings.subscriptions.clientAppPlatforms.${app.key}`,
+																					app.platform,
+																				)}{" "}
+																				· {pct}
+																			</Text>
+																		</Box>
+																		<Switch
+																			colorScheme="primary"
+																			isChecked={isAllowed}
+																			onChange={(e) => {
+																				let updated: string[];
+																				if (e.target.checked) {
+																					updated = blocked.filter(
+																						(k) =>
+																							k.toLowerCase() !==
+																							app.key.toLowerCase(),
+																					);
+																				} else {
+																					updated = [
+																						...blocked.filter(
+																							(k) =>
+																								k.toLowerCase() !==
+																								app.key.toLowerCase(),
+																						),
+																						app.key,
+																					];
+																				}
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"blocked_client_apps" as any,
+																					updated as any,
+																				);
+																			}}
+																		/>
+																	</Flex>
+																);
+															})}
+														</SimpleGrid>
+													</Box>
+
+													{/* General and Branding settings */}
+													<SimpleGrid
+														columns={{ base: 1, md: 2 }}
+														spacing={4}
+													>
+														<FormControl>
+															<FormLabel>
+																{t("settings.subscriptions.adminDomain")}
+															</FormLabel>
+															<Input
+																placeholder="https://sub.domain.com"
+																value={admin.subscription_domain ?? ""}
+																onChange={(event) =>
+																	handleAdminFieldChange(
+																		admin.id,
+																		"subscription_domain",
+																		event.target.value,
+																	)
+																}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel>
+																{t("settings.subscriptions.profileTitle")}
+															</FormLabel>
+															<Input
+																placeholder="My Service"
+																value={
+																	settings.subscription_profile_title ?? ""
+																}
+																onChange={(event) =>
+																	handleAdminTemplateChange(
+																		admin.id,
+																		"subscription_profile_title",
+																		event.target.value,
+																	)
+																}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel>
+																{t("settings.subscriptions.supportUrl")}
+															</FormLabel>
+															<Input
+																placeholder="https://t.me/support"
+																value={settings.subscription_support_url ?? ""}
+																onChange={(event) =>
+																	handleAdminTemplateChange(
+																		admin.id,
+																		"subscription_support_url",
+																		event.target.value,
+																	)
+																}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel>
+																{t("settings.subscriptions.updateInterval")}
+															</FormLabel>
+															<Input
+																type="number"
+																placeholder="12"
+																value={
+																	settings.subscription_update_interval ?? ""
+																}
+																onChange={(event) =>
+																	handleAdminTemplateChange(
+																		admin.id,
+																		"subscription_update_interval",
+																		event.target.value,
+																	)
+																}
+															/>
+														</FormControl>
+													</SimpleGrid>
+
+													{/* Announcement settings */}
+													<Box
+														p={4}
+														borderRadius="xl"
+														borderWidth="1px"
+														borderColor={borderColor}
+														bg={subCardBg}
+													>
+														<Heading size="xs" mb={3}>
+															{t(
+																"settings.subscriptions.happAnnouncementTitle",
+																"پیام و اطلاع‌رسانی سابسکریپشن",
+															)}
+														</Heading>
+														<SimpleGrid
+															columns={{ base: 1, md: 2 }}
+															spacing={4}
+														>
+															<FormControl gridColumn={{ base: "span 1", md: "span 2" }}>
+																<FormLabel>
+																	{t(
+																		"settings.subscriptions.subscriptionAnnouncement",
+																	)}
+																</FormLabel>
+																<Input
+																	placeholder={t(
+																		"settings.subscriptions.subscriptionAnnouncementPlaceholder",
+																	)}
+																	value={
+																		settings.subscription_announcement ?? ""
+																	}
+																	onChange={(event) =>
+																		handleAdminTemplateChange(
+																			admin.id,
+																			"subscription_announcement",
+																			event.target.value,
+																		)
+																	}
+																/>
+															</FormControl>
+															<FormControl>
+																<FormLabel>
+																	{t(
+																		"settings.subscriptions.happSubInfoColor",
+																	)}
+																</FormLabel>
+																<Input
+																	placeholder="#4F46E5"
+																	value={
+																		settings.happ_sub_info_color ?? ""
+																	}
+																	onChange={(event) =>
+																		handleAdminTemplateChange(
+																			admin.id,
+																			"happ_sub_info_color",
+																			event.target.value,
+																		)
+																	}
+																/>
+															</FormControl>
+															<FormControl>
+																<FormLabel>
+																	{t(
+																		"settings.subscriptions.happSubInfoButtonText",
+																	)}
+																</FormLabel>
+																<Input
+																	placeholder={t(
+																		"settings.subscriptions.happSubInfoButtonTextPlaceholder",
+																	)}
+																	value={
+																		settings.happ_sub_info_button_text ?? ""
+																	}
+																	onChange={(event) =>
+																		handleAdminTemplateChange(
+																			admin.id,
+																			"happ_sub_info_button_text",
+																			event.target.value,
+																		)
+																	}
+																/>
+															</FormControl>
+															<FormControl gridColumn={{ base: "span 1", md: "span 2" }}>
+																<FormLabel>
+																	{t(
+																		"settings.subscriptions.happSubInfoButtonLink",
+																	)}
+																</FormLabel>
+																<Input
+																	placeholder="https://t.me/your_channel"
+																	value={
+																		settings.happ_sub_info_button_link ?? ""
+																	}
+																	onChange={(event) =>
+																		handleAdminTemplateChange(
+																			admin.id,
+																			"happ_sub_info_button_link",
+																			event.target.value,
+																		)
+																	}
+																/>
+															</FormControl>
+														</SimpleGrid>
+													</Box>
+
+													{/* Templates Section */}
+													<Box
+														p={4}
+														borderRadius="xl"
+														borderWidth="1px"
+														borderColor={borderColor}
+														bg={subCardBg}
+													>
+														<Heading size="xs" mb={3}>
+															{t(
+																"settings.subscriptions.templatesTitle",
+																"قالب‌های سابسکریپشن (Templates)",
+															)}
+														</Heading>
+														<SimpleGrid
+															columns={{ base: 1, md: 2 }}
+															spacing={4}
+														>
+															<FormControl>
+																<FormLabel>
+																	{t(
+																		"settings.subscriptions.clashSubscriptionTemplate",
+																	)}
+																</FormLabel>
+																<Input
+																	placeholder="clash/default.yml"
+																	value={
+																		settings.clash_subscription_template ??
+																		""
+																	}
+																	onChange={(event) =>
+																		handleAdminTemplateChange(
+																			admin.id,
+																			"clash_subscription_template",
+																			event.target.value,
+																		)
+																	}
+																/>
+															</FormControl>
+															<FormControl>
+																<FormLabel>
+																	{t(
+																		"settings.subscriptions.v2raySubscriptionTemplate",
+																	)}
+																</FormLabel>
+																<Input
+																	placeholder="v2ray/default.json"
+																	value={
+																		settings.v2ray_subscription_template ??
+																		""
+																	}
+																	onChange={(event) =>
+																		handleAdminTemplateChange(
+																			admin.id,
+																			"v2ray_subscription_template",
+																			event.target.value,
+																		)
+																	}
+																/>
+															</FormControl>
+															<FormControl>
+																<FormLabel>
+																	{t(
+																		"settings.subscriptions.singboxSubscriptionTemplate",
+																	)}
+																</FormLabel>
+																<Input
+																	placeholder="singbox/default.json"
+																	value={
+																		settings.singbox_subscription_template ??
+																		""
+																	}
+																	onChange={(event) =>
+																		handleAdminTemplateChange(
+																			admin.id,
+																			"singbox_subscription_template",
+																			event.target.value,
+																		)
+																	}
+																/>
+															</FormControl>
+															<FormControl>
+																<FormLabel>
+																	{t(
+																		"settings.subscriptions.happSubscriptionTemplate",
+																	)}
+																</FormLabel>
+																<Input
+																	placeholder="v2ray/default.json"
+																	value={
+																		settings.happ_subscription_template ?? ""
+																	}
+																	onChange={(event) =>
+																		handleAdminTemplateChange(
+																			admin.id,
+																			"happ_subscription_template",
+																			event.target.value,
+																		)
+																	}
+																/>
+															</FormControl>
+														</SimpleGrid>
+													</Box>
+
+													{/* Save Button */}
+													<Flex justify="flex-end" mt={2}>
+														<Button
+															colorScheme="primary"
+															leftIcon={<SaveIcon />}
+															onClick={handleSaveAll}
+															isLoading={adminSelfSaveMutation.isLoading}
+															isDisabled={
+																!hasUnsavedChanges ||
+																adminSelfSaveMutation.isLoading
+															}
+														>
+															{t("settings.save", "Save changes")}
+														</Button>
+													</Flex>
+												</VStack>
+											);
+										})()}
+									</Box>
+								) : (
+									<>
+										<Box className="master-settings-card">
 									<Flex
 										justify="space-between"
 										align={{ base: "flex-start", md: "center" }}
@@ -4072,6 +4606,95 @@ export const IntegrationSettingsPage = () => {
 																	</FormControl>
 																</SimpleGrid>
 
+																<Box mt={4}>
+																	<Text fontWeight="semibold" fontSize="sm" mb={1}>
+																		{t("settings.subscriptions.clientAppsTitle", "Client Apps")}
+																	</Text>
+																	<Text fontSize="xs" color="gray.500" mb={3}>
+																		{t(
+																			"settings.subscriptions.clientAppsDescription",
+																			"Choose which apps your users may use to update their subscriptions. Blocked apps get a \"not allowed\" response.",
+																		)}
+																	</Text>
+																	<SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={3.5}>
+																		{CLIENT_APPS_LIST.map((app) => {
+																			const blocked = (settings.blocked_client_apps as string[]) || [];
+																			const isBlocked = blocked.some(
+																				(b) => b.toLowerCase() === app.key.toLowerCase(),
+																			);
+																			const isAllowed = !isBlocked;
+																			const stats = subscriptionBundle?.settings?.client_app_stats || {};
+																			const pct =
+																				stats[app.key] !== undefined
+																					? `${stats[app.key].toFixed(1)}%`
+																					: "0.0%";
+
+																			return (
+																				<Flex
+																					key={app.key}
+																					p={3}
+																					borderRadius="xl"
+																					borderWidth="1px"
+																					borderColor={
+																						colorMode === "dark" ? "whiteAlpha.100" : "gray.200"
+																					}
+																					bg={colorMode === "dark" ? "whiteAlpha.50" : "gray.50"}
+																					justify="space-between"
+																					align="center"
+																					transition="all 0.2s ease"
+																					_hover={{
+																						borderColor:
+																							colorMode === "dark" ? "whiteAlpha.200" : "gray.300",
+																						bg:
+																							colorMode === "dark" ? "whiteAlpha.100" : "gray.100",
+																					}}
+																				>
+																					<Box>
+																						<Text fontWeight="semibold" fontSize="sm">
+																							{app.name}
+																						</Text>
+																						<Text fontSize="xs" color="gray.500" mt={0.5}>
+																							{t(
+																								`settings.subscriptions.clientAppPlatforms.${app.key}`,
+																								app.platform,
+																							)}{" "}
+																							· {pct}
+																						</Text>
+																					</Box>
+																					<Switch
+																						colorScheme="primary"
+																						isChecked={isAllowed}
+																						onChange={(e) => {
+																							let updated: string[];
+																							if (e.target.checked) {
+																								updated = blocked.filter(
+																									(k) =>
+																										k.toLowerCase() !==
+																										app.key.toLowerCase(),
+																								);
+																							} else {
+																								updated = [
+																									...blocked.filter(
+																										(k) =>
+																											k.toLowerCase() !==
+																											app.key.toLowerCase(),
+																									),
+																									app.key,
+																								];
+																							}
+																							handleAdminTemplateChange(
+																								admin.id,
+																								"blocked_client_apps" as any,
+																								updated as any,
+																							);
+																						}}
+																					/>
+																				</Flex>
+																			);
+																		})}
+																	</SimpleGrid>
+																</Box>
+
 																<Divider my={4} />
 
 																<Flex
@@ -4095,6 +4718,8 @@ export const IntegrationSettingsPage = () => {
 										</Stack>
 									)}
 								</Box>
+									</>
+								)}
 							</VStack>
 						</form>
 					)}

@@ -185,6 +185,8 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 			if text, ok := coerceString(value); ok {
 				effective.HappAnnouncementTargetUsers = strings.TrimSpace(text)
 			}
+		case "blocked_client_apps":
+			effective.BlockedClientApps = normalizeBlockedClientApps(value)
 		}
 	}
 

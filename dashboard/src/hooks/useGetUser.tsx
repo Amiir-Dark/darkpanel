@@ -29,6 +29,7 @@ const useGetUser = (): UseGetUserReturn => {
 	});
 
 	const userDataEmpty: UserApi = {
+		id: 0,
 		role: AdminRole.Standard,
 		permissions: getDefaultPermissionsForRole(AdminRole.Standard),
 		telegram_id: "",
