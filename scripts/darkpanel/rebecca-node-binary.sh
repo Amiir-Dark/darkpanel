@@ -748,72 +748,15 @@ select_node_version() {
         return
     fi
 
-    if [ ! -t 0 ]; then
-        SELECTED_NODE_VERSION="latest"
-        return
-    fi
-
-    colorized_echo cyan "Select DarkPanel-node release channel for ${install_mode} mode:" >&2
-    colorized_echo yellow "  1) latest" >&2
-    if [ "$install_mode" = "binary" ]; then
-        colorized_echo yellow "  2) dev (latest successful binary build from ${REBECCA_NODE_BINARY_DEV_BRANCH})" >&2
-    else
-        colorized_echo yellow "  2) dev (Docker image tag dev)" >&2
-    fi
-    read -r -p "Release channel [1]: " node_version_answer
-
-    case "$node_version_answer" in
-        2|dev|Dev)
-            SELECTED_NODE_VERSION="dev"
-        ;;
-        ""|1|latest|Latest|stable|Stable)
-            SELECTED_NODE_VERSION="latest"
-        ;;
-        *)
-            colorized_echo red "Invalid release channel selection."
-            exit 1
-        ;;
-    esac
+    SELECTED_NODE_VERSION="latest"
 }
 
 select_xray_core_version() {
     if [ -n "${XRAY_CORE_VERSION:-}" ]; then
         return
     fi
-    if [ ! -t 0 ]; then
-        XRAY_CORE_VERSION="$DEFAULT_XRAY_CORE_VERSION"
-        return
-    fi
 
-    colorized_echo cyan "Select Xray-core version:"
-    colorized_echo yellow "  1) Default ($DEFAULT_XRAY_CORE_VERSION)"
-    colorized_echo yellow "  2) Latest Xray release"
-    colorized_echo yellow "  3) Enter a version manually (for example, v26.5.9)"
-    local choice custom_version
-    while true; do
-        read -r -p "Xray version [1]: " choice
-        case "$choice" in
-            ""|1|default)
-                XRAY_CORE_VERSION="$DEFAULT_XRAY_CORE_VERSION"
-                return
-            ;;
-            2|latest)
-                XRAY_CORE_VERSION="latest"
-                return
-            ;;
-            3|manual)
-                read -r -p "Enter Xray version (vX.Y.Z): " custom_version
-                if [[ "$custom_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                    XRAY_CORE_VERSION="$custom_version"
-                    return
-                fi
-                colorized_echo red "Invalid version. Use the vX.Y.Z format."
-            ;;
-            *)
-                colorized_echo red "Invalid Xray version selection."
-            ;;
-        esac
-    done
+    XRAY_CORE_VERSION="$DEFAULT_XRAY_CORE_VERSION"
 }
 
 BRANCH="master"

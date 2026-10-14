@@ -725,32 +725,7 @@ select_node_version() {
         return
     fi
 
-    if [ ! -t 0 ]; then
-        SELECTED_NODE_VERSION="latest"
-        return
-    fi
-
-    colorized_echo cyan "Select DarkPanel-node release channel for ${install_mode} mode:" >&2
-    colorized_echo yellow "  1) latest" >&2
-    if [ "$install_mode" = "binary" ]; then
-        colorized_echo yellow "  2) dev (latest successful binary build from ${REBECCA_NODE_BINARY_DEV_BRANCH})" >&2
-    else
-        colorized_echo yellow "  2) dev (Docker image tag dev)" >&2
-    fi
-    read -r -p "Release channel [1]: " node_version_answer
-
-    case "$node_version_answer" in
-        2|dev|Dev)
-            SELECTED_NODE_VERSION="dev"
-        ;;
-        ""|1|latest|Latest|stable|Stable)
-            SELECTED_NODE_VERSION="latest"
-        ;;
-        *)
-            colorized_echo red "Invalid release channel selection."
-            exit 1
-        ;;
-    esac
+    SELECTED_NODE_VERSION="latest"
 }
 
 BRANCH="master"
