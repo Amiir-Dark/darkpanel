@@ -13,6 +13,9 @@ func init() {
 
 func up000065SubscriptionClientApps(ctx context.Context, tx *sql.Tx) error {
 	dialect := activeDialect()
+	if err := ensureSubscriptionSettingsTable(ctx, tx, dialect); err != nil {
+		return err
+	}
 	columns := []struct {
 		name   string
 		sqlite string

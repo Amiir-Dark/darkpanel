@@ -13,6 +13,12 @@ func init() {
 
 func up000062SubscriptionAnnouncement(ctx context.Context, tx *sql.Tx) error {
 	dialect := activeDialect()
+	if err := ensureSubscriptionSettingsTable(ctx, tx, dialect); err != nil {
+		return err
+	}
+	if err := ensureSubscriptionDomainsTable(ctx, tx, dialect); err != nil {
+		return err
+	}
 	columns := []struct {
 		name   string
 		sqlite string

@@ -21,6 +21,9 @@ func up000064UserDeviceHWIDLimit(ctx context.Context, tx *sql.Tx) error {
 	}
 
 	// 2. Add default_device_limit_type to subscription_settings
+	if err := ensureSubscriptionSettingsTable(ctx, tx, dialect); err != nil {
+		return err
+	}
 	if err := addColumn(ctx, tx, dialect, "subscription_settings", "default_device_limit_type", "VARCHAR(16) NOT NULL DEFAULT 'ip'", "VARCHAR(16) NOT NULL DEFAULT 'ip'"); err != nil {
 		return err
 	}
