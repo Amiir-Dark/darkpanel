@@ -254,11 +254,11 @@ func (r Repository) ConfigLinkUser(ctx context.Context, userID int64) (ConfigLin
 		return ConfigLinkUser{}, fmt.Errorf("user_id is required")
 	}
 	var item ConfigLinkUser
-	var dataLimit, expire, holdDuration, serviceID sql.NullInt64
+	var dataLimit, expire, holdDuration, serviceID, adminID sql.NullInt64
 	var credentialKey, flow sql.NullString
 	err := r.db.QueryRowContext(
 		ctx,
-		`SELECT id, username, status, COALESCE(used_traffic, 0), data_limit, expire, on_hold_expire_duration, service_id, credential_key, flow FROM users WHERE id = ? AND status != 'deleted' LIMIT 1`,
+		`SELECT id, username, status, COALESCE(used_traffic, 0), data_limit, expire, on_hold_expire_duration, service_id, credential_key, flow, admin_id FROM users WHERE id = ? AND status != 'deleted' LIMIT 1`,
 		userID,
 	).Scan(
 		&item.ID,
@@ -271,6 +271,7 @@ func (r Repository) ConfigLinkUser(ctx context.Context, userID int64) (ConfigLin
 		&serviceID,
 		&credentialKey,
 		&flow,
+		&adminID,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -282,6 +283,24 @@ func (r Repository) ConfigLinkUser(ctx context.Context, userID int64) (ConfigLin
 	item.Expire = int64Ptr(expire)
 	item.OnHoldExpireDuration = int64Ptr(holdDuration)
 	item.ServiceID = int64Ptr(serviceID)
+	item.AdminID = int64Ptr(adminID)
+	if item.AdminID != nil && *item.AdminID > 0 {
+		var subSettings sql.NullString
+		if err := r.db.QueryRowContext(ctx, `SELECT subscription_settings FROM admins WHERE id = ? LIMIT 1`, *item.AdminID).Scan(&subSettings); err == nil && subSettings.Valid && strings.TrimSpace(subSettings.String) != "" {
+			var parsed map[string]any
+			if json.Unmarshal([]byte(subSettings.String), &parsed) == nil {
+				if rawRemarks, ok := parsed["inbound_remarks"].(map[string]any); ok {
+					remarks := make(map[string]string, len(rawRemarks))
+					for k, v := range rawRemarks {
+						if str, ok := v.(string); ok && strings.TrimSpace(str) != "" {
+							remarks[k] = strings.TrimSpace(str)
+						}
+					}
+					item.InboundRemarks = remarks
+				}
+			}
+		}
+	}
 	if credentialKey.Valid {
 		item.CredentialKey = credentialKey.String
 	}

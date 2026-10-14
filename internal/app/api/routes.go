@@ -191,6 +191,8 @@ func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings/subscriptions/certificates/import", s.requireSudo(s.handleCertificateImport))
 	r.HandleFunc("/settings/subscriptions/certificates/renew", s.requireSudo(s.handleCertificateRenew))
 	r.HandleFunc("/settings/subscriptions/certificates/*", s.requireSudo(s.handleCertificatePath))
+	r.HandleFunc("/settings/subscriptions/reseller/telegram/test", s.requireAdmin(s.handleResellerTelegramTest))
+	r.HandleFunc("/settings/subscriptions/reseller/telegram/backup", s.requireAdmin(s.handleResellerTelegramBackup))
 	r.HandleFunc("/settings/subscriptions/admins/*", s.requireAdmin(s.handleAdminSubscriptionSettingsPath))
 	r.HandleFunc("/settings/subscriptions", s.requireAdmin(s.handleSubscriptionSettings))
 }

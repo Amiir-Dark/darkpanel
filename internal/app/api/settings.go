@@ -3,13 +3,16 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
+	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
 	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 )
 
 type allSettingsRequest struct {
@@ -311,3 +314,138 @@ func decodeRawJSONMap(r *http.Request) (map[string]json.RawMessage, error) {
 	}
 	return result, nil
 }
+
+type resellerTelegramTestRequest struct {
+	BotToken string `json:"bot_token"`
+	ChatID   string `json:"chat_id"`
+}
+
+func (s *Server) handleResellerTelegramTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	var req resellerTelegramTestRequest
+	_ = decodeOptionalJSON(r, &req)
+
+	botToken := strings.TrimSpace(req.BotToken)
+	chatID := strings.TrimSpace(req.ChatID)
+
+	if botToken == "" || chatID == "" {
+		bundle, err := s.settingsRepo.SubscriptionBundle(r.Context())
+		if err == nil {
+			for _, adm := range bundle.Admins {
+				if adm.ID == principal.ID && len(adm.SubscriptionSettings) > 0 {
+					raw := adm.SubscriptionSettings
+					if botToken == "" {
+						if tok, ok := raw["telegram_bot_token"].(string); ok {
+							botToken = strings.TrimSpace(tok)
+						}
+					}
+					if chatID == "" {
+						if cid, ok := raw["telegram_chat_id"].(string); ok {
+							chatID = strings.TrimSpace(cid)
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+
+	if botToken == "" || chatID == "" {
+		writeError(w, http.StatusBadRequest, "bot_token and chat_id are required")
+		return
+	}
+
+	testMsg := fmt.Sprintf("🤖 <b>DarkPanel Reseller Bot Test</b>\n\n✅ Connection verified successfully for reseller <b>%s</b>!\n⏰ %s",
+		telegramapp.EscapeHTML(principal.Username),
+		time.Now().Format("2006-01-02 15:04:05"),
+	)
+	if err := s.telegramSender.SendDirectMessage(r.Context(), botToken, chatID, testMsg); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "Test message sent successfully"})
+}
+
+func (s *Server) handleResellerTelegramBackup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	var req resellerTelegramTestRequest
+	_ = decodeOptionalJSON(r, &req)
+
+	botToken := strings.TrimSpace(req.BotToken)
+	chatID := strings.TrimSpace(req.ChatID)
+
+	if botToken == "" || chatID == "" {
+		bundle, err := s.settingsRepo.SubscriptionBundle(r.Context())
+		if err == nil {
+			for _, adm := range bundle.Admins {
+				if adm.ID == principal.ID && len(adm.SubscriptionSettings) > 0 {
+					raw := adm.SubscriptionSettings
+					if botToken == "" {
+						if tok, ok := raw["telegram_bot_token"].(string); ok {
+							botToken = strings.TrimSpace(tok)
+						}
+					}
+					if chatID == "" {
+						if cid, ok := raw["telegram_chat_id"].(string); ok {
+							chatID = strings.TrimSpace(cid)
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+
+	if botToken == "" || chatID == "" {
+		writeError(w, http.StatusBadRequest, "bot_token and chat_id are required")
+		return
+	}
+
+	limit := int64(100000)
+	usersResp, err := s.userService.UsersList(r.Context(), userapp.UsersListRequest{
+		Admin: userapp.AdminContext{
+			ID:       &principal.ID,
+			Role:     principal.Role,
+			Username: principal.Username,
+		},
+		Limit: &limit,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	payloadData, err := json.MarshalIndent(map[string]any{
+		"exported_at":  time.Now().UTC().Format(time.RFC3339),
+		"reseller_id":  principal.ID,
+		"reseller":     principal.Username,
+		"users_count":  len(usersResp.Users),
+		"users":        usersResp.Users,
+	}, "", "  ")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	filename := fmt.Sprintf("backup_%s_%s.json", principal.Username, time.Now().Format("20060102_150405"))
+	caption := fmt.Sprintf("📦 <b>DarkPanel Reseller Backup</b>\n\n👤 Reseller: <b>%s</b>\n👥 Total Users: <b>%d</b>\n📅 Date: %s",
+		telegramapp.EscapeHTML(principal.Username),
+		len(usersResp.Users),
+		time.Now().Format("2006-01-02 15:04:05"),
+	)
+
+	if err := s.telegramSender.SendDirectDocument(r.Context(), botToken, chatID, filename, caption, payloadData); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "users_count": len(usersResp.Users)})
+}
+

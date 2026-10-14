@@ -74,7 +74,19 @@ func BuildSubscriptionLinks(req SubscriptionLinkRequest, base SubscriptionSettin
 		links.Set(subscriptionTypeToken+"@"+label, extraPrefix+"/"+token)
 	}
 
+	if settings.AppendUsernameToLinks {
+		for _, key := range links.keys {
+			val := links.values[key]
+			if !strings.Contains(val, "#") {
+				links.values[key] = val + "#" + username
+			}
+		}
+	}
+
 	primary := selectPrimaryLink(links, credentialKey != "", subadress != "", preferredType(req.Preferred, settings.DefaultSubscriptionType))
+	if settings.AppendUsernameToLinks && !strings.Contains(primary, "#") {
+		primary = primary + "#" + username
+	}
 	result := NewOrderedStringMap(len(links.keys) + 1)
 	result.Set("primary", primary)
 	for _, key := range links.keys {
@@ -105,6 +117,17 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 		HappSubExpireButtonLink:        base.HappSubExpireButtonLink,
 		HappAnnouncementTargetType:     firstNonEmptyString(base.HappAnnouncementTargetType, "all"),
 		HappAnnouncementTargetUsers:    base.HappAnnouncementTargetUsers,
+		AnnounceURL:                    base.AnnounceURL,
+		MaxLinksPerUser:                base.MaxLinksPerUser,
+		RandomizeLinks:                 base.RandomizeLinks,
+		ShowConfigLinks:                base.ShowConfigLinks,
+		AppendUsernameToLinks:          base.AppendUsernameToLinks,
+		SubscriptionTemplateEnabled:    base.SubscriptionTemplateEnabled,
+		InboundRemarks:                 base.InboundRemarks,
+		TelegramBackupEnabled:          base.TelegramBackupEnabled,
+		TelegramBotToken:               base.TelegramBotToken,
+		TelegramChatID:                 base.TelegramChatID,
+		TelegramBackupInterval:         base.TelegramBackupInterval,
 		RawPanelSettings:               base.RawPanelSettings,
 		RawSubscriptionSettings:        base.RawSubscriptionSettings,
 	}
@@ -187,6 +210,53 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 			}
 		case "blocked_client_apps":
 			effective.BlockedClientApps = normalizeBlockedClientApps(value)
+		case "announce_url":
+			if text, ok := coerceString(value); ok && strings.TrimSpace(text) != "" {
+				effective.AnnounceURL = ensureScheme(text)
+			}
+		case "max_links_per_user":
+			switch v := value.(type) {
+			case float64:
+				effective.MaxLinksPerUser = int(v)
+			case int:
+				effective.MaxLinksPerUser = v
+			case string:
+				effective.MaxLinksPerUser, _ = strconv.Atoi(strings.TrimSpace(v))
+			}
+		case "randomize_links":
+			effective.RandomizeLinks = truthy(value)
+		case "show_config_links":
+			b := truthy(value)
+			effective.ShowConfigLinks = &b
+		case "append_username_to_links":
+			effective.AppendUsernameToLinks = truthy(value)
+		case "subscription_template_enabled":
+			b := truthy(value)
+			effective.SubscriptionTemplateEnabled = &b
+		case "inbound_remarks":
+			if m, ok := value.(map[string]any); ok {
+				remarks := make(map[string]string, len(m))
+				for k, v := range m {
+					if s, ok := coerceString(v); ok {
+						remarks[k] = s
+					}
+				}
+				effective.InboundRemarks = remarks
+			}
+		case "telegram_backup_enabled":
+			effective.TelegramBackupEnabled = truthy(value)
+		case "telegram_bot_token":
+			if text, ok := coerceString(value); ok {
+				effective.TelegramBotToken = strings.TrimSpace(text)
+			}
+		case "telegram_chat_id":
+			if text, ok := coerceString(value); ok {
+				effective.TelegramChatID = strings.TrimSpace(text)
+			}
+		case "telegram_backup_interval":
+			if text, ok := coerceString(value); ok {
+				effective.TelegramBackupInterval = strings.TrimSpace(text)
+			}
 		}
 	}
 

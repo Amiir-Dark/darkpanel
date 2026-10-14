@@ -164,7 +164,17 @@ func (r Repository) SubscriptionBundle(ctx context.Context) (SubscriptionBundle,
 	if err != nil {
 		return SubscriptionBundle{}, err
 	}
-	return SubscriptionBundle{Settings: settings, Admins: admins, Certificates: []SubscriptionCertificate{}}, nil
+	inbounds := []InboundSummary{}
+	if rows, err := r.db.QueryContext(ctx, `SELECT id, inbound_tag, remark FROM hosts WHERE COALESCE(is_disabled, 0) = 0 ORDER BY sort ASC, id ASC`); err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var in InboundSummary
+			if err := rows.Scan(&in.ID, &in.InboundTag, &in.Remark); err == nil {
+				inbounds = append(inbounds, in)
+			}
+		}
+	}
+	return SubscriptionBundle{Settings: settings, Admins: admins, Certificates: []SubscriptionCertificate{}, Inbounds: inbounds}, nil
 }
 
 func (r Repository) SubscriptionSettings(ctx context.Context) (SubscriptionSettings, error) {

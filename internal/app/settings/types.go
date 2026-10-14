@@ -130,10 +130,17 @@ type AdminSubscriptionSettingsUpdate struct {
 
 type SubscriptionCertificate = certificateapp.Record
 
+type InboundSummary struct {
+	ID         int64  `json:"id"`
+	InboundTag string `json:"inbound_tag"`
+	Remark     string `json:"remark"`
+}
+
 type SubscriptionBundle struct {
 	Settings     SubscriptionSettings        `json:"settings"`
 	Admins       []AdminSubscriptionSettings `json:"admins"`
 	Certificates []SubscriptionCertificate   `json:"certificates"`
+	Inbounds     []InboundSummary            `json:"inbounds"`
 }
 
 type SubscriptionPlaceholderPolicy struct {

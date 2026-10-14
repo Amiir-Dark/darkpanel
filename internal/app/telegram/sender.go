@@ -497,3 +497,32 @@ func clientWithProxy(rawURL string) (*http.Client, error) {
 	}
 	return &http.Client{Timeout: 12 * time.Second, Transport: transport}, nil
 }
+
+func (s Sender) SendDirectMessage(ctx context.Context, token string, chatID string, text string) error {
+	token = strings.TrimSpace(token)
+	chatID = strings.TrimSpace(chatID)
+	if token == "" || chatID == "" {
+		return fmt.Errorf("bot token and chat id are required")
+	}
+	settings, _ := s.repo.Settings(ctx)
+	return s.sendJSON(ctx, token, settings.ProxyURL, "sendMessage", map[string]any{
+		"chat_id":    chatID,
+		"text":       text,
+		"parse_mode": "HTML",
+	})
+}
+
+func (s Sender) SendDirectDocument(ctx context.Context, token string, chatID string, filename string, caption string, content []byte) error {
+	token = strings.TrimSpace(token)
+	chatID = strings.TrimSpace(chatID)
+	if token == "" || chatID == "" {
+		return fmt.Errorf("bot token and chat id are required")
+	}
+	settings, _ := s.repo.Settings(ctx)
+	return s.sendMultipart(ctx, token, settings.ProxyURL, "sendDocument", map[string]string{
+		"chat_id":    chatID,
+		"caption":    caption,
+		"parse_mode": "HTML",
+	}, filename, content)
+}
+

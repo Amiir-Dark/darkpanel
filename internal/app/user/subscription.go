@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"regexp"
 	"sort"
@@ -135,6 +136,17 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 	}
 	placeholderRemark := subscriptionPlaceholderRemark(user, settings)
 	if wantsSubscriptionHTML(req) && req.ClientType == "" {
+		if settings.SubscriptionTemplateEnabled != nil && !*settings.SubscriptionTemplateEnabled {
+			userRawJSON, err := json.MarshalIndent(user, "", "  ")
+			if err != nil {
+				return SubscriptionHTTPResponse{}, err
+			}
+			return SubscriptionHTTPResponse{
+				Status:    200,
+				MediaType: "application/json; charset=utf-8",
+				Body:      userRawJSON,
+			}, nil
+		}
 		html, err := s.renderSubscriptionHTML(ctx, user, req, settings)
 		if err != nil {
 			return SubscriptionHTTPResponse{}, err
@@ -525,6 +537,22 @@ func (s Service) generateSubscriptionConfig(ctx context.Context, user UserDetail
 			return "", err
 		}
 		connectable = connectableConfigLinks(links)
+	}
+	settings := s.effectiveSettings(ctx, user.AdminID, user.ServiceID)
+	if settings.RandomizeLinks && len(connectable.Links) > 1 {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		r.Shuffle(len(connectable.Links), func(i, j int) {
+			connectable.Links[i], connectable.Links[j] = connectable.Links[j], connectable.Links[i]
+			if i < len(connectable.Metadata) && j < len(connectable.Metadata) {
+				connectable.Metadata[i], connectable.Metadata[j] = connectable.Metadata[j], connectable.Metadata[i]
+			}
+		})
+	}
+	if settings.MaxLinksPerUser > 0 && len(connectable.Links) > settings.MaxLinksPerUser {
+		connectable.Links = connectable.Links[:settings.MaxLinksPerUser]
+		if len(connectable.Metadata) > settings.MaxLinksPerUser {
+			connectable.Metadata = connectable.Metadata[:settings.MaxLinksPerUser]
+		}
 	}
 	raw := connectable.Links
 	switch config.Format {
@@ -1175,12 +1203,19 @@ func selectSubscriptionClientType(userAgent string, settings SubscriptionSetting
 	return "v2ray"
 }
 
+func replaceSubVars(text string, user UserDetail) string {
+	text = strings.ReplaceAll(text, "{username}", user.Username)
+	text = strings.ReplaceAll(text, "{id}", strconv.FormatInt(user.ID, 10))
+	return text
+}
+
 func subscriptionHeaders(user UserDetail, req SubscriptionRenderRequest, settings SubscriptionSettings) map[string]string {
+	profileTitle := replaceSubVars(firstNonEmptyString(settings.SubscriptionProfileTitle, "Subscription"), user)
 	headers := map[string]string{
 		"content-disposition":     `attachment; filename="` + user.Username + `"`,
 		"profile-web-page-url":    req.URL,
 		"support-url":             strings.TrimSpace(settings.SubscriptionSupportURL),
-		"profile-title":           "base64:" + base64.StdEncoding.EncodeToString([]byte(firstNonEmptyString(settings.SubscriptionProfileTitle, "Subscription"))),
+		"profile-title":           "base64:" + base64.StdEncoding.EncodeToString([]byte(profileTitle)),
 		"profile-update-interval": firstNonEmptyString(settings.SubscriptionUpdateInterval, "12"),
 		"subscription-userinfo":   fmt.Sprintf("upload=0; download=%d; total=%d; expire=%d", user.UsedTraffic, int64OrZero(user.DataLimit), int64OrZero(user.Expire)),
 		"announce":                "0",
@@ -1188,10 +1223,12 @@ func subscriptionHeaders(user UserDetail, req SubscriptionRenderRequest, setting
 	}
 
 	if ann := strings.TrimSpace(settings.SubscriptionAnnouncement); ann != "" {
-		if len(ann) > 200 {
-			ann = ann[:200]
+		annFormatted := replaceSubVars(ann, user)
+		if len(annFormatted) > 200 {
+			headers["sub-info-text"] = annFormatted[:200]
+		} else {
+			headers["sub-info-text"] = annFormatted
 		}
-		headers["sub-info-text"] = ann
 		if color := strings.TrimSpace(settings.HappSubInfoColor); color != "" {
 			headers["sub-info-color"] = color
 		}
@@ -1203,6 +1240,9 @@ func subscriptionHeaders(user UserDetail, req SubscriptionRenderRequest, setting
 		}
 	} else {
 		headers["sub-info-text"] = "0"
+	}
+	if annURL := strings.TrimSpace(settings.AnnounceURL); annURL != "" {
+		headers["announce-url"] = annURL
 	}
 	if settings.HappSubExpire {
 		headers["sub-expire"] = "1"
@@ -1226,6 +1266,9 @@ func (s Service) renderSubscriptionHTML(ctx context.Context, user UserDetail, re
 			return "", err
 		}
 		rawLinks = append(rawLinks, links.Links...)
+	}
+	if settings.ShowConfigLinks != nil && !*settings.ShowConfigLinks {
+		rawLinks = []string{}
 	}
 	path := req.URL
 	if parsed, err := url.Parse(req.URL); err == nil {

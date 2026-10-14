@@ -187,6 +187,18 @@ export interface SubscriptionTemplateSettings {
 	default_device_limit_type?: "ip" | "hwid";
 	blocked_client_apps?: string[];
 	client_app_stats?: Record<string, number>;
+	announce_url?: string;
+	max_links_per_user?: number;
+	randomize_links?: boolean;
+	show_config_links?: boolean;
+	append_username_to_links?: boolean;
+	subscription_template_enabled?: boolean;
+	inbound_remarks?: Record<string, string>;
+	telegram_backup_enabled?: boolean;
+	telegram_bot_token?: string;
+	telegram_chat_id?: string;
+	telegram_backup_interval?: string;
+	telegram_backup_last_sent_at?: string;
 }
 
 export type SubscriptionTemplateSettingsUpdatePayload =
@@ -235,6 +247,11 @@ export interface SubscriptionSettingsBundle {
 	settings: SubscriptionTemplateSettings;
 	admins: AdminSubscriptionSettings[];
 	certificates: SubscriptionCertificate[];
+	inbounds?: Array<{
+		id: number;
+		inbound_tag: string;
+		remark: string;
+	}>;
 }
 
 export interface SubscriptionPlaceholderSetting {
@@ -860,3 +877,24 @@ export const resetUserHWIDs = async (username: string): Promise<void> => {
 		method: "DELETE",
 	});
 };
+
+export const testResellerTelegram = async (payload: {
+	bot_token?: string;
+	chat_id?: string;
+}): Promise<{ ok: boolean; message: string }> => {
+	return apiFetch("/settings/subscriptions/reseller/telegram/test", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+};
+
+export const triggerResellerBackup = async (payload?: {
+	bot_token?: string;
+	chat_id?: string;
+}): Promise<{ ok: boolean; users_count: number }> => {
+	return apiFetch("/settings/subscriptions/reseller/telegram/backup", {
+		method: "POST",
+		body: JSON.stringify(payload || {}),
+	});
+};
+

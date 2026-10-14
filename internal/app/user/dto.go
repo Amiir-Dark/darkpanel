@@ -81,6 +81,8 @@ type ConfigLinkUser struct {
 	Hosts                []Host                     `json:"hosts,omitempty"`
 	ServerIP             string                     `json:"server_ip,omitempty"`
 	WireGuardAddresses   map[string]string          `json:"wireguard_addresses,omitempty"`
+	AdminID              *int64                     `json:"admin_id,omitempty"`
+	InboundRemarks       map[string]string          `json:"inbound_remarks,omitempty"`
 }
 
 type UserListItem struct {
@@ -323,6 +325,17 @@ type SubscriptionSettings struct {
 	HappAnnouncementTargetType     string                         `json:"happ_announcement_target_type"`
 	HappAnnouncementTargetUsers    string                         `json:"happ_announcement_target_users"`
 	BlockedClientApps              []string                       `json:"blocked_client_apps"`
+	AnnounceURL                    string                         `json:"announce_url,omitempty"`
+	MaxLinksPerUser                int                            `json:"max_links_per_user,omitempty"`
+	RandomizeLinks                 bool                           `json:"randomize_links,omitempty"`
+	ShowConfigLinks                *bool                          `json:"show_config_links,omitempty"`
+	AppendUsernameToLinks          bool                           `json:"append_username_to_links,omitempty"`
+	SubscriptionTemplateEnabled    *bool                          `json:"subscription_template_enabled,omitempty"`
+	InboundRemarks                 map[string]string              `json:"inbound_remarks,omitempty"`
+	TelegramBackupEnabled          bool                           `json:"telegram_backup_enabled,omitempty"`
+	TelegramBotToken               string                         `json:"telegram_bot_token,omitempty"`
+	TelegramChatID                 string                         `json:"telegram_chat_id,omitempty"`
+	TelegramBackupInterval         string                         `json:"telegram_backup_interval,omitempty"`
 	SubscriptionPlaceholderPolicy  *SubscriptionPlaceholderPolicy `json:"-"`
 	RawPanelSettings               json.RawMessage                `json:"raw_panel_settings,omitempty"`
 	RawSubscriptionSettings        json.RawMessage                `json:"raw_subscription_settings,omitempty"`

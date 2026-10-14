@@ -172,7 +172,7 @@ func BuildConfigLinks(
 			inboundVariables["protocol"] = "wireguard"
 			inboundVariables["TRANSPORT"] = configTransportName(inbound)
 			inboundVariables["transport"] = strings.ToLower(inboundVariables["TRANSPORT"])
-			remark, address, effective, ok := effectiveInboundForHost(wildcardSalt, inboundVariables, inbound, host)
+			remark, address, effective, ok := effectiveInboundForHost(wildcardSalt, inboundVariables, inbound, host, item.InboundRemarks)
 			if !ok {
 				continue
 			}
@@ -195,7 +195,7 @@ func BuildConfigLinks(
 		inboundVariables["protocol"] = binding.protocol
 		inboundVariables["TRANSPORT"] = configTransportName(inbound)
 		inboundVariables["transport"] = strings.ToLower(inboundVariables["TRANSPORT"])
-		remark, address, effective, ok := effectiveInboundForHost(wildcardSalt, inboundVariables, inbound, host)
+		remark, address, effective, ok := effectiveInboundForHost(wildcardSalt, inboundVariables, inbound, host, item.InboundRemarks)
 		if !ok {
 			continue
 		}
@@ -395,14 +395,26 @@ func selectProxyInboundTags(
 	return result
 }
 
-func effectiveInboundForHost(wildcardSalt string, variables map[string]string, inbound ResolvedInbound, host Host) (string, string, ResolvedInbound, bool) {
+func effectiveInboundForHost(wildcardSalt string, variables map[string]string, inbound ResolvedInbound, host Host, customRemarks ...map[string]string) (string, string, ResolvedInbound, bool) {
 	addressRaw := selectHostRotationValue(host.ID, "address", host.Address, host.AddressOptions, host.AddressMode, host.AddressTTL)
 	address := applyWildcard(applyFormat(addressRaw, variables), wildcardSalt)
 	if address == "" {
 		return "", "", nil, false
 	}
 
-	remark := applyFormat(host.Remark, variables)
+	hostRemark := host.Remark
+	if len(customRemarks) > 0 && customRemarks[0] != nil {
+		remarksMap := customRemarks[0]
+		if custom, ok := remarksMap[host.InboundTag]; ok && strings.TrimSpace(custom) != "" {
+			hostRemark = strings.TrimSpace(custom)
+		} else if custom, ok := remarksMap[strconv.FormatInt(host.ID, 10)]; ok && strings.TrimSpace(custom) != "" {
+			hostRemark = strings.TrimSpace(custom)
+		} else if custom, ok := remarksMap[host.Remark]; ok && strings.TrimSpace(custom) != "" {
+			hostRemark = strings.TrimSpace(custom)
+		}
+	}
+
+	remark := applyFormat(hostRemark, variables)
 	if remark == "" {
 		remark = address
 	}
