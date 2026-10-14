@@ -531,8 +531,16 @@ export const AdminDialog: FC = () => {
 	);
 
 	const resetPermissionsToRole = useCallback(() => {
-		const role = watchRole ?? AdminRole.Standard;
-		setValue("permissions", clonePermissions(role), { shouldDirty: true });
+		const role = watchRole ?? AdminRole.Reseller;
+		const perms = clonePermissions(role);
+		if (role === AdminRole.Reseller) {
+			if (!perms.self_permissions) {
+				perms.self_permissions = { ...clonePermissions(AdminRole.Reseller).self_permissions };
+			}
+			perms.self_permissions.self_placeholders = true;
+			perms.self_permissions.self_subscription = true;
+		}
+		setValue("permissions", perms, { shouldDirty: true });
 		setValue("maxDataLimitPerUserGb", "", { shouldDirty: true });
 	}, [setValue, watchRole]);
 
@@ -612,6 +620,13 @@ export const AdminDialog: FC = () => {
 				? (JSON.parse(JSON.stringify(admin.permissions)) ??
 					clonePermissions(nextRole))
 				: clonePermissions(nextRole);
+			if (nextRole === AdminRole.Reseller) {
+				if (!nextPermissions.self_permissions) {
+					nextPermissions.self_permissions = { ...clonePermissions(AdminRole.Reseller).self_permissions };
+				}
+				nextPermissions.self_permissions.self_placeholders = true;
+				nextPermissions.self_permissions.self_subscription = true;
+			}
 			reset({
 				username: admin?.username ?? "",
 				password: "",
@@ -1091,10 +1106,14 @@ export const AdminDialog: FC = () => {
 					<FormControl>
 						<FormLabel>{t("admins.roleLabel")}</FormLabel>
 						<RadioGroup
-							value={watchRole ?? AdminRole.Standard}
-							onChange={(value) =>
-								setValue("role", value as AdminRole, { shouldDirty: true })
-							}
+							value={watchRole ?? AdminRole.Reseller}
+							onChange={(value) => {
+								const nextRole = value as AdminRole;
+								setValue("role", nextRole, { shouldDirty: true });
+								setValue("permissions", clonePermissions(nextRole), {
+									shouldDirty: true,
+								});
+							}}
 						>
 							<VStack align="flex-start" spacing={2}>
 								<Radio value={AdminRole.Standard}>

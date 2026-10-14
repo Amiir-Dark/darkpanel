@@ -113,6 +113,18 @@ func MergePermissions(base AdminPermissions, raw any) (AdminPermissions, error) 
 	if result.SelfPermissions == nil {
 		result.SelfPermissions = defaultSelfPermissions()
 	}
+	if base.SelfPermissions != nil {
+		if base.SelfPermissions["self_placeholders"] && !result.SelfPermissions["self_placeholders"] {
+			if rawSelf, ok := overrideMap["self_permissions"].(map[string]any); !ok || rawSelf["self_placeholders"] == nil {
+				result.SelfPermissions["self_placeholders"] = true
+			}
+		}
+		if base.SelfPermissions["self_subscription"] && !result.SelfPermissions["self_subscription"] {
+			if rawSelf, ok := overrideMap["self_permissions"].(map[string]any); !ok || rawSelf["self_subscription"] == nil {
+				result.SelfPermissions["self_subscription"] = true
+			}
+		}
+	}
 	return result, nil
 }
 

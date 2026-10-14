@@ -6,7 +6,7 @@ import {
 	useToast,
 } from "@chakra-ui/react";
 import { AppDialog } from "components/dialogs/AppDialog";
-import { DEFAULT_ADMIN_PERMISSIONS } from "constants/adminPermissions";
+import { getDefaultPermissionsForRole } from "constants/adminPermissions";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useEffect, useState } from "react";
 import useGetUser from "hooks/useGetUser";
@@ -35,7 +35,9 @@ export const AdminPermissionsModal = ({
 	const updateAdmin = useAdminsStore((state) => state.updateAdmin);
 	const { userData } = useGetUser();
 	const [permissionsDraft, setPermissionsDraft] = useState<AdminPermissions>(
-		admin?.permissions ?? DEFAULT_ADMIN_PERMISSIONS,
+		() =>
+			admin?.permissions ??
+			getDefaultPermissionsForRole(admin?.role ?? AdminRole.Reseller),
 	);
 	const [maxDataLimitValue, setMaxDataLimitValue] = useState<string>("");
 	const [saving, setSaving] = useState(false);
@@ -48,12 +50,29 @@ export const AdminPermissionsModal = ({
 	useEffect(() => {
 		if (admin) {
 			setRequire2FA(Boolean(admin.require_2fa));
-			setPermissionsDraft(admin.permissions ?? DEFAULT_ADMIN_PERMISSIONS);
+			const roleDefault = getDefaultPermissionsForRole(
+				admin.role ?? AdminRole.Reseller,
+			);
+			const baseDraft: AdminPermissions = admin.permissions
+				? JSON.parse(JSON.stringify(admin.permissions))
+				: roleDefault;
+			if (admin.role === AdminRole.Reseller) {
+				if (!baseDraft.self_permissions) {
+					baseDraft.self_permissions = { ...roleDefault.self_permissions };
+				}
+				if (baseDraft.self_permissions.self_placeholders === undefined) {
+					baseDraft.self_permissions.self_placeholders = true;
+				}
+				if (baseDraft.self_permissions.self_subscription === undefined) {
+					baseDraft.self_permissions.self_subscription = true;
+				}
+			}
+			setPermissionsDraft(baseDraft);
 			setMaxDataLimitValue(
-				admin.permissions.users.max_data_limit_per_user
+				baseDraft.users?.max_data_limit_per_user
 					? String(
 							Math.floor(
-								admin.permissions.users.max_data_limit_per_user /
+								baseDraft.users.max_data_limit_per_user /
 									(1024 * 1024 * 1024),
 							),
 						)
@@ -61,7 +80,9 @@ export const AdminPermissionsModal = ({
 			);
 		} else {
 			setRequire2FA(false);
-			setPermissionsDraft(DEFAULT_ADMIN_PERMISSIONS);
+			setPermissionsDraft(
+				getDefaultPermissionsForRole(AdminRole.Reseller),
+			);
 			setMaxDataLimitValue("");
 		}
 	}, [admin]);
@@ -129,7 +150,11 @@ export const AdminPermissionsModal = ({
 						value={permissionsDraft}
 						onChange={setPermissionsDraft}
 						showReset={!isFullAccess}
-						onReset={() => setPermissionsDraft(DEFAULT_ADMIN_PERMISSIONS)}
+						onReset={() =>
+							setPermissionsDraft(
+								getDefaultPermissionsForRole(admin?.role ?? AdminRole.Reseller),
+							)
+						}
 						maxDataLimitValue={maxDataLimitValue}
 						onMaxDataLimitChange={(value) => {
 							setMaxDataLimitValue(value);
