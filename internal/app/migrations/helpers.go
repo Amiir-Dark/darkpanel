@@ -432,7 +432,9 @@ func RenameTableIfExists(ctx context.Context, db DBTX, dialect string, from stri
 		return false, err
 	}
 	if target {
-		return false, fmt.Errorf("cannot rename table %s: %s already exists", from, to)
+		// Target table already exists; remove the redundant legacy table.
+		_, err = db.ExecContext(ctx, fmt.Sprintf("DROP TABLE %s", QuoteIdent(dialect, from)))
+		return false, err
 	}
 	query := fmt.Sprintf("ALTER TABLE %s RENAME TO %s", QuoteIdent(dialect, from), QuoteIdent(dialect, to))
 	if NormalizeDialect(dialect) == "mysql" {
@@ -452,7 +454,9 @@ func RenameColumnIfExists(ctx context.Context, db DBTX, dialect string, table st
 		return false, err
 	}
 	if target {
-		return false, fmt.Errorf("cannot rename %s.%s: %s already exists", table, from, to)
+		// Target column already exists; drop the legacy column if possible.
+		_, _ = DropColumnIfExists(ctx, db, dialect, table, from)
+		return false, nil
 	}
 	query := fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", QuoteIdent(dialect, table), QuoteIdent(dialect, from), QuoteIdent(dialect, to))
 	_, err = db.ExecContext(ctx, query)

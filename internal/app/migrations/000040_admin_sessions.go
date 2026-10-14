@@ -59,13 +59,15 @@ CREATE TABLE admin_sessions (
 	otp_attempts INTEGER NOT NULL DEFAULT 0,
 	revoked_at DATETIME NULL,
 	PRIMARY KEY (id),
-	FOREIGN KEY(admin_id) REFERENCES admins(id),
 	UNIQUE KEY uq_admin_sessions_token_hash (token_hash)
 )`); err != nil {
 		return err
 	}
 	if err := createIndex(ctx, tx, dialect, "admin_sessions", "ix_admin_sessions_admin_id", []string{"admin_id"}, false); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE admin_sessions ADD CONSTRAINT fk_admin_sessions_admin_id FOREIGN KEY (admin_id) REFERENCES admins(id)`)
 	}
 	return createIndex(ctx, tx, dialect, "admin_sessions", "ix_admin_sessions_expires_at", []string{"expires_at"}, false)
 }

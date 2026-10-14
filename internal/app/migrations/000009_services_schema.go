@@ -78,6 +78,13 @@ CREATE TABLE services (
 }
 
 func createAdminsServicesBase(ctx context.Context, tx *sql.Tx, dialect string) error {
+	hasServiceAdmins, err := HasTable(ctx, tx, dialect, "service_admins")
+	if err != nil {
+		return err
+	}
+	if hasServiceAdmins {
+		return nil
+	}
 	if err := createTable(ctx, tx, dialect, "admins_services", `
 CREATE TABLE admins_services (
 	admin_id INTEGER NOT NULL,
@@ -97,9 +104,7 @@ CREATE TABLE admins_services (
 	lifetime_used_traffic BIGINT NOT NULL DEFAULT 0,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	PRIMARY KEY (admin_id, service_id),
-	FOREIGN KEY(admin_id) REFERENCES admins(id) ON DELETE CASCADE,
-	FOREIGN KEY(service_id) REFERENCES services(id) ON DELETE CASCADE
+	PRIMARY KEY (admin_id, service_id)
 )`); err != nil {
 		return err
 	}
@@ -123,6 +128,10 @@ CREATE TABLE admins_services (
 	if err := createIndex(ctx, tx, dialect, "admins_services", "ix_admins_services_service_id", []string{"service_id"}, false); err != nil {
 		return err
 	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE admins_services ADD CONSTRAINT fk_admins_services_admin_id FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE`)
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE admins_services ADD CONSTRAINT fk_admins_services_service_id FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE`)
+	}
 	return nil
 }
 
@@ -142,9 +151,7 @@ CREATE TABLE service_hosts (
 	host_id INTEGER NOT NULL,
 	sort INTEGER NOT NULL DEFAULT 0,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	PRIMARY KEY (service_id, host_id),
-	FOREIGN KEY(service_id) REFERENCES services(id) ON DELETE CASCADE,
-	FOREIGN KEY(host_id) REFERENCES hosts(id) ON DELETE CASCADE
+	PRIMARY KEY (service_id, host_id)
 )`); err != nil {
 		return err
 	}
@@ -156,7 +163,14 @@ CREATE TABLE service_hosts (
 			return err
 		}
 	}
-	return createIndex(ctx, tx, dialect, "service_hosts", "ix_service_hosts_host_id", []string{"host_id"}, false)
+	if err := createIndex(ctx, tx, dialect, "service_hosts", "ix_service_hosts_host_id", []string{"host_id"}, false); err != nil {
+		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE service_hosts ADD CONSTRAINT fk_service_hosts_service_id FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE`)
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE service_hosts ADD CONSTRAINT fk_service_hosts_host_id FOREIGN KEY (host_id) REFERENCES hosts(id) ON DELETE CASCADE`)
+	}
+	return nil
 }
 
 func addUserServiceID(ctx context.Context, tx *sql.Tx, dialect string) error {

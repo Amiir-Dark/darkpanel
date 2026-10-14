@@ -82,10 +82,12 @@ CREATE TABLE admin_api_keys (
 	expires_at DATETIME NULL,
 	last_used_at DATETIME NULL,
 	PRIMARY KEY (id),
-	FOREIGN KEY(admin_id) REFERENCES admins(id),
 	UNIQUE KEY uq_admin_api_keys_key_hash (key_hash)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE admin_api_keys ADD CONSTRAINT fk_admin_api_keys_admin_id FOREIGN KEY (admin_id) REFERENCES admins(id)`)
 	}
 	if err := createIndex(ctx, tx, dialect, "admin_api_keys", "ix_admin_api_keys_admin_id", []string{"admin_id"}, false); err != nil {
 		return err
@@ -106,10 +108,12 @@ CREATE TABLE admin_usage_logs (
 	used_traffic_at_reset BIGINT NOT NULL,
 	created_traffic_at_reset BIGINT NOT NULL DEFAULT 0,
 	reset_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-	PRIMARY KEY (id),
-	FOREIGN KEY(admin_id) REFERENCES admins(id)
+	PRIMARY KEY (id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE admin_usage_logs ADD CONSTRAINT fk_admin_usage_logs_admin_id FOREIGN KEY (admin_id) REFERENCES admins(id)`)
 	}
 	if err := addColumn(ctx, tx, dialect, "admin_usage_logs", "created_traffic_at_reset", "BIGINT NOT NULL DEFAULT 0", ""); err != nil {
 		return err
@@ -132,10 +136,12 @@ CREATE TABLE admin_created_traffic_logs (
 	amount BIGINT NOT NULL,
 	action VARCHAR(64) NOT NULL DEFAULT 'unknown',
 	created_at DATETIME NOT NULL,
-	PRIMARY KEY (id),
-	FOREIGN KEY(admin_id) REFERENCES admins(id)
+	PRIMARY KEY (id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE admin_created_traffic_logs ADD CONSTRAINT fk_admin_created_traffic_logs_admin_id FOREIGN KEY (admin_id) REFERENCES admins(id)`)
 	}
 	if err := addColumn(ctx, tx, dialect, "admin_created_traffic_logs", "service_id", "INTEGER NULL", ""); err != nil {
 		return err
