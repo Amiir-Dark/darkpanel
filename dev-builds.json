@@ -1,9 +1,33 @@
 {
   "schema_version": 1,
   "project": "Rebecca",
-  "latest": "dev-9fdabbb",
-  "updated_at": "2026-10-14T11:01:11Z",
+  "latest": "dev-75e478b",
+  "updated_at": "2026-10-14T11:19:19Z",
   "builds": [
+    {
+      "tag": "dev-75e478b",
+      "sha": "75e478b7625bd5633458bab882f700695d6358be",
+      "branch": "main",
+      "workflow": "Binary Build",
+      "run_id": "38555347123",
+      "run_number": "75",
+      "created_at": "2026-10-14T11:19:19Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-dev-75e478b.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-dev-75e478b.tar.gz"
+        },
+        "windows-amd64": {
+          "name": "rebecca-windows-amd64-dev-75e478b.zip",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-windows-amd64-dev-75e478b.zip"
+        },
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-dev-75e478b.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-75e478b.tar.gz"
+        }
+      }
+    },
     {
       "tag": "dev-9fdabbb",
       "sha": "9fdabbb1d879a7d4c51d5404a53e40a86549db5a",
