@@ -348,6 +348,7 @@ export const UsersFilterBar: FC<UsersFilterBarProps> = ({
 							p={0}
 							w="auto"
 							maxW="none"
+							overflow="visible"
 							_focus={{ boxShadow: "none" }}
 						>
 							<UsersFilterMenu onClose={onClose} />

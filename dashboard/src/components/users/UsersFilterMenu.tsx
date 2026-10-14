@@ -19,7 +19,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useDashboard } from "contexts/DashboardContext";
 import type { FC, ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 // Custom SVG matching Image 1 Status icon (3 checkmarks + 3 lines)
@@ -75,6 +75,56 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 	const onFilterChange = useDashboard((state) => state.onFilterChange);
 
 	const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
+	const [flyoutSide, setFlyoutSide] = useState<"right" | "left">(isRTL ? "left" : "right");
+	const containerRef = useRef<HTMLDivElement>(null);
+	const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const cancelCloseTimer = () => {
+		if (closeTimerRef.current) {
+			clearTimeout(closeTimerRef.current);
+			closeTimerRef.current = null;
+		}
+	};
+
+	const handleItemMouseEnter = (key: string) => {
+		if (isMobile) return;
+		cancelCloseTimer();
+		setActiveSubmenu(key);
+	};
+
+	const handleContainerMouseLeave = () => {
+		if (isMobile) return;
+		cancelCloseTimer();
+		closeTimerRef.current = setTimeout(() => {
+			setActiveSubmenu(null);
+		}, 200);
+	};
+
+	// Determine if flyout should open right or left based on available window space
+	useEffect(() => {
+		if (!containerRef.current) return;
+		const rect = containerRef.current.getBoundingClientRect();
+		const submenuWidth = 200;
+		if (isRTL) {
+			if (rect.left - submenuWidth < 10 && rect.right + submenuWidth < window.innerWidth - 10) {
+				setFlyoutSide("right");
+			} else {
+				setFlyoutSide("left");
+			}
+		} else {
+			if (rect.right + submenuWidth > window.innerWidth - 10 && rect.left - submenuWidth > 10) {
+				setFlyoutSide("left");
+			} else {
+				setFlyoutSide("right");
+			}
+		}
+	}, [activeSubmenu, isRTL]);
+
+	useEffect(() => {
+		return () => {
+			cancelCloseTimer();
+		};
+	}, []);
 
 	const advancedFilters = filters.advancedFilters ?? [];
 	const currentStatus = filters.status;
@@ -469,13 +519,14 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 	}
 
 	return (
-		<Flex
-			align="flex-start"
-			gap={1.5}
+		<Box
+			ref={containerRef}
+			position="relative"
+			w="180px"
 			dir={isRTL ? "rtl" : "ltr"}
-			onMouseLeave={() => !isMobile && setActiveSubmenu(null)}
+			onMouseLeave={handleContainerMouseLeave}
 		>
-			{/* Main Menu Box */}
+			{/* Main Menu Box - Fixed width, never moves or shifts */}
 			<Box
 				bg="panel.surface"
 				borderWidth="1px"
@@ -484,54 +535,53 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 				boxShadow="0 16px 40px rgba(0, 0, 0, 0.7)"
 				w="180px"
 				py={1.5}
-				flexShrink={0}
 			>
 				<MainMenuItem
 					label={isRTL ? "وضعیت" : "Status"}
 					icon={<StatusListIcon width={16} height={16} />}
 					isOpen={activeSubmenu === "status"}
-					isRTL={isRTL}
-					onMouseEnter={() => !isMobile && setActiveSubmenu("status")}
+					arrowDirection={flyoutSide}
+					onMouseEnter={() => handleItemMouseEnter("status")}
 					onClick={() => setActiveSubmenu("status")}
 				/>
 				<MainMenuItem
 					label={isRTL ? "فعال‌سازی" : "Activation"}
 					icon={<CircleDotIcon width={16} height={16} />}
 					isOpen={activeSubmenu === "activation"}
-					isRTL={isRTL}
-					onMouseEnter={() => !isMobile && setActiveSubmenu("activation")}
+					arrowDirection={flyoutSide}
+					onMouseEnter={() => handleItemMouseEnter("activation")}
 					onClick={() => setActiveSubmenu("activation")}
 				/>
 				<MainMenuItem
 					label={isRTL ? "ثبت‌نام" : "Registered"}
 					icon={<CalendarIcon width={16} height={16} />}
 					isOpen={activeSubmenu === "registered"}
-					isRTL={isRTL}
-					onMouseEnter={() => !isMobile && setActiveSubmenu("registered")}
+					arrowDirection={flyoutSide}
+					onMouseEnter={() => handleItemMouseEnter("registered")}
 					onClick={() => setActiveSubmenu("registered")}
 				/>
 				<MainMenuItem
 					label={isRTL ? "اولین اتصال" : "First Online"}
 					icon={<CalendarIcon width={16} height={16} />}
 					isOpen={activeSubmenu === "first_online"}
-					isRTL={isRTL}
-					onMouseEnter={() => !isMobile && setActiveSubmenu("first_online")}
+					arrowDirection={flyoutSide}
+					onMouseEnter={() => handleItemMouseEnter("first_online")}
 					onClick={() => setActiveSubmenu("first_online")}
 				/>
 				<MainMenuItem
 					label={isRTL ? "آخرین اتصال" : "Last Online"}
 					icon={<CalendarIcon width={16} height={16} />}
 					isOpen={activeSubmenu === "last_online"}
-					isRTL={isRTL}
-					onMouseEnter={() => !isMobile && setActiveSubmenu("last_online")}
+					arrowDirection={flyoutSide}
+					onMouseEnter={() => handleItemMouseEnter("last_online")}
 					onClick={() => setActiveSubmenu("last_online")}
 				/>
 				<MainMenuItem
 					label={isRTL ? "مرتب‌سازی" : "Sort by"}
 					icon={<ArrowsUpDownIcon width={16} height={16} />}
 					isOpen={activeSubmenu === "sort"}
-					isRTL={isRTL}
-					onMouseEnter={() => !isMobile && setActiveSubmenu("sort")}
+					arrowDirection={flyoutSide}
+					onMouseEnter={() => handleItemMouseEnter("sort")}
 					onClick={() => setActiveSubmenu("sort")}
 				/>
 
@@ -562,22 +612,36 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 				</Flex>
 			</Box>
 
-			{/* Submenu Flyout Box (Desktop) */}
+			{/* Submenu Flyout Box (Desktop) - Absolutely positioned so it NEVER shifts the Main Menu */}
 			{!isMobile && activeSubmenu && (
 				<Box
+					position="absolute"
+					top={0}
+					left={flyoutSide === "right" ? "calc(100% + 5px)" : "auto"}
+					right={flyoutSide === "left" ? "calc(100% + 5px)" : "auto"}
 					bg="panel.surface"
 					borderWidth="1px"
 					borderColor="panel.border"
 					borderRadius="14px"
 					boxShadow="0 16px 40px rgba(0, 0, 0, 0.7)"
-					minW="180px"
+					minW="190px"
 					py={1.5}
-					flexShrink={0}
+					zIndex={100}
+					onMouseEnter={cancelCloseTimer}
+					_before={{
+						content: '""',
+						position: "absolute",
+						top: 0,
+						bottom: 0,
+						left: flyoutSide === "right" ? "-10px" : "auto",
+						right: flyoutSide === "left" ? "-10px" : "auto",
+						width: "12px",
+					}}
 				>
 					{renderSubmenuContent()}
 				</Box>
 			)}
-		</Flex>
+		</Box>
 	);
 };
 
@@ -586,10 +650,10 @@ const MainMenuItem: FC<{
 	label: string;
 	icon: ReactNode;
 	isOpen?: boolean;
-	isRTL?: boolean;
+	arrowDirection?: "left" | "right";
 	onMouseEnter?: () => void;
 	onClick?: () => void;
-}> = ({ label, icon, isOpen = false, isRTL = false, onMouseEnter, onClick }) => (
+}> = ({ label, icon, isOpen = false, arrowDirection = "right", onMouseEnter, onClick }) => (
 	<Flex
 		align="center"
 		justify="space-between"
@@ -617,7 +681,11 @@ const MainMenuItem: FC<{
 			<Text>{label}</Text>
 		</HStack>
 		<Box color="panel.textMuted">
-			{isRTL ? <ChevronLeftIcon width={13} /> : <ChevronRightIcon width={13} />}
+			{arrowDirection === "left" ? (
+				<ChevronLeftIcon width={13} />
+			) : (
+				<ChevronRightIcon width={13} />
+			)}
 		</Box>
 	</Flex>
 );
