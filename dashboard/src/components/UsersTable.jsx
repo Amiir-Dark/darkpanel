@@ -1,7 +1,7 @@
 import { Badge, Box, Button, chakra, Flex, HStack, IconButton, Menu, MenuButton, MenuItem, MenuList, Portal, Spinner, Stack, Tab, TabList, TabPanel, TabPanels, Tabs, Text, Tooltip, useBreakpointValue, useToast, VStack, } from "@chakra-ui/react";
 import { ArrowPathIcon, CalendarDaysIcon, ChartBarIcon, CheckIcon, ChevronRightIcon, CircleStackIcon, ClipboardIcon, ClockIcon, GlobeAltIcon, LinkIcon, NoSymbolIcon, PencilIcon, PlusCircleIcon, QrCodeIcon, ServerStackIcon, SignalIcon, TrashIcon, } from "@heroicons/react/24/outline";
 import { LockClosedIcon } from "@heroicons/react/24/solid";
-import { ReactComponent as AddFileIcon } from "assets/add_file.svg";
+import { AddFileIcon } from "components/icons/AddFileIcon";
 import { useDashboard } from "contexts/DashboardContext";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";

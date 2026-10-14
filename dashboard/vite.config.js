@@ -1,7 +1,6 @@
 import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig, loadEnv, splitVendorChunkPlugin, } from "vite";
-import svgr from "vite-plugin-svgr";
 import tsconfigPaths from "vite-tsconfig-paths";
 const tutorialDirectoryIndex = {
     name: "tutorial-directory-index",
@@ -53,7 +52,6 @@ export default defineConfig(({ mode }) => {
             tutorialDirectoryIndex,
             tsconfigPaths({ projects: ["./jsconfig.json"] }),
             react(),
-            svgr(),
             ...(env.ANALYZE === "true" ? [visualizer()] : []),
             splitVendorChunkPlugin(),
         ],

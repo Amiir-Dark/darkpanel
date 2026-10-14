@@ -2,7 +2,7 @@ import { chakra, HStack, IconButton, Menu, MenuButton, MenuItem, MenuList, Porta
 import { CheckIcon, LanguageIcon } from "@heroicons/react/24/outline";
 import ReactCountryFlag from "react-country-flag";
 import { useTranslation } from "react-i18next";
-import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
+import { ImperialIranFlag } from "components/icons/ImperialIranFlag";
 const LangIcon = chakra(LanguageIcon, {
     baseStyle: {
         w: 4,

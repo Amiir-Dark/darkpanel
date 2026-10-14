@@ -10,7 +10,6 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { logout as logoutSession } from "service/auth";
 import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import { clearClientSession } from "utils/session";
-import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
 import { AppSidebar } from "./AppSidebar";
 import { HeaderCalendar } from "./HeaderCalendar";
 import { NotificationBell } from "./NotificationBell";
