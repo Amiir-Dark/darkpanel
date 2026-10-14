@@ -89,7 +89,7 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 	const handleItemMouseEnter = (key: string) => {
 		if (isMobile) return;
 		cancelCloseTimer();
-		setActiveSubmenu(key);
+		setActiveSubmenu((prev) => (prev === key ? prev : key));
 	};
 
 	const handleContainerMouseLeave = () => {
@@ -526,22 +526,7 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 			dir={isRTL ? "rtl" : "ltr"}
 			onMouseLeave={handleContainerMouseLeave}
 		>
-			<style>{`
-				@keyframes rbMenuIn {
-					0% { opacity: 0; transform: translateY(-4px) scale(0.98); }
-					100% { opacity: 1; transform: translateY(0) scale(1); }
-				}
-				@keyframes rbFlyoutInRight {
-					0% { opacity: 0; transform: translateX(-6px) scale(0.98); }
-					100% { opacity: 1; transform: translateX(0) scale(1); }
-				}
-				@keyframes rbFlyoutInLeft {
-					0% { opacity: 0; transform: translateX(6px) scale(0.98); }
-					100% { opacity: 1; transform: translateX(0) scale(1); }
-				}
-			`}</style>
-
-			{/* Main Menu Box - Fixed width, never moves or shifts */}
+			{/* Main Menu Box - Fixed width, rock-solid stability */}
 			<Box
 				bg="#121316"
 				borderWidth="1px"
@@ -550,7 +535,6 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 				boxShadow="0 20px 50px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08)"
 				w="180px"
 				py={1.5}
-				animation="rbMenuIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards"
 			>
 				<MainMenuItem
 					label={isRTL ? "وضعیت" : "Status"}
@@ -615,8 +599,7 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 					opacity={hasAnyActiveFilter ? 1 : 0.6}
 					fontSize="13px"
 					fontWeight="500"
-					role="group"
-					transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+					transition="background-color 0.12s ease, color 0.12s ease"
 					_hover={
 						hasAnyActiveFilter
 							? { bg: "rgba(255, 255, 255, 0.08)", color: "white" }
@@ -624,17 +607,12 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 					}
 					onClick={hasAnyActiveFilter ? handleReset : undefined}
 				>
-					<Box
-						transition="transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
-						_groupHover={hasAnyActiveFilter ? { transform: "rotate(-60deg)" } : undefined}
-					>
-						<ArrowPathIcon width={16} height={16} />
-					</Box>
+					<ArrowPathIcon width={16} height={16} />
 					<Text>{isRTL ? "بازنشانی" : "Reset"}</Text>
 				</Flex>
 			</Box>
 
-			{/* Submenu Flyout Box (Desktop) - Absolutely positioned so it NEVER shifts the Main Menu */}
+			{/* Submenu Flyout Box (Desktop) - Absolutely positioned, steady and persistent */}
 			{!isMobile && activeSubmenu && (
 				<Box
 					position="absolute"
@@ -649,11 +627,6 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 					minW="190px"
 					py={1.5}
 					zIndex={100}
-					animation={
-						flyoutSide === "right"
-							? "rbFlyoutInRight 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards"
-							: "rbFlyoutInLeft 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards"
-					}
 					onMouseEnter={cancelCloseTimer}
 					_before={{
 						content: '""',
@@ -693,8 +666,7 @@ const MainMenuItem: FC<{
 		fontWeight="500"
 		color={isOpen ? "white" : "rgba(255, 255, 255, 0.75)"}
 		bg={isOpen ? "rgba(255, 255, 255, 0.08)" : "transparent"}
-		transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-		role="group"
+		transition="background-color 0.12s ease, color 0.12s ease"
 		_hover={{
 			bg: "rgba(255, 255, 255, 0.08)",
 			color: "white",
@@ -702,29 +674,18 @@ const MainMenuItem: FC<{
 		onMouseEnter={onMouseEnter}
 		onClick={onClick}
 	>
-		<HStack
-			spacing={2.5}
-			align="center"
-			transition="transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-			_groupHover={{
-				transform: arrowDirection === "left" ? "translateX(-3px)" : "translateX(3px)",
-			}}
-		>
+		<HStack spacing={2.5} align="center">
 			<Box
 				color={isOpen ? "var(--rb-panel-accent, #3b82f6)" : "inherit"}
-				transition="color 0.15s ease"
+				transition="color 0.12s ease"
 			>
 				{icon}
 			</Box>
 			<Text>{label}</Text>
 		</HStack>
 		<Box
-			color="rgba(255, 255, 255, 0.45)"
-			transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-			_groupHover={{
-				color: "white",
-				transform: arrowDirection === "left" ? "translateX(-2px)" : "translateX(2px)",
-			}}
+			color={isOpen ? "white" : "rgba(255, 255, 255, 0.45)"}
+			transition="color 0.12s ease"
 		>
 			{arrowDirection === "left" ? (
 				<ChevronLeftIcon width={13} strokeWidth={2.2} />
@@ -754,26 +715,18 @@ const SubmenuItem: FC<{
 		fontWeight="500"
 		color={isSelected ? "white" : "rgba(255, 255, 255, 0.75)"}
 		bg={isSelected ? "rgba(37, 99, 235, 0.15)" : "transparent"}
-		transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-		role="group"
+		transition="background-color 0.12s ease, color 0.12s ease"
 		_hover={{
 			bg: isSelected ? "rgba(37, 99, 235, 0.25)" : "rgba(255, 255, 255, 0.08)",
 			color: "white",
 		}}
 		onClick={onClick}
 	>
-		<HStack
-			spacing={2.5}
-			align="center"
-			transition="transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-			_groupHover={{
-				transform: "translateX(3px)",
-			}}
-		>
+		<HStack spacing={2.5} align="center">
 			{icon && (
 				<Box
 					color={isSelected ? "var(--rb-panel-accent, #3b82f6)" : "inherit"}
-					transition="color 0.15s ease"
+					transition="color 0.12s ease"
 				>
 					{icon}
 				</Box>
@@ -781,12 +734,7 @@ const SubmenuItem: FC<{
 			<Text>{label}</Text>
 		</HStack>
 		{isSelected && (
-			<Box
-				color="white"
-				ml={3}
-				transition="transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-				_groupHover={{ transform: "scale(1.15)" }}
-			>
+			<Box color="white" ml={3}>
 				<CheckIcon width={15} height={15} strokeWidth={2.5} />
 			</Box>
 		)}
