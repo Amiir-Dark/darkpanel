@@ -165,11 +165,11 @@ func (r Repository) SubscriptionBundle(ctx context.Context) (SubscriptionBundle,
 		return SubscriptionBundle{}, err
 	}
 	inbounds := []InboundSummary{}
-	if rows, err := r.db.QueryContext(ctx, `SELECT id, inbound_tag, remark FROM hosts WHERE COALESCE(is_disabled, 0) = 0 ORDER BY sort ASC, id ASC`); err == nil {
+	if rows, err := r.db.QueryContext(ctx, `SELECT id, inbound_tag, remark, COALESCE(address, ''), COALESCE(port, 0) FROM hosts WHERE COALESCE(is_disabled, 0) = 0 ORDER BY inbound_tag ASC, sort ASC, id ASC`); err == nil {
 		defer rows.Close()
 		for rows.Next() {
 			var in InboundSummary
-			if err := rows.Scan(&in.ID, &in.InboundTag, &in.Remark); err == nil {
+			if err := rows.Scan(&in.ID, &in.InboundTag, &in.Remark, &in.Address, &in.Port); err == nil {
 				inbounds = append(inbounds, in)
 			}
 		}

@@ -134,6 +134,8 @@ type InboundSummary struct {
 	ID         int64  `json:"id"`
 	InboundTag string `json:"inbound_tag"`
 	Remark     string `json:"remark"`
+	Address    string `json:"address,omitempty"`
+	Port       int    `json:"port,omitempty"`
 }
 
 type SubscriptionBundle struct {

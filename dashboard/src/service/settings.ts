@@ -251,6 +251,8 @@ export interface SubscriptionSettingsBundle {
 		id: number;
 		inbound_tag: string;
 		remark: string;
+		address?: string;
+		port?: number;
 	}>;
 }
 

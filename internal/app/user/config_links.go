@@ -405,9 +405,9 @@ func effectiveInboundForHost(wildcardSalt string, variables map[string]string, i
 	hostRemark := host.Remark
 	if len(customRemarks) > 0 && customRemarks[0] != nil {
 		remarksMap := customRemarks[0]
-		if custom, ok := remarksMap[host.InboundTag]; ok && strings.TrimSpace(custom) != "" {
+		if custom, ok := remarksMap[strconv.FormatInt(host.ID, 10)]; ok && strings.TrimSpace(custom) != "" {
 			hostRemark = strings.TrimSpace(custom)
-		} else if custom, ok := remarksMap[strconv.FormatInt(host.ID, 10)]; ok && strings.TrimSpace(custom) != "" {
+		} else if custom, ok := remarksMap[host.InboundTag]; ok && strings.TrimSpace(custom) != "" {
 			hostRemark = strings.TrimSpace(custom)
 		} else if custom, ok := remarksMap[host.Remark]; ok && strings.TrimSpace(custom) != "" {
 			hostRemark = strings.TrimSpace(custom)

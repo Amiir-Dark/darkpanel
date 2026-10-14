@@ -1025,9 +1025,10 @@ export const IntegrationSettingsPage = () => {
 	} | null>(null);
 	const [isTestingResellerBot, setIsTestingResellerBot] = useState(false);
 	const [isBackingUpReseller, setIsBackingUpReseller] = useState(false);
-	const [resellerTab, setResellerTab] = useState<"sub_access" | "client_apps" | "telegram">(() => {
+	const [resellerTab, setResellerTab] = useState<"sub_access" | "client_apps" | "config_remarks" | "telegram">(() => {
 		const hash = window.location.hash.replace("#", "");
 		if (hash === "client_apps") return "client_apps";
+		if (hash === "config_remarks" || hash === "remarks") return "config_remarks";
 		if (hash === "telegram" || hash === "reseller_telegram") return "telegram";
 		return "sub_access";
 	});
@@ -1036,6 +1037,7 @@ export const IntegrationSettingsPage = () => {
 		const handleHash = () => {
 			const hash = window.location.hash.replace("#", "");
 			if (hash === "client_apps") setResellerTab("client_apps");
+			else if (hash === "config_remarks" || hash === "remarks") setResellerTab("config_remarks");
 			else if (hash === "telegram" || hash === "reseller_telegram") setResellerTab("telegram");
 			else if (hash === "sub_access" || hash === "subscriptions") setResellerTab("sub_access");
 		};
@@ -2221,6 +2223,16 @@ export const IntegrationSettingsPage = () => {
 													label: "Client Apps",
 												},
 												{
+													value: "config_remarks",
+													isActive: activeIntegrationTab === 2 && resellerTab === "config_remarks",
+													onClick: () => {
+														setActiveIntegrationTab(2);
+														setResellerTab("config_remarks");
+														window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#config_remarks`);
+													},
+													label: "Config Remarks",
+												},
+												{
 													value: "telegram",
 													isActive: activeIntegrationTab === 2 && resellerTab === "telegram",
 													onClick: () => {
@@ -3100,14 +3112,18 @@ export const IntegrationSettingsPage = () => {
 																	? "Sub Access"
 																	: resellerTab === "client_apps"
 																	  ? "Client Apps"
-																	  : "Telegram Bot"}
+																	  : resellerTab === "config_remarks"
+																	    ? "Config Remarks"
+																	    : "Telegram Bot"}
 															</Heading>
 															<Text fontSize="sm" color="gray.500">
 																{resellerTab === "sub_access"
-																	? "Configure subscription headers, delivery limits, and custom remarks."
+																	? "Configure subscription headers and link delivery limits."
 																	: resellerTab === "client_apps"
 																	  ? "Choose which client applications are allowed to connect and update subscriptions."
-																	  : "Configure Telegram bot for automated and manual panel backup files."}
+																	  : resellerTab === "config_remarks"
+																	    ? "Customize config names (remarks) for each host in your subscription links."
+																	    : "Configure Telegram bot for automated and manual panel backup files."}
 															</Text>
 														</Box>
 														<HStack spacing={2}>
@@ -3438,95 +3454,6 @@ export const IntegrationSettingsPage = () => {
 															</Flex>
 														</VStack>
 													</Box>
-
-													{/* Custom Config Names (Remarks) */}
-													<Box
-														p={5}
-														borderRadius="xl"
-														borderWidth="1px"
-														borderColor={borderColor}
-														bg={subCardBg}
-													>
-														<Flex align="center" gap={3} mb={3}>
-															<Box
-																p={2}
-																borderRadius="lg"
-																borderWidth="1px"
-																borderColor={borderColor}
-																bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
-															>
-																<ServerStackIcon style={{ width: 22, height: 22 }} />
-															</Box>
-															<Box>
-																<Heading size="xs">
-																	{t("settings.subscriptions.customConfigNames", "Custom Config Remarks")}
-																</Heading>
-																<Text fontSize="xs" color="gray.500" mt={0.5}>
-																	{t(
-																		"settings.subscriptions.customConfigNamesDesc",
-																		"Assign custom names to each inbound or server to display in subscription config links.",
-																	)}
-																</Text>
-															</Box>
-														</Flex>
-
-														{subscriptionBundle?.inbounds && subscriptionBundle.inbounds.length > 0 ? (
-															<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3.5} mt={3}>
-																{subscriptionBundle.inbounds.map((inb) => {
-																	const remarks =
-																		(settings.inbound_remarks as Record<string, string>) || {};
-																	const currentVal = remarks[inb.inbound_tag] ?? "";
-																	return (
-																		<Box
-																			key={inb.id}
-																			p={3.5}
-																			borderRadius="xl"
-																			borderWidth="1px"
-																			borderColor={
-																				colorMode === "dark"
-																					? "whiteAlpha.100"
-																					: "gray.200"
-																			}
-																			bg={
-																				colorMode === "dark"
-																					? "whiteAlpha.50"
-																					: "white"
-																			}
-																		>
-																			<Flex justify="space-between" align="center" mb={2}>
-																				<Badge colorScheme="purple">{inb.inbound_tag}</Badge>
-																				<Text fontSize="xs" color="gray.500">
-																					{inb.remark || "Default"}
-																				</Text>
-																			</Flex>
-																			<FormControl>
-																				<Input
-																					size="sm"
-																					placeholder={inb.remark || inb.inbound_tag}
-																					value={currentVal}
-																					onChange={(e) => {
-																						const updated = {
-																							...remarks,
-																							[inb.inbound_tag]: e.target.value,
-																						};
-																						handleAdminTemplateChange(
-																							admin.id,
-																							"inbound_remarks" as any,
-																							updated,
-																						);
-																					}}
-																				/>
-																			</FormControl>
-																		</Box>
-																	);
-																})}
-															</SimpleGrid>
-														) : (
-															<Text fontSize="xs" color="gray.500" mt={2}>
-																{t("settings.subscriptions.noInboundsFound", "No active inbounds found.")}
-															</Text>
-														)}
-													</Box>
 												</>
 											)}
 
@@ -3657,7 +3584,153 @@ export const IntegrationSettingsPage = () => {
 												</Box>
 											)}
 
-											{/* Tab 3: Telegram Bot Backup Section */}
+											{/* Tab 3: Custom Config Remarks */}
+											{resellerTab === "config_remarks" && (
+												<Box
+													p={5}
+													borderRadius="xl"
+													borderWidth="1px"
+													borderColor={borderColor}
+													bg={subCardBg}
+												>
+													<Flex align="center" justify="space-between" mb={4} flexWrap="wrap" gap={3}>
+														<Flex align="center" gap={3}>
+															<Box
+																p={2}
+																borderRadius="lg"
+																borderWidth="1px"
+																borderColor={borderColor}
+																bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
+															>
+																<ServerStackIcon style={{ width: 22, height: 22 }} />
+															</Box>
+															<Box>
+																<Heading size="xs">Custom Config Remarks</Heading>
+																<Text fontSize="xs" color="gray.500" mt={0.5}>
+																	Change host and config names to display customized remarks in your users' subscription links.
+																</Text>
+															</Box>
+														</Flex>
+													</Flex>
+
+													{subscriptionBundle?.inbounds && subscriptionBundle.inbounds.length > 0 ? (
+														(() => {
+															const groups: Record<string, typeof subscriptionBundle.inbounds> = {};
+															subscriptionBundle.inbounds.forEach((inb) => {
+																if (!groups[inb.inbound_tag]) groups[inb.inbound_tag] = [];
+																groups[inb.inbound_tag].push(inb);
+															});
+
+															const remarks =
+																(settings.inbound_remarks as Record<string, string>) || {};
+
+															return (
+																<VStack spacing={4} align="stretch">
+																	{Object.entries(groups).map(([tag, hosts]) => (
+																		<Box
+																			key={tag}
+																			p={4}
+																			borderRadius="xl"
+																			borderWidth="1px"
+																			borderColor={borderColor}
+																			bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
+																		>
+																			<Flex align="center" justify="space-between" mb={3}>
+																				<HStack spacing={2}>
+																					<Badge colorScheme="purple" px={2} py={0.5} borderRadius="md" fontSize="xs">
+																						{tag}
+																					</Badge>
+																					<Text fontSize="xs" color="gray.500">
+																						{hosts.length} {hosts.length === 1 ? "Host / Config" : "Hosts / Configs"}
+																					</Text>
+																				</HStack>
+																			</Flex>
+
+																			<SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={3.5}>
+																				{hosts.map((host) => {
+																					const customVal =
+																						remarks[String(host.id)] ??
+																						remarks[host.remark] ??
+																						"";
+																					const hasCustom = Boolean(customVal);
+
+																					return (
+																						<Box
+																							key={host.id}
+																							p={3.5}
+																							borderRadius="lg"
+																							borderWidth="1px"
+																							borderColor={hasCustom ? "primary.400" : borderColor}
+																							bg={colorMode === "dark" ? "whiteAlpha.100" : "gray.50"}
+																							position="relative"
+																							transition="all 0.2s ease"
+																						>
+																							<Flex justify="space-between" align="flex-start" mb={2}>
+																								<Box minW={0} flex="1">
+																									<HStack spacing={1.5} align="center">
+																										<Text fontSize="xs" fontWeight="bold" noOfLines={1} color="gray.500">
+																											Default:
+																										</Text>
+																										<Badge variant="subtle" colorScheme="gray" fontSize="xs" noOfLines={1}>
+																											{host.remark || tag}
+																										</Badge>
+																									</HStack>
+																									{host.address && (
+																										<Text fontSize="11px" color="gray.400" mt={0.5} noOfLines={1}>
+																											{host.address}{host.port ? `:${host.port}` : ""}
+																										</Text>
+																									)}
+																								</Box>
+																								{hasCustom && (
+																									<Badge colorScheme="green" fontSize="10px">
+																										Customized
+																									</Badge>
+																								)}
+																							</Flex>
+
+																							<FormControl>
+																								<FormLabel fontSize="xs" mb={1} color="gray.500">
+																									Custom Name:
+																								</FormLabel>
+																								<Input
+																									size="sm"
+																									bg={fieldBg}
+																									placeholder={host.remark || tag}
+																									value={customVal}
+																									onChange={(e) => {
+																										const nextRemarks = {
+																											...remarks,
+																											[String(host.id)]: e.target.value,
+																										};
+																										if (!e.target.value.trim()) {
+																											delete nextRemarks[String(host.id)];
+																										}
+																										handleAdminTemplateChange(
+																											admin.id,
+																											"inbound_remarks" as any,
+																											nextRemarks,
+																										);
+																									}}
+																								/>
+																							</FormControl>
+																						</Box>
+																					);
+																				})}
+																			</SimpleGrid>
+																		</Box>
+																	))}
+																</VStack>
+															);
+														})()
+													) : (
+														<Text fontSize="xs" color="gray.500" mt={2}>
+															No active inbounds or hosts found.
+														</Text>
+													)}
+												</Box>
+											)}
+
+											{/* Tab 4: Telegram Bot Backup Section */}
 											{resellerTab === "telegram" && (
 												<Box
 													p={5}
@@ -5171,6 +5244,102 @@ export const IntegrationSettingsPage = () => {
 																			);
 																		})}
 																	</SimpleGrid>
+																</Box>
+
+																{/* Custom Config Remarks for Admin */}
+																<Box mt={5}>
+																	<Text fontWeight="semibold" fontSize="sm" mb={1}>
+																		{t("settings.subscriptions.customConfigNames", "Custom Config Remarks")}
+																	</Text>
+																	<Text fontSize="xs" color="gray.500" mb={3}>
+																		{t(
+																			"settings.subscriptions.customConfigNamesDesc",
+																			"Assign custom names to each inbound or server to display in subscription config links.",
+																		)}
+																	</Text>
+																	{subscriptionBundle?.inbounds && subscriptionBundle.inbounds.length > 0 ? (
+																		(() => {
+																			const groups: Record<string, typeof subscriptionBundle.inbounds> = {};
+																			subscriptionBundle.inbounds.forEach((inb) => {
+																				if (!groups[inb.inbound_tag]) groups[inb.inbound_tag] = [];
+																				groups[inb.inbound_tag].push(inb);
+																			});
+																			const remarks = (settings.inbound_remarks as Record<string, string>) || {};
+
+																			return (
+																				<VStack spacing={3} align="stretch">
+																					{Object.entries(groups).map(([tag, hosts]) => (
+																						<Box
+																							key={tag}
+																							p={3.5}
+																							borderRadius="lg"
+																							borderWidth="1px"
+																							borderColor={borderColor}
+																							bg={colorMode === "dark" ? "whiteAlpha.50" : "gray.50"}
+																						>
+																							<Flex align="center" justify="space-between" mb={2}>
+																								<Badge colorScheme="purple" fontSize="xs">
+																									{tag}
+																								</Badge>
+																								<Text fontSize="xs" color="gray.500">
+																									{hosts.length} {hosts.length === 1 ? "Host" : "Hosts"}
+																								</Text>
+																							</Flex>
+																							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+																								{hosts.map((host) => {
+																									const customVal = remarks[String(host.id)] ?? remarks[host.remark] ?? "";
+																									return (
+																										<Box
+																											key={host.id}
+																											p={2.5}
+																											borderRadius="md"
+																											borderWidth="1px"
+																											borderColor={customVal ? "primary.400" : borderColor}
+																											bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
+																										>
+																											<Flex justify="space-between" align="center" mb={1.5}>
+																												<Text fontSize="xs" fontWeight="medium" noOfLines={1}>
+																													{host.remark || tag}
+																												</Text>
+																												{host.address && (
+																													<Text fontSize="10px" color="gray.400">
+																														{host.address}{host.port ? `:${host.port}` : ""}
+																													</Text>
+																												)}
+																											</Flex>
+																											<Input
+																												size="xs"
+																												placeholder={host.remark || tag}
+																												value={customVal}
+																												onChange={(e) => {
+																													const nextRemarks = {
+																														...remarks,
+																														[String(host.id)]: e.target.value,
+																													};
+																													if (!e.target.value.trim()) {
+																														delete nextRemarks[String(host.id)];
+																													}
+																													handleAdminTemplateChange(
+																														admin.id,
+																														"inbound_remarks" as any,
+																														nextRemarks,
+																													);
+																												}}
+																											/>
+																										</Box>
+																									);
+																								})}
+																							</SimpleGrid>
+																						</Box>
+																					))}
+																				</VStack>
+																			);
+																		})()
+																	) : (
+																		<Text fontSize="xs" color="gray.500">
+																			No active inbounds or hosts found.
+																		</Text>
+																	)}
 																</Box>
 
 																<Divider my={4} />
