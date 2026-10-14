@@ -4,14 +4,11 @@
 		"module": "ESNext",
 		"moduleResolution": "node",
 		"jsx": "react-jsx",
-		"baseUrl": "./src",
+		"baseUrl": ".",
 		"paths": {
-			"@/*": [
-				"*"
-			]
+			"@/*": ["src/*"],
+			"*": ["src/*"]
 		}
 	},
-	"include": [
-		"src"
-	]
+	"include": ["src"]
 }
