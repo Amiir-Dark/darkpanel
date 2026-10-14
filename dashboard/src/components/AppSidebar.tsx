@@ -1,7 +1,6 @@
 import {
 	Box,
 	chakra,
-	Collapse,
 	Flex,
 	HStack,
 	Image,
@@ -17,7 +16,6 @@ import {
 	BookOpenIcon,
 	BriefcaseIcon,
 	ChartBarIcon,
-	ChevronDownIcon,
 	CircleStackIcon,
 	ClockIcon,
 	CodeBracketSquareIcon,
@@ -84,6 +82,7 @@ const ApiDocsIconStyled = chakra(CodeBracketSquareIcon, iconProps);
 const PHPMyAdminIconStyled = chakra(CircleStackIcon, iconProps);
 const ExternalAppsIconStyled = chakra(CommandLineIcon, iconProps);
 const PlaceholderIconStyled = chakra(DocumentDuplicateIcon, iconProps);
+const SubscriptionIconStyled = chakra(LinkIcon, iconProps);
 const TutorialUpdateIconStyled = chakra(BellAlertIcon, {
 	baseStyle: {
 		w: 3,
@@ -305,6 +304,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 			onRequestExpand();
 		}
 		if (!targetUrl) return;
+		if (targetUrl.includes("#")) {
+			event?.preventDefault();
+			navigate(targetUrl);
+			return;
+		}
 		const defaultTab = defaultTabByPath[targetUrl];
 		if (defaultTab) {
 			event?.preventDefault();
@@ -315,139 +319,160 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		}
 	};
 
-	const items: SidebarItem[] = [
+	// 1. Main Navigation: Dashboard, Users, Subscriptions (for resellers / self), Usage
+	const mainItems: SidebarItem[] = [
 		{ title: t("dashboard"), url: "/", icon: HomeIconStyled },
 		{ title: t("users"), url: "/users", icon: UsersIconStyled },
 	];
-
-	if (selfAccess.self_myaccount) {
-		items.splice(1, 0, {
-			title: t("myaccount.menu"),
-			url: "/myaccount",
-			icon: MyAccountIconStyled,
+	if (canManageSubscription && !sectionAccess?.[AdminSection.Integrations]) {
+		mainItems.push({
+			title: t("subscriptions"),
+			url: "/settings#subscriptions",
+			icon: SubscriptionIconStyled,
 		});
 	}
-
-	items.push({
-		title: t("notifications.menu"),
-		url: "/notifications",
-		icon: NotificationIconStyled,
-	});
-
 	if (canViewUsage) {
-		items.push({
+		mainItems.push({
 			title: t("usage.menu"),
 			url: "/usage",
 			icon: UsageIconStyled,
 		});
 	}
+
+	// 2. Infrastructure: Nodes, Services, Hosts
+	const infraItems: SidebarItem[] = [];
+	if (sectionAccess?.[AdminSection.Nodes]) {
+		infraItems.push({
+			title: t("header.nodeSettings"),
+			url: "/node-settings",
+			icon: NodeIconStyled,
+		});
+	}
+	if (canViewServicesSection) {
+		infraItems.push({
+			title: t("services.title"),
+			url: "/services",
+			icon: ServicesIconStyled,
+		});
+	}
+	if (sectionAccess?.[AdminSection.Hosts]) {
+		infraItems.push({
+			title: t("header.hostSettings"),
+			url: "/hosts",
+			icon: HostsIconStyled,
+		});
+	}
+
+	// 3. System & Settings
+	const systemItems: SidebarItem[] = [];
+	if (sectionAccess?.[AdminSection.Integrations]) {
+		systemItems.push({
+			title: t("header.integrationSettings"),
+			url: "/settings",
+			icon: MasterSettingsIconStyled,
+		});
+	}
+	if (sectionAccess?.[AdminSection.Xray]) {
+		systemItems.push(
+			{
+				title: t("header.xraySettings"),
+				url: "/xray-settings",
+				icon: XraySettingsIconStyled,
+			},
+			{
+				title: t("pages.xray.logs"),
+				url: "/xray-logs",
+				icon: XrayLogsIconStyled,
+			},
+			{
+				title: t("header.accessInsights"),
+				url: "/access-insights",
+				icon: InsightsIconStyled,
+			},
+		);
+	}
+	if (canViewRecentActions) {
+		systemItems.push({
+			title: t("recentActions.title"),
+			url: "/recent-actions",
+			icon: RecentActionsIconStyled,
+		});
+	}
+	if (isPrivilegedAdmin) {
+		systemItems.push(
+			{
+				title: "errors",
+				url: "/errors",
+				icon: InsightsIconStyled,
+			},
+			{
+				title: t("phpmyadmin.menu"),
+				url: "/phpmyadmin",
+				icon: PHPMyAdminIconStyled,
+			},
+		);
+	}
+	if (canManagePlaceholders) {
+		systemItems.push({
+			title: isPrivilegedAdmin
+				? t("placeholders.menu")
+				: t("placeholders.settingsMenu"),
+			url: "/placeholders",
+			icon: PlaceholderIconStyled,
+		});
+	}
+
+	// 4. Admin & Account
+	const adminAccountItems: SidebarItem[] = [];
 	if (canViewAdmins) {
-		items.push({
+		adminAccountItems.push({
 			title: t("admins"),
 			url: "/admins",
 			icon: AdminIconStyled,
 		});
 	}
-	if (settingsSubItems.length > 0) {
-		items.push({
-			title: t("header.settings"),
-			icon: SettingsIconStyled,
-			subItems: settingsSubItems,
+	if (selfAccess.self_myaccount) {
+		adminAccountItems.push({
+			title: t("myaccount.menu"),
+			url: "/myaccount",
+			icon: MyAccountIconStyled,
 		});
 	}
-
-	const directItems = items.filter((item) => item.url);
-	const directByUrl = new Map(
-		directItems.map((item) => [item.url as string, item]),
-	);
-	const settingsByUrl = new Map(
-		settingsSubItems.map((item) => [item.url, item as SidebarItem]),
-	);
-	const pickDirect = (url: string) => directByUrl.get(url);
-	const pickSetting = (url: string) => settingsByUrl.get(url);
-	const compactGroups = [
-		{
-			id: "dashboard",
-			title: t("dashboard"),
-			items: [pickDirect("/")],
-		},
-		{
-			id: "users",
-			title: t("users"),
-			items: [pickDirect("/users")],
-		},
-		{
-			id: "infrastructure",
-			title: t("sidebar.groups.infrastructure"),
-			items: [
-				pickSetting("/node-settings"),
-				pickSetting("/services"),
-				pickSetting("/hosts"),
-			],
-		},
-		{
-			id: "admin",
-			title: t("admins.admin"),
-			items: [
-				pickDirect("/admins"),
-				pickDirect("/usage"),
-				pickDirect("/myaccount"),
-				pickDirect("/notifications"),
-			],
-		},
-		{
-			id: "system",
-			title: t("sidebar.groups.system"),
-			items: [
-				pickSetting("/settings"),
-				pickSetting("/xray-settings"),
-				pickSetting("/xray-logs"),
-				pickSetting("/errors"),
-				pickSetting("/access-insights"),
-				pickSetting("/recent-actions"),
-				pickSetting("/phpmyadmin"),
-				pickSetting("/placeholders"),
-			],
-		},
-	].map((group) => ({
-		...group,
-		items: group.items.filter(Boolean) as SidebarItem[],
-	}));
-
-	const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
-		try {
-			const saved = localStorage.getItem("rb-sidebar-collapsed-groups");
-			if (saved) return JSON.parse(saved);
-		} catch {}
-		return { system: true };
+	adminAccountItems.push({
+		title: t("notifications.menu"),
+		url: "/notifications",
+		icon: NotificationIconStyled,
 	});
 
-	const isGroupActive = useCallback(
-		(groupItems: SidebarItem[]) =>
-			groupItems.some((item) => {
-				if (!item.url) return false;
-				return (
-					location.pathname === item.url ||
-					(item.url !== "/" && location.pathname.startsWith(item.url))
-				);
-			}),
-		[location.pathname],
-	);
+	const sidebarGroups = [
+		{ id: "main", items: mainItems },
+		{ id: "infrastructure", items: infraItems },
+		{ id: "system", items: systemItems },
+		{ id: "account", items: adminAccountItems },
+	];
+	const visibleGroups = sidebarGroups.filter((group) => group.items.length > 0);
 
-	const isGroupOpen = (groupId: string, groupItems: SidebarItem[]) => {
-		if (isGroupActive(groupItems)) return true;
-		return !collapsedGroups[groupId];
-	};
-
-	const toggleGroup = (groupId: string, groupItems: SidebarItem[]) => {
-		const currentlyOpen = isGroupOpen(groupId, groupItems);
-		setCollapsedGroups((prev) => {
-			const next = { ...prev, [groupId]: currentlyOpen };
-			try {
-				localStorage.setItem("rb-sidebar-collapsed-groups", JSON.stringify(next));
-			} catch {}
-			return next;
-		});
+	const isItemActive = (itemUrl: string) => {
+		if (itemUrl.includes("#")) {
+			const [itemPath, itemHash] = itemUrl.split("#");
+			return (
+				location.pathname === itemPath &&
+				location.hash === `#${itemHash}`
+			);
+		}
+		if (itemUrl === "/") {
+			return location.pathname === "/";
+		}
+		if (itemUrl === "/settings") {
+			return (
+				location.pathname === "/settings" &&
+				location.hash !== "#subscriptions"
+			);
+		}
+		return (
+			location.pathname === itemUrl ||
+			location.pathname.startsWith(`${itemUrl}/`)
+		);
 	};
 
 	const isRTL = i18n.dir(currentLanguage) === "rtl";
@@ -536,58 +561,19 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 							)}
 						</Flex>
 					</Box>
-					<VStack align="stretch" spacing={3}>
-						{compactGroups.map((group) => {
-							if (group.items.length === 0) return null;
-							const isOpen = isGroupOpen(group.id, group.items);
-
-							return (
-								<Box key={group.id}>
-									{collapsed ? (
-										<Box
-											borderTopWidth="1px"
-											borderColor={subNavBorder}
-											my={2}
-											mx={2}
-										/>
-									) : (
-										<Flex
-											align="center"
-											justify="space-between"
-											px={2.5}
-											py={1.5}
-											mb={1}
-											cursor="pointer"
-											borderRadius="8px"
-											userSelect="none"
-											transition="all 0.2s ease"
-											_hover={{
-												bg: "var(--rb-panel-accent-subtle)",
-												color: "panel.text",
-											}}
-											onClick={() => toggleGroup(group.id, group.items)}
-										>
-											<Text
-												fontSize="10.5px"
-												fontWeight="700"
-												color="panel.textMuted"
-												letterSpacing="0.06em"
-												textTransform="uppercase"
-											>
-												{group.title}
-											</Text>
-											<Box
-												as={ChevronDownIcon}
-												w="3"
-												h="3"
-												color="panel.textMuted"
-												transform={isOpen ? "rotate(0deg)" : isRTL ? "rotate(90deg)" : "rotate(-90deg)"}
-												transition="transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
-											/>
-										</Flex>
-									)}
-									<Collapse in={collapsed ? true : isOpen} animateOpacity>
-										<VStack align="stretch" spacing={1}>
+					<VStack align="stretch" spacing={1}>
+						{visibleGroups.map((group, groupIdx) => (
+							<Box key={group.id}>
+								{groupIdx > 0 && (
+									<Box
+										borderTopWidth="1px"
+										borderColor={subNavBorder}
+										my={2}
+										mx={2}
+										opacity={0.6}
+									/>
+								)}
+								<VStack align="stretch" spacing={1}>
 											{group.items.map((item) => {
 												if (!item.url) return null;
 												const itemUrl = item.url;
@@ -719,11 +705,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 													</NavLink>
 												);
 											})}
-										</VStack>
-									</Collapse>
-								</Box>
-							);
-						})}
+								</VStack>
+							</Box>
+						))}
 					</VStack>
 				</Box>
 			</VStack>
