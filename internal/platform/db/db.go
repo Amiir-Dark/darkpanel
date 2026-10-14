@@ -48,8 +48,11 @@ func Open(databaseURL string) (Pool, error) {
 	}
 
 	if dialect == "sqlite" {
-		// WAL permits readers while another connection is writing. A single
-		// connection turns any slow write into a queue for the whole panel.
+		// WAL permits readers while another connection is writing.
+		_, _ = sqlDB.Exec("PRAGMA journal_mode = WAL;")
+		_, _ = sqlDB.Exec("PRAGMA busy_timeout = 30000;")
+		_, _ = sqlDB.Exec("PRAGMA synchronous = NORMAL;")
+		_, _ = sqlDB.Exec("PRAGMA cache_size = -64000;")
 		sqlDB.SetMaxOpenConns(8)
 		sqlDB.SetMaxIdleConns(4)
 		sqlDB.SetConnMaxIdleTime(30 * time.Second)
@@ -100,10 +103,13 @@ func parseDatabaseURL(databaseURL string) (driver string, dsn string, dialect st
 }
 
 func sqliteDSN(path string) string {
+	query := "_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_busy_timeout=30000&_journal_mode=WAL&_synchronous=NORMAL"
 	if strings.HasPrefix(path, "file:") {
-		return path
+		if strings.Contains(path, "?") {
+			return path + "&" + query
+		}
+		return path + "?" + query
 	}
-	query := "_busy_timeout=30000&_journal_mode=WAL&_synchronous=NORMAL"
 	if strings.Contains(path, "?") {
 		return "file:" + path + "&" + query
 	}
