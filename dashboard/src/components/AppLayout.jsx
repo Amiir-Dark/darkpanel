@@ -14,6 +14,7 @@ import { AppSidebar } from "./AppSidebar";
 import { HeaderCalendar } from "./HeaderCalendar";
 import { NotificationBell } from "./NotificationBell";
 import ThemeSelector from "./ThemeSelector";
+import { ImperialIranFlag } from "./icons/ImperialIranFlag";
 const iconProps = {
     baseStyle: {
         w: 4,
