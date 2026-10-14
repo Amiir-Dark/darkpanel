@@ -1626,11 +1626,12 @@ export const UsersTable: FC<UsersTableProps> = ({
 										? () => handleDeleteUser(user)
 										: undefined
 								}
+								compact={compactRowActions}
 							/>
 						)}
-						actionsDisplay={compactRowActions ? "menu" : "inline"}
+						actionsDisplay="inline"
 						actionsPlacement="end"
-						actionsColumnWidth={compactRowActions ? "64px" : "210px"}
+						actionsColumnWidth={compactRowActions ? "88px" : "210px"}
 						actionsAlwaysVisible
 						onRowClick={
 							isDesktop
@@ -2100,6 +2101,7 @@ type ActionButtonsProps = {
 	// Full overflow action set for the trailing "..." menu (desktop parity
 	// with the mobile card); omitted where there is nothing extra to show.
 	menuActions?: RowActionItem[];
+	compact?: boolean;
 };
 
 const ActionButtons: FC<ActionButtonsProps> = ({
@@ -2108,6 +2110,7 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 	onEdit,
 	isRTL,
 	menuActions,
+	compact = false,
 }) => {
 	const { t } = useTranslation();
 	const setQRCode = useDashboard((state) => state.setQRCode);
@@ -2139,6 +2142,59 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 			}, 1000);
 		}
 	}, [copiedConfigs]);
+
+	if (compact) {
+		return (
+			<HStack
+				dir={isRTL ? "rtl" : "ltr"}
+				justifyContent={isRTL ? "flex-start" : "flex-end"}
+				spacing={1}
+				flexWrap="nowrap"
+				onClick={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+				}}
+			>
+				<Tooltip label={copied ? t("copied") : t("usersTable.copyLink")}>
+					<span>
+						<IconButton
+							aria-label={t("usersTable.copyLink")}
+							icon={copied ? <CopiedIcon /> : <SubscriptionLinkIcon />}
+							variant="ghost"
+							size="sm"
+							minW="32px"
+							h="32px"
+							borderRadius="full"
+							borderWidth="1px"
+							borderColor="transparent"
+							isDisabled={!subscriptionLink}
+							transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+							_hover={{
+								borderColor: "var(--rb-panel-accent-glow)",
+								bg: "var(--rb-panel-accent-soft)",
+								color: "var(--rb-panel-accent)",
+								transform: "scale(1.08)",
+								boxShadow: "0 0 10px var(--rb-panel-accent-glow)",
+							}}
+							_active={{
+								transform: "scale(0.95)",
+							}}
+							onClick={() => {
+								void copyTextToClipboard(subscriptionLink)
+									.then(() => {
+										setCopied(true);
+									})
+									.catch(() => undefined);
+							}}
+						/>
+					</span>
+				</Tooltip>
+				{menuActions && menuActions.length > 0 && (
+					<RowActionsMenu actions={menuActions} label={t("actions")} />
+				)}
+			</HStack>
+		);
+	}
 
 	return (
 		<HStack
