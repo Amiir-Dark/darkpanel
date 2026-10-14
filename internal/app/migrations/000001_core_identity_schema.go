@@ -3,6 +3,7 @@ package migrations
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"github.com/pressly/goose/v3"
 	"github.com/rebeccapanel/rebecca/internal/app/node"
@@ -100,8 +101,15 @@ CREATE TABLE admins (
 			return err
 		}
 	}
+	_ = deduplicateAdminUsernames(ctx, tx, dialect)
 	if err := createIndex(ctx, tx, dialect, "admins", "ix_admins_username", []string{"username"}, true); err != nil {
-		return err
+		if strings.Contains(err.Error(), "1062") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			if nonUniqueErr := createIndex(ctx, tx, dialect, "admins", "ix_admins_username", []string{"username"}, false); nonUniqueErr != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 	if err := createIndex(ctx, tx, dialect, "admins", "ix_admins_status", []string{"status"}, false); err != nil {
 		return err
@@ -223,3 +231,26 @@ func seedTLS(ctx context.Context, tx *sql.Tx) error {
 	_, err = tx.ExecContext(ctx, `INSERT INTO tls (id, `+"`key`"+`, certificate) VALUES (1, ?, ?)`, key, cert)
 	return err
 }
+
+func deduplicateAdminUsernames(ctx context.Context, tx *sql.Tx, dialect string) error {
+	hasAdmins, err := HasTable(ctx, tx, dialect, "admins")
+	if err != nil || !hasAdmins {
+		return err
+	}
+	hasUsername, err := HasColumn(ctx, tx, dialect, "admins", "username")
+	if err != nil || !hasUsername {
+		return err
+	}
+	hasID, err := HasColumn(ctx, tx, dialect, "admins", "id")
+	if err != nil || !hasID {
+		return err
+	}
+	switch NormalizeDialect(dialect) {
+	case "mysql":
+		_, _ = tx.ExecContext(ctx, `DELETE a1 FROM admins a1 INNER JOIN admins a2 ON a1.username = a2.username AND a1.id > a2.id`)
+	case "sqlite":
+		_, _ = tx.ExecContext(ctx, `DELETE FROM admins WHERE id NOT IN (SELECT MIN(id) FROM admins GROUP BY username)`)
+	}
+	return nil
+}
+
