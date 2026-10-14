@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -604,5 +605,26 @@ func TestNewServerRejectsInvalidProxyProtocolTrustedRange(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("an invalid trusted PROXY range must fail at startup")
+	}
+}
+
+func TestGatewayFallsBackToHTTPWhenConfiguredTLSCertificateIsInvalid(t *testing.T) {
+	tempDir := t.TempDir()
+	emptyCert := tempDir + "/empty.pem"
+	emptyKey := tempDir + "/empty.key"
+	_ = os.WriteFile(emptyCert, []byte(""), 0o600)
+	_ = os.WriteFile(emptyKey, []byte(""), 0o600)
+
+	server, err := NewServer(Config{
+		Addr:            "127.0.0.1:0",
+		TLSCertFile:     emptyCert,
+		TLSKeyFile:      emptyKey,
+		CertificateBase: tempDir,
+	})
+	if err != nil {
+		t.Fatalf("expected NewServer to fallback gracefully, got error: %v", err)
+	}
+	if server.IsTLS() {
+		t.Fatalf("expected server to not be TLS when certificate is empty")
 	}
 }

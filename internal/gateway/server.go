@@ -14,6 +14,7 @@ import (
 
 	"github.com/pires/go-proxyproto"
 	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
+	"github.com/rebeccapanel/rebecca/internal/app/logging"
 )
 
 type Server struct {
@@ -38,8 +39,13 @@ func NewServer(cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("incomplete TLS configuration: set both UVICORN_SSL_CERTFILE and UVICORN_SSL_KEYFILE, or leave both empty for plain HTTP")
 	}
 	resolver, err := certificateapp.NewResolver(cfg.CertificateBase, cfg.TLSCertFile, cfg.TLSKeyFile)
-	if err != nil && (strings.TrimSpace(cfg.CertificateBase) != "" || strings.TrimSpace(cfg.TLSCertFile) != "" || strings.TrimSpace(cfg.TLSKeyFile) != "") {
-		return nil, err
+	if err != nil {
+		if strings.TrimSpace(cfg.TLSCertFile) != "" || strings.TrimSpace(cfg.TLSKeyFile) != "" {
+			logging.Warnf(logging.ComponentRuntime, "failed to load configured TLS certificate: %v; falling back without fallback certificate", err)
+			resolver, _ = certificateapp.NewResolver(cfg.CertificateBase, "", "")
+		} else if strings.TrimSpace(cfg.CertificateBase) != "" {
+			return nil, err
+		}
 	}
 	var tlsConfig *tls.Config
 	if resolver != nil && resolver.Ready() {
@@ -138,6 +144,10 @@ func (s *Server) ListenAddrs() []string {
 		}
 	}
 	return addrs
+}
+
+func (s *Server) IsTLS() bool {
+	return s != nil && s.tls != nil
 }
 
 func newHTTPServer(addr string, handler http.Handler) *http.Server {

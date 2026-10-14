@@ -48,7 +48,7 @@ func main() {
 	errCh := make(chan error, 1)
 	go func() {
 		scheme := "http"
-		if cfg.TLSCertFile != "" && cfg.TLSKeyFile != "" {
+		if server.IsTLS() {
 			scheme = "https"
 		}
 		logging.Infof(logging.ComponentRuntime, "server listening on %s://%s extra_ports=%v proxy_protocol=%v", scheme, cfg.Addr, cfg.ExtraListenPorts, cfg.ProxyProtocol)
