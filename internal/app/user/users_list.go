@@ -242,7 +242,8 @@ LEFT JOIN admins a ON u.admin_id = a.id`
 
 func usersRowsFromSQL() string {
 	return usersBaseFromSQL() + `
-LEFT JOIN services s ON u.service_id = s.id`
+LEFT JOIN services s ON u.service_id = s.id
+LEFT JOIN user_subscription_access usa ON usa.user_id = u.id`
 }
 
 func usersSummaryFromSQL() string {
@@ -358,7 +359,8 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	u.credential_key,
 	u.subscription_token,
 	u.flow,
-	u.on_hold_expire_duration` + usersRowsFromSQL() + filter.whereSQL() + " ORDER BY " + usersOrderSQL(req.Sort)
+	u.on_hold_expire_duration,
+	usa.user_agent` + usersRowsFromSQL() + filter.whereSQL() + " ORDER BY " + usersOrderSQL(req.Sort)
 	args := append([]any{cutoff, cutoff, cutoff, cutoff, cutoff, cutoff}, filter.args...)
 	if req.Offset != nil {
 		limit := int64(9223372036854775807)
@@ -385,7 +387,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 		var onlineAt any
 		var isOnline int
 		var expire, dataLimit, serviceID, adminID, holdDuration sql.NullInt64
-		var serviceName, adminUsername, credentialKey, subadress, flow, resetStrategy sql.NullString
+		var serviceName, adminUsername, credentialKey, subadress, flow, resetStrategy, subUserAgent sql.NullString
 		if err := rows.Scan(
 			&row.id,
 			&row.item.Username,
@@ -406,6 +408,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 			&subadress,
 			&flow,
 			&holdDuration,
+			&subUserAgent,
 		); err != nil {
 			return nil, err
 		}
@@ -424,6 +427,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 		row.item.ServiceName = stringPtr(serviceName)
 		row.item.AdminID = int64Ptr(adminID)
 		row.item.AdminUsername = stringPtr(adminUsername)
+		row.item.SubLastUserAgent = stringPtr(subUserAgent)
 		row.credentialKey = nullStringValue(credentialKey)
 		row.subadress = nullStringValue(subadress)
 		row.flow = nullStringValue(flow)

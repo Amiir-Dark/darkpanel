@@ -100,6 +100,7 @@ type UserListItem struct {
 	ServiceName            *string          `json:"service_name"`
 	AdminID                *int64           `json:"admin_id"`
 	AdminUsername          *string          `json:"admin_username"`
+	SubLastUserAgent       *string          `json:"sub_last_user_agent,omitempty"`
 	Links                  []string         `json:"links"`
 	SubscriptionURL        string           `json:"subscription_url"`
 	SubscriptionURLs       OrderedStringMap `json:"subscription_urls"`

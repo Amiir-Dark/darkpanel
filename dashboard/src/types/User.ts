@@ -116,6 +116,7 @@ export type UserListItem = {
 	service_name: string | null;
 	admin_id?: number | null;
 	admin_username?: string | null;
+	sub_last_user_agent?: string | null;
 	links?: string[];
 	subscription_url: string;
 	subscription_urls: Record<string, string>;

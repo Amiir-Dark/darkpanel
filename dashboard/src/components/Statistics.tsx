@@ -58,6 +58,7 @@ import { dashboardDiagnostics } from "utils/diagnostics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 import { SystemDiagnostics, useSystemDiagnostics } from "./SystemDiagnostics";
+import SellerDashboard from "./SellerDashboard";
 
 export const StatisticsQueryKey = "statistics-query-key";
 
@@ -1761,6 +1762,29 @@ export const Statistics: FC<BoxProps> = (props) => {
 		setHistoryPayload(payload);
 	};
 
+	const [dashboardMode, setDashboardMode] = useState<"system" | "analytics">("system");
+
+	if (!canSeeGlobal || dashboardMode === "analytics") {
+		return (
+			<Stack spacing={{ base: 4, md: 5 }} w="full" dir={isRTL ? "rtl" : "ltr"}>
+				{canSeeGlobal && (
+					<Flex justify="flex-end" px={1}>
+						<Button
+							size="sm"
+							variant="outline"
+							borderRadius="full"
+							onClick={() => setDashboardMode("system")}
+							fontSize="xs"
+						>
+							{t("dashboard.system.overview", "System Overview")}
+						</Button>
+					</Flex>
+				)}
+				<SellerDashboard adminUsername={userData.username} />
+			</Stack>
+		);
+	}
+
 	if (!systemData) {
 		return (
 			<Stack
@@ -2267,7 +2291,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 						)}
 					</Flex>
 				</Flex>
-				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
+				<HStack spacing={2}>
+					<Button
+						size="sm"
+						variant="outline"
+						borderRadius="full"
+						onClick={() => setDashboardMode("analytics")}
+						fontSize="xs"
+					>
+						{t("dashboard.analyticsView", "Analytics View")}
+					</Button>
+					<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
+				</HStack>
 			</Flex>
 
 			<SimpleGrid
