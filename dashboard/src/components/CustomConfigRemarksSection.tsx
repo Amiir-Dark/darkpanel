@@ -62,7 +62,7 @@ export const CustomConfigRemarksSection: FC<CustomConfigRemarksSectionProps> = (
 	borderColor,
 	subCardBg: _subCardBg,
 	fieldBg,
-	onRefresh: _onRefresh,
+	onRefresh,
 }) => {
 	const { colorMode } = useColorMode();
 	const toast = useToast();
