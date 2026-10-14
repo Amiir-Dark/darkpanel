@@ -920,6 +920,8 @@ export const IntegrationSettingsPage = () => {
 				(activeIntegrationTab >= 2 || isSelfOnlySubscription),
 		},
 	);
+	const selfAdminFromBundle = subscriptionBundle?.admins?.[0];
+	const effectiveSelfAdminId = selfAdminFromBundle?.id ?? currentAdminId;
 
 	const maintenanceInfoQuery = useQuery<RuntimeMaintenanceInfo>(
 		"maintenance-info",
@@ -998,9 +1000,16 @@ export const IntegrationSettingsPage = () => {
 					subscription_settings: admin.subscription_settings || {},
 				};
 			});
+			if (isSelfOnlySubscription && subscriptionBundle.admins[0]) {
+				const self = subscriptionBundle.admins[0];
+				next[effectiveSelfAdminId] = {
+					...self,
+					subscription_settings: self.subscription_settings || {},
+				};
+			}
 			setAdminOverrides(next);
 		}
-	}, [subscriptionBundle]);
+	}, [subscriptionBundle, isSelfOnlySubscription, effectiveSelfAdminId]);
 
 	useEffect(() => {
 		const ids = Object.values(adminOverrides).map((adm) => adm.id);
@@ -1073,6 +1082,10 @@ export const IntegrationSettingsPage = () => {
 		control: subscriptionControl,
 		name: "client_routing_rules",
 	});
+
+	useEffect(() => {
+		subscriptionRegister("blocked_client_apps");
+	}, [subscriptionRegister]);
 
 	useEffect(() => {
 		if (subscriptionBundle?.settings) {
@@ -1524,7 +1537,7 @@ export const IntegrationSettingsPage = () => {
 	);
 	const adminSelfSaveMutation = useMutation(
 		(payload: AdminSubscriptionUpdatePayload) =>
-			updateAdminSubscriptionSettings(currentAdminId, payload),
+			updateAdminSubscriptionSettings(effectiveSelfAdminId, payload),
 		{
 			onSuccess: () => {
 				generateSuccessMessage(t("settings.savedSuccessfully"), toast);
@@ -1537,7 +1550,7 @@ export const IntegrationSettingsPage = () => {
 	);
 
 	const hasUnsavedChanges = isSelfOnlySubscription
-		? dirtyAdminUpdates.length > 0
+		? true
 		: runtimeDirty ||
 		  panelDirty ||
 		  isDirty ||
@@ -1546,7 +1559,9 @@ export const IntegrationSettingsPage = () => {
 
 	const handleSaveAll = async () => {
 		if (isSelfOnlySubscription) {
-			const myAdmin = adminOverrides[currentAdminId];
+			const myAdmin =
+				adminOverrides[effectiveSelfAdminId] ||
+				selfAdminFromBundle;
 			if (!myAdmin) return;
 			adminSelfSaveMutation.mutate(buildAdminSubscriptionPayload(myAdmin));
 			return;
@@ -1554,7 +1569,7 @@ export const IntegrationSettingsPage = () => {
 
 		const [telegramValid, subscriptionsValid] = await Promise.all([
 			isDirty ? validateTelegram() : true,
-			isSubscriptionDirty ? validateSubscriptions() : true,
+			activeIntegrationTab === 2 ? true : (isSubscriptionDirty ? validateSubscriptions() : true),
 		]);
 		if (!telegramValid || !subscriptionsValid) return;
 
@@ -1564,7 +1579,7 @@ export const IntegrationSettingsPage = () => {
 		}
 		if (runtimeDirty) payload.runtime = runtimeSettingsForm;
 		if (isDirty) payload.telegram = buildTelegramPayload(getTelegramValues());
-		if (isSubscriptionDirty) {
+		if (activeIntegrationTab === 2 || isSubscriptionDirty) {
 			payload.subscriptions = buildSubscriptionPayload(getSubscriptionValues());
 		}
 		if (dirtyAdminUpdates.length) {
@@ -2869,12 +2884,14 @@ export const IntegrationSettingsPage = () => {
 								{isSelfOnlySubscription ? (
 									<Box className="master-settings-card">
 										{(() => {
-											const admin = adminOverrides[currentAdminId] || {
-												id: currentAdminId,
-												username: userData.username,
-												subscription_domain: null,
-												subscription_settings: {},
-											};
+											const admin =
+												adminOverrides[effectiveSelfAdminId] ||
+												selfAdminFromBundle || {
+													id: effectiveSelfAdminId,
+													username: userData.username,
+													subscription_domain: null,
+													subscription_settings: {},
+												};
 											const settings = admin.subscription_settings || {};
 											return (
 												<VStack spacing={5} align="stretch">
@@ -3116,215 +3133,6 @@ export const IntegrationSettingsPage = () => {
 														</FormControl>
 													</SimpleGrid>
 
-													{/* Announcement settings */}
-													<Box
-														p={4}
-														borderRadius="xl"
-														borderWidth="1px"
-														borderColor={borderColor}
-														bg={subCardBg}
-													>
-														<Heading size="xs" mb={3}>
-															{t(
-																"settings.subscriptions.happAnnouncementTitle",
-																"پیام و اطلاع‌رسانی سابسکریپشن",
-															)}
-														</Heading>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={4}
-														>
-															<FormControl gridColumn={{ base: "span 1", md: "span 2" }}>
-																<FormLabel>
-																	{t(
-																		"settings.subscriptions.subscriptionAnnouncement",
-																	)}
-																</FormLabel>
-																<Input
-																	placeholder={t(
-																		"settings.subscriptions.subscriptionAnnouncementPlaceholder",
-																	)}
-																	value={
-																		settings.subscription_announcement ?? ""
-																	}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"subscription_announcement",
-																			event.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-															<FormControl>
-																<FormLabel>
-																	{t(
-																		"settings.subscriptions.happSubInfoColor",
-																	)}
-																</FormLabel>
-																<Input
-																	placeholder="#4F46E5"
-																	value={
-																		settings.happ_sub_info_color ?? ""
-																	}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"happ_sub_info_color",
-																			event.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-															<FormControl>
-																<FormLabel>
-																	{t(
-																		"settings.subscriptions.happSubInfoButtonText",
-																	)}
-																</FormLabel>
-																<Input
-																	placeholder={t(
-																		"settings.subscriptions.happSubInfoButtonTextPlaceholder",
-																	)}
-																	value={
-																		settings.happ_sub_info_button_text ?? ""
-																	}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"happ_sub_info_button_text",
-																			event.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-															<FormControl gridColumn={{ base: "span 1", md: "span 2" }}>
-																<FormLabel>
-																	{t(
-																		"settings.subscriptions.happSubInfoButtonLink",
-																	)}
-																</FormLabel>
-																<Input
-																	placeholder="https://t.me/your_channel"
-																	value={
-																		settings.happ_sub_info_button_link ?? ""
-																	}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"happ_sub_info_button_link",
-																			event.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-														</SimpleGrid>
-													</Box>
-
-													{/* Templates Section */}
-													<Box
-														p={4}
-														borderRadius="xl"
-														borderWidth="1px"
-														borderColor={borderColor}
-														bg={subCardBg}
-													>
-														<Heading size="xs" mb={3}>
-															{t(
-																"settings.subscriptions.templatesTitle",
-																"قالب‌های سابسکریپشن (Templates)",
-															)}
-														</Heading>
-														<SimpleGrid
-															columns={{ base: 1, md: 2 }}
-															spacing={4}
-														>
-															<FormControl>
-																<FormLabel>
-																	{t(
-																		"settings.subscriptions.clashSubscriptionTemplate",
-																	)}
-																</FormLabel>
-																<Input
-																	placeholder="clash/default.yml"
-																	value={
-																		settings.clash_subscription_template ??
-																		""
-																	}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"clash_subscription_template",
-																			event.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-															<FormControl>
-																<FormLabel>
-																	{t(
-																		"settings.subscriptions.v2raySubscriptionTemplate",
-																	)}
-																</FormLabel>
-																<Input
-																	placeholder="v2ray/default.json"
-																	value={
-																		settings.v2ray_subscription_template ??
-																		""
-																	}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"v2ray_subscription_template",
-																			event.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-															<FormControl>
-																<FormLabel>
-																	{t(
-																		"settings.subscriptions.singboxSubscriptionTemplate",
-																	)}
-																</FormLabel>
-																<Input
-																	placeholder="singbox/default.json"
-																	value={
-																		settings.singbox_subscription_template ??
-																		""
-																	}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"singbox_subscription_template",
-																			event.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-															<FormControl>
-																<FormLabel>
-																	{t(
-																		"settings.subscriptions.happSubscriptionTemplate",
-																	)}
-																</FormLabel>
-																<Input
-																	placeholder="v2ray/default.json"
-																	value={
-																		settings.happ_subscription_template ?? ""
-																	}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"happ_subscription_template",
-																			event.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-														</SimpleGrid>
-													</Box>
-
 													{/* Save Button */}
 													<Flex justify="flex-end" mt={2}>
 														<Button
@@ -3332,10 +3140,6 @@ export const IntegrationSettingsPage = () => {
 															leftIcon={<SaveIcon />}
 															onClick={handleSaveAll}
 															isLoading={adminSelfSaveMutation.isLoading}
-															isDisabled={
-																!hasUnsavedChanges ||
-																adminSelfSaveMutation.isLoading
-															}
 														>
 															{t("settings.save", "Save changes")}
 														</Button>

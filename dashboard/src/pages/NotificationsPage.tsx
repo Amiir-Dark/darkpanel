@@ -429,7 +429,7 @@ export default function NotificationsPage() {
 					<Tab>{t("notifications.tabs.inbox")}</Tab>
 					{canSend && <Tab>{t("notifications.tabs.send")}</Tab>}
 					{isFullAccess && <Tab>{t("notifications.tabs.rules")}</Tab>}
-					{canSend && <Tab>{t("notifications.tabs.happAnnouncement")}</Tab>}
+					{isFullAccess && <Tab>{t("notifications.tabs.happAnnouncement")}</Tab>}
 				</TabList>
 				<TabPanels>
 					<TabPanel px={0}>
@@ -445,7 +445,7 @@ export default function NotificationsPage() {
 							<RulesPanel />
 						</TabPanel>
 					)}
-					{canSend && (
+					{isFullAccess && (
 						<TabPanel px={0}>
 							<HappAnnouncementPanel />
 						</TabPanel>
