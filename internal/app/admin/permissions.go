@@ -46,14 +46,29 @@ func RoleDefaultPermissions(role AdminRole) AdminPermissions {
 		baseAdminManagement.Manage2FA = true
 		baseSections = allSectionPermissions()
 		baseSudo = allSudoPermissions()
-	case RoleStandard, RoleReseller:
+	case RoleReseller:
+		baseUsers = UserPermissionSettings{
+			Create:               true,
+			Delete:               true,
+			ResetUsage:           true,
+			PeriodicUsageReset:   true,
+			Revoke:               true,
+			CreateOnHold:         true,
+			AllowUnlimitedData:   true,
+			AllowUnlimitedExpire: true,
+			AllowNextPlan:        true,
+			AdvancedActions:      true,
+			SetFlow:              true,
+			AllowCustomKey:       true,
+		}
+	case RoleStandard:
 		// Defaults above intentionally match Python AdminPermissions defaults.
 	default:
 		role = RoleStandard
 	}
 
 	selfPermissions := defaultSelfPermissions()
-	if role.IsGlobal() {
+	if role.IsGlobal() || role == RoleReseller {
 		selfPermissions["self_placeholders"] = true
 		selfPermissions["self_subscription"] = true
 	}

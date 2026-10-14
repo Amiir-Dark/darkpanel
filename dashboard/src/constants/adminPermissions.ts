@@ -64,6 +64,58 @@ const USER_ONLY_TEMPLATE: PermissionTemplate = {
 	},
 };
 
+const RESELLER_TEMPLATE: PermissionTemplate = {
+	users: {
+		[UserPermissionToggle.Create]: true,
+		[UserPermissionToggle.Delete]: true,
+		[UserPermissionToggle.ResetUsage]: true,
+		[UserPermissionToggle.PeriodicUsageReset]: true,
+		[UserPermissionToggle.Revoke]: true,
+		[UserPermissionToggle.CreateOnHold]: true,
+		[UserPermissionToggle.AllowUnlimitedData]: true,
+		[UserPermissionToggle.AllowUnlimitedExpire]: true,
+		[UserPermissionToggle.AllowNextPlan]: true,
+		[UserPermissionToggle.AdvancedActions]: true,
+		[UserPermissionToggle.SetFlow]: true,
+		[UserPermissionToggle.AllowCustomKey]: true,
+		max_data_limit_per_user: null,
+	},
+	admin_management: {
+		[AdminManagementPermission.View]: false,
+		[AdminManagementPermission.Edit]: false,
+		[AdminManagementPermission.ManageSudo]: false,
+		[AdminManagementPermission.ManageSessions]: false,
+		[AdminManagementPermission.Manage2FA]: false,
+	},
+	sections: {
+		[AdminSection.Usage]: false,
+		[AdminSection.Admins]: false,
+		[AdminSection.Services]: false,
+		[AdminSection.Hosts]: false,
+		[AdminSection.Nodes]: false,
+		[AdminSection.Integrations]: false,
+		[AdminSection.Xray]: false,
+	},
+	self_permissions: {
+		self_myaccount: true,
+		self_change_password: true,
+		self_api_keys: true,
+		self_sessions: true,
+		self_2fa: true,
+		self_placeholders: true,
+		self_subscription: true,
+	},
+	sudo: {
+		[AdminSudoScope.Nodes]: false,
+		[AdminSudoScope.Xray]: false,
+		[AdminSudoScope.Settings]: false,
+		[AdminSudoScope.Subscriptions]: false,
+		[AdminSudoScope.Backups]: false,
+		[AdminSudoScope.Maintenance]: false,
+		[AdminSudoScope.PHPMyAdmin]: false,
+	},
+};
+
 const SUDO_TEMPLATE: PermissionTemplate = {
 	users: {
 		[UserPermissionToggle.Create]: true,
@@ -173,7 +225,7 @@ export const ROLE_DEFAULT_ADMIN_PERMISSIONS: Record<
 	PermissionTemplate
 > = {
 	[AdminRole.Standard]: USER_ONLY_TEMPLATE,
-	[AdminRole.Reseller]: USER_ONLY_TEMPLATE,
+	[AdminRole.Reseller]: RESELLER_TEMPLATE,
 	[AdminRole.Sudo]: SUDO_TEMPLATE,
 	[AdminRole.FullAccess]: FULL_ACCESS_TEMPLATE,
 };

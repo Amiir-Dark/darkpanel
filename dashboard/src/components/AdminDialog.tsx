@@ -321,14 +321,14 @@ export const AdminDialog: FC = () => {
 			username: "",
 			password: "",
 			telegram_id: "",
-			role: AdminRole.Standard,
+			role: AdminRole.Reseller,
 			require_2fa: false,
 			traffic_limit_mode: AdminTrafficLimitMode.UsedTraffic,
 			use_service_traffic_limits: false,
 			show_user_traffic: true,
 			delete_user_usage_limit_enabled: false,
 			delete_user_usage_limit: "",
-			permissions: clonePermissions(AdminRole.Standard),
+			permissions: clonePermissions(AdminRole.Reseller),
 			maxDataLimitPerUserGb: "",
 			data_limit: "",
 			users_limit: "",
@@ -607,7 +607,7 @@ export const AdminDialog: FC = () => {
 				})
 				.catch(() => setServiceOptions([]));
 
-			const nextRole: AdminRole = admin?.role ?? AdminRole.Standard;
+			const nextRole: AdminRole = admin?.role ?? AdminRole.Reseller;
 			const nextPermissions = admin
 				? (JSON.parse(JSON.stringify(admin.permissions)) ??
 					clonePermissions(nextRole))
@@ -719,18 +719,8 @@ export const AdminDialog: FC = () => {
 			if (submitStatus !== "idle") return;
 			clearSubmitTimers();
 			setSubmitStatus("loading");
-			const selectedRole: AdminRole = values.role ?? AdminRole.Standard;
+			const selectedRole: AdminRole = values.role ?? AdminRole.Reseller;
 			let permissionPayload: AdminPermissions | undefined;
-			if (selectedRole === AdminRole.Reseller) {
-				toast({
-					status: "warning",
-					title: t("common.comingSoon"),
-					description: t("admins.roles.resellerDescription"),
-					isClosable: true,
-				});
-				showSubmitError();
-				return;
-			}
 
 			const buildPermissionsPayload = (): AdminPermissions => {
 				const computedPermissions: AdminPermissions = JSON.parse(
@@ -1113,12 +1103,9 @@ export const AdminDialog: FC = () => {
 										{t("admins.roles.standardDescription")}
 									</FormHelperText>
 								</Radio>
-								<Radio value={AdminRole.Reseller} isDisabled>
+								<Radio value={AdminRole.Reseller}>
 									<Text fontWeight="medium">
 										{t("admins.roles.reseller")}
-										<Box as="span" ml={2} fontSize="xs" color="orange.500">
-											{t("common.comingSoon")}
-										</Box>
 									</Text>
 									<FormHelperText m={0}>
 										{t("admins.roles.resellerDescription")}
@@ -1645,7 +1632,9 @@ export const AdminDialog: FC = () => {
 				maxDataLimitError={
 					errors.maxDataLimitPerUserGb?.message as string | undefined
 				}
-				hideExtendedSections={watchRole === AdminRole.Standard}
+				hideExtendedSections={
+					watchRole === AdminRole.Standard || watchRole === AdminRole.Reseller
+				}
 				isReadOnly={watchRole === AdminRole.FullAccess}
 			/>
 			{canManage2FA && (

@@ -370,7 +370,7 @@
 	"admins.rolesBreakdown": "Admins by role",
 	"admins.roles.fullAccessDescription": "Complete control, including other sudo admins.",
 	"admins.roles.reseller": "Reseller",
-	"admins.roles.resellerDescription": "Can create and manage their own admins.",
+	"admins.roles.resellerDescription": "Full user capabilities with own subscription and client apps management.",
 	"admins.roles.standard": "Standard",
 	"admins.roles.standardDescription": "Can manage own users; only user-related permissions are available.",
 	"admins.roles.sudo": "Sudo",
