@@ -93,7 +93,8 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 		SubscriptionPath:               normalizePath(base.SubscriptionPath),
 		SubscriptionPorts:              normalizePorts(base.SubscriptionPorts),
 		SubscriptionAliases:            append([]string{}, base.SubscriptionAliases...),
-		ClientRoutingRules:         	append([]ClientRoutingRule{}, base.ClientRoutingRules...), // <--- این خط حتماً باید اضافه شود
+		ClientRoutingRules:             append([]ClientRoutingRule{}, base.ClientRoutingRules...),
+		BlockedClientApps:              append([]string{}, base.BlockedClientApps...),
 		SubscriptionPlaceholderEnabled: base.SubscriptionPlaceholderEnabled,
 		SubscriptionPlaceholderRemark:  firstNonEmptyString(base.SubscriptionPlaceholderRemark, "disabled"),
 		SubscriptionAnnouncement:       base.SubscriptionAnnouncement,

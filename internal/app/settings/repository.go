@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -268,6 +269,18 @@ func (r Repository) UpdateSubscriptionSettings(ctx context.Context, raw map[stri
 			}
 			encoded, _ := json.Marshal(rules)
 			add(key, string(encoded))
+		case "blocked_client_apps":
+			var blocked []string
+			if string(value) != "null" {
+				if err := json.Unmarshal(value, &blocked); err != nil {
+					return SubscriptionSettings{}, fmt.Errorf("blocked_client_apps must be a valid array")
+				}
+			}
+			if blocked == nil {
+				blocked = []string{}
+			}
+			encoded, _ := json.Marshal(blocked)
+			add(key, string(encoded))
 		case "custom_templates_directory":
 			if string(value) == "null" {
 				add(key, nil)
@@ -514,11 +527,12 @@ COALESCE(happ_sub_expire, 0),
 COALESCE(happ_sub_expire_button_link, ''),
 COALESCE(happ_announcement_target_type, 'all'),
 COALESCE(happ_announcement_target_users, ''),
-COALESCE(default_device_limit_type, 'ip')
+COALESCE(default_device_limit_type, 'ip'),
+COALESCE(blocked_client_apps, '[]')
 FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	var result SubscriptionSettings
 	var customDir sql.NullString
-	var aliasesRaw, portsRaw, clientRoutingRulesRaw sql.NullString
+	var aliasesRaw, portsRaw, clientRoutingRulesRaw, blockedClientAppsRaw sql.NullString
 	var placeholderEnabled sql.NullBool
 	var placeholderRemark sql.NullString
 	var ann, infoColor, infoBtnText, infoBtnLink, expireBtnLink, targetType, targetUsers, defaultDeviceLimitType sql.NullString
@@ -555,6 +569,7 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 		&targetType,
 		&targetUsers,
 		&defaultDeviceLimitType,
+		&blockedClientAppsRaw,
 	); err != nil {
 		return SubscriptionSettings{}, err
 	}
@@ -600,6 +615,13 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	if clientRoutingRulesRaw.Valid && clientRoutingRulesRaw.String != "" {
 		_ = json.Unmarshal([]byte(clientRoutingRulesRaw.String), &result.ClientRoutingRules)
 	}
+	if blockedClientAppsRaw.Valid && blockedClientAppsRaw.String != "" {
+		_ = json.Unmarshal([]byte(blockedClientAppsRaw.String), &result.BlockedClientApps)
+	}
+	if result.BlockedClientApps == nil {
+		result.BlockedClientApps = []string{}
+	}
+	result.ClientAppStats = r.computeClientAppPercentages(ctx)
 	applySubscriptionDefaults(&result)
 	return result, nil
 }
@@ -645,9 +667,10 @@ happ_sub_expire_button_link,
 happ_announcement_target_type,
 happ_announcement_target_users,
 default_device_limit_type,
+blocked_client_apps,
 created_at,
 updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		"",
 		defaultSubscriptionProfileTitle,
 		defaultSubscriptionSupportURL,
@@ -679,6 +702,7 @@ updated_at
 		"all",
 		"",
 		"ip",
+		"[]",
 		now,
 		now,
 	)
@@ -1009,3 +1033,79 @@ func (r Repository) subscriptionRecordIDTx(ctx context.Context, tx *sql.Tx) int6
 	_ = tx.QueryRowContext(ctx, `SELECT id FROM subscription_settings ORDER BY id DESC LIMIT 1`).Scan(&id)
 	return id
 }
+
+func (r Repository) computeClientAppPercentages(ctx context.Context) map[string]float64 {
+	stats := map[string]float64{
+		"v2rayng":      0,
+		"v2rayn":       0,
+		"streisand":    0,
+		"hiddifyng":    0,
+		"nekobox":      0,
+		"shadowrocket": 0,
+		"v2box":        0,
+		"happ":         0,
+		"browser":      0,
+		"other":        0,
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT user_agent FROM user_subscription_access WHERE user_agent IS NOT NULL AND user_agent != ''`)
+	if err != nil {
+		return stats
+	}
+	defer rows.Close()
+
+	counts := map[string]int{}
+	total := 0
+	for rows.Next() {
+		var ua string
+		if err := rows.Scan(&ua); err != nil {
+			continue
+		}
+		app := IdentifyClientApp(ua)
+		counts[app]++
+		total++
+	}
+	if total > 0 {
+		for app, count := range counts {
+			stats[app] = math.Round((float64(count)/float64(total)*100)*10) / 10
+		}
+	}
+	return stats
+}
+
+func IdentifyClientApp(userAgent string) string {
+	ua := strings.ToLower(strings.TrimSpace(userAgent))
+	if ua == "" {
+		return "other"
+	}
+	if strings.Contains(ua, "v2rayng") || strings.Contains(ua, "v2ray_ng") {
+		return "v2rayng"
+	}
+	if strings.Contains(ua, "v2rayn") {
+		return "v2rayn"
+	}
+	if strings.Contains(ua, "streisand") {
+		return "streisand"
+	}
+	if strings.Contains(ua, "hiddify") {
+		return "hiddifyng"
+	}
+	if strings.Contains(ua, "nekobox") || strings.Contains(ua, "matsuridayo") {
+		return "nekobox"
+	}
+	if strings.Contains(ua, "shadowrocket") {
+		return "shadowrocket"
+	}
+	if strings.Contains(ua, "v2box") {
+		return "v2box"
+	}
+	if strings.Contains(ua, "happ") {
+		return "happ"
+	}
+	for _, marker := range []string{"mozilla/", "chrome/", "safari/", "firefox/", "edg/", "opr/"} {
+		if strings.Contains(ua, marker) {
+			return "browser"
+		}
+	}
+	return "other"
+}
+

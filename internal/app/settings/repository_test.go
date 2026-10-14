@@ -43,7 +43,16 @@ func TestReadTemplateContentIgnoresPersistentDirectoryWhenDBDirectoryIsEmpty(t *
 		subscription_aliases TEXT NULL,
 		subscription_ports TEXT NULL,
 		default_device_limit_type TEXT NULL,
+		blocked_client_apps TEXT NULL,
 		created_at DATETIME NULL,
+		updated_at DATETIME NULL
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE user_subscription_access (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		user_agent TEXT NULL,
 		updated_at DATETIME NULL
 	)`); err != nil {
 		t.Fatal(err)
@@ -79,7 +88,8 @@ func TestReadTemplateContentIgnoresPersistentDirectoryWhenDBDirectoryIsEmpty(t *
 		subscription_path,
 		subscription_aliases,
 		subscription_ports,
-		client_routing_rules
+		client_routing_rules,
+		blocked_client_apps
 	) VALUES (
 		'', 'Subscription', 'https://t.me/', '12', NULL,
 		'clash/default.yml', 'clash/settings.yml',
@@ -88,7 +98,8 @@ func TestReadTemplateContentIgnoresPersistentDirectoryWhenDBDirectoryIsEmpty(t *
 		'v2ray/default.json', 'v2ray/default.json',
 		'singbox/default.json', 'singbox/settings.json',
 		'mux/default.json',
-		0, 'disabled', 'sub', '[]', '[]', '` + defaultClientRoutingRules + `'
+		0, 'disabled', 'sub', '[]', '[]', '` + defaultClientRoutingRules + `',
+		'[]'
 	)`); err != nil {
 		t.Fatal(err)
 	}

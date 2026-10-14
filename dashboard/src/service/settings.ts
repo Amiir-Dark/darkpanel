@@ -185,6 +185,8 @@ export interface SubscriptionTemplateSettings {
 	happ_announcement_target_type?: "all" | "selected";
 	happ_announcement_target_users?: string;
 	default_device_limit_type?: "ip" | "hwid";
+	blocked_client_apps?: string[];
+	client_app_stats?: Record<string, number>;
 }
 
 export type SubscriptionTemplateSettingsUpdatePayload =

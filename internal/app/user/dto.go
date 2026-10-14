@@ -322,6 +322,7 @@ type SubscriptionSettings struct {
 	HappSubExpireButtonLink        string                         `json:"happ_sub_expire_button_link"`
 	HappAnnouncementTargetType     string                         `json:"happ_announcement_target_type"`
 	HappAnnouncementTargetUsers    string                         `json:"happ_announcement_target_users"`
+	BlockedClientApps              []string                       `json:"blocked_client_apps"`
 	SubscriptionPlaceholderPolicy  *SubscriptionPlaceholderPolicy `json:"-"`
 	RawPanelSettings               json.RawMessage                `json:"raw_panel_settings,omitempty"`
 	RawSubscriptionSettings        json.RawMessage                `json:"raw_subscription_settings,omitempty"`

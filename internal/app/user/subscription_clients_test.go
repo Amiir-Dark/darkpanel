@@ -752,7 +752,8 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			subscription_ports TEXT,
 			client_routing_rules TEXT,
 			subscription_placeholder_enabled INTEGER DEFAULT 0,
-			subscription_placeholder_remark TEXT DEFAULT 'disabled'
+			subscription_placeholder_remark TEXT DEFAULT 'disabled',
+			blocked_client_apps TEXT DEFAULT '[]'
 		)`,
 		`CREATE TABLE admins (
 			id INTEGER PRIMARY KEY,
@@ -1032,3 +1033,65 @@ func decodeSubscriptionTestBody(body string) string {
 	}
 	return body
 }
+
+func TestSubscriptionBlockedClientApps(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+
+	// Initially all apps allowed
+	res, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "v2rayNG/1.10.28",
+	})
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if res.Status != 200 {
+		t.Fatalf("expected 200, got %d", res.Status)
+	}
+
+	// Block v2rayng
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET blocked_client_apps = '["v2rayng"]' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+
+	// Now v2rayNG request should be 403
+	res, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "v2rayNG/1.10.28",
+	})
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if res.Status != 403 {
+		t.Fatalf("expected 403, got %d", res.Status)
+	}
+
+	// Other client like v2rayN should still be allowed
+	res, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "v2rayN/6.23",
+	})
+	if err != nil {
+		t.Fatalf("expected success for v2rayN, got %v", err)
+	}
+	if res.Status != 200 {
+		t.Fatalf("expected 200 for v2rayN, got %d", res.Status)
+	}
+
+	// Block browser
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET blocked_client_apps = '["browser"]' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	res, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		Accept:     "text/html",
+	})
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if res.Status != 403 {
+		t.Fatalf("expected 403 for browser, got %d", res.Status)
+	}
+}
+

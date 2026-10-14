@@ -168,6 +168,7 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 	result.SubscriptionPorts = normalizePorts(row["subscription_ports"])
 	result.SubscriptionAliases = normalizeAliases(row["subscription_aliases"])
 	result.ClientRoutingRules = normalizeClientRoutingRules(row["client_routing_rules"])
+	result.BlockedClientApps = normalizeBlockedClientApps(row["blocked_client_apps"])
 	result.SubscriptionPlaceholderEnabled = truthy(row["subscription_placeholder_enabled"])
 	result.SubscriptionPlaceholderRemark = firstNonEmptyString(stringValue(row["subscription_placeholder_remark"]), "disabled")
 	result.RawSubscriptionSettings = json.RawMessage(mustJSON(row))
@@ -950,6 +951,30 @@ func normalizeClientRoutingRules(raw any) []ClientRoutingRule {
 		return rules
 	}
 	return []ClientRoutingRule{}
+}
+
+func normalizeBlockedClientApps(raw any) []string {
+	if raw == nil {
+		return []string{}
+	}
+	text := ""
+	switch typed := raw.(type) {
+	case string:
+		text = typed
+	case []byte:
+		text = string(typed)
+	default:
+		text = fmt.Sprint(raw)
+	}
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return []string{}
+	}
+	var blocked []string
+	if err := json.Unmarshal([]byte(text), &blocked); err == nil && blocked != nil {
+		return blocked
+	}
+	return []string{}
 }
 
 func mustJSON(value any) []byte {

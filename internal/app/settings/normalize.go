@@ -314,6 +314,9 @@ func applySubscriptionDefaults(settings *SubscriptionSettings) {
 	if settings.ClientRoutingRules == nil {
 		settings.ClientRoutingRules = []ClientRoutingRule{}
 	}
+	if settings.BlockedClientApps == nil {
+		settings.BlockedClientApps = []string{}
+	}
 	if settings.DefaultDeviceLimitType == "" {
 		settings.DefaultDeviceLimitType = "ip"
 	}

@@ -19,6 +19,7 @@ import (
 
 	"github.com/flosch/pongo2/v6"
 	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
+	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
 	"github.com/rebeccapanel/rebecca/internal/app/usage"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -124,6 +125,14 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 		return SubscriptionHTTPResponse{}, err
 	}
 	settings := s.effectiveSettings(ctx, user.AdminID, user.ServiceID)
+	detectedApp := identifySubscriptionClientApp(req)
+	if isClientAppBlocked(detectedApp, settings.BlockedClientApps) {
+		return SubscriptionHTTPResponse{
+			Status:    403,
+			MediaType: "text/plain; charset=utf-8",
+			Body:      []byte("Not allowed (دسترسی نرم‌افزار مورد استفاده مجاز نمی‌باشد)"),
+		}, nil
+	}
 	placeholderRemark := subscriptionPlaceholderRemark(user, settings)
 	if wantsSubscriptionHTML(req) && req.ClientType == "" {
 		html, err := s.renderSubscriptionHTML(ctx, user, req, settings)
@@ -218,12 +227,37 @@ func wantsSubscriptionHTML(req SubscriptionRenderRequest) bool {
 	return false
 }
 
+func identifySubscriptionClientApp(req SubscriptionRenderRequest) string {
+	if wantsSubscriptionHTML(req) && req.ClientType == "" {
+		return "browser"
+	}
+	return settingsapp.IdentifyClientApp(req.UserAgent)
+}
+
+func isClientAppBlocked(app string, blocked []string) bool {
+	if len(blocked) == 0 {
+		return false
+	}
+	app = strings.ToLower(strings.TrimSpace(app))
+	for _, item := range blocked {
+		if strings.EqualFold(strings.TrimSpace(item), app) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s Service) SubscriptionInfo(ctx context.Context, req SubscriptionRenderRequest) (map[string]any, error) {
 	user, err := s.resolveSubscriptionUser(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL, s.effectiveSettings(ctx, user.AdminID, user.ServiceID))
+	settings := s.effectiveSettings(ctx, user.AdminID, user.ServiceID)
+	detectedApp := identifySubscriptionClientApp(req)
+	if isClientAppBlocked(detectedApp, settings.BlockedClientApps) {
+		return nil, clientError(403, "Not allowed (دسترسی نرم‌افزار مورد استفاده مجاز نمی‌باشد)")
+	}
+	vpnInfo, err := s.subscriptionVPNInfo(ctx, user, req.URL, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -322,6 +356,11 @@ func (s Service) SubscriptionUsage(ctx context.Context, req SubscriptionRenderRe
 	user, err := s.resolveSubscriptionUser(ctx, req)
 	if err != nil {
 		return nil, err
+	}
+	settings := s.effectiveSettings(ctx, user.AdminID, user.ServiceID)
+	detectedApp := identifySubscriptionClientApp(req)
+	if isClientAppBlocked(detectedApp, settings.BlockedClientApps) {
+		return nil, clientError(403, "Not allowed (دسترسی نرم‌افزار مورد استفاده مجاز نمی‌باشد)")
 	}
 	start, end, err := subscriptionUsageRange(req.Start, req.End)
 	if err != nil {

@@ -135,6 +135,19 @@ const CLIENT_OPTIONS = [
 	"blocked"
 ];
 
+const CLIENT_APPS_LIST = [
+	{ key: "v2rayng", name: "v2rayNG", platform: "Android client" },
+	{ key: "v2rayn", name: "v2rayN", platform: "Windows client" },
+	{ key: "streisand", name: "Streisand", platform: "iOS / Android client" },
+	{ key: "hiddifyng", name: "HiddifyNG", platform: "Multi-platform client" },
+	{ key: "nekobox", name: "NekoBox", platform: "Android client" },
+	{ key: "shadowrocket", name: "Shadowrocket", platform: "iOS client" },
+	{ key: "v2box", name: "V2Box", platform: "iOS client" },
+	{ key: "happ", name: "Happ", platform: "Multi-platform client" },
+	{ key: "browser", name: "Browser", platform: "Web page access" },
+	{ key: "other", name: "Other", platform: "Unrecognized apps" },
+];
+
 const DEFAULT_CLIENT_ROUTING_RULES = [
 	{ pattern: "^([Cc]lash-verge|[Cc]lash[-\\.]?[Mm]eta|[Ff][Ll][Cc]lash|[Mm]ihomo)", result: "clash-meta" },
 	{ pattern: "(?i)^clash\\s*mi|(?i)^clashmi", result: "clash-mi" },
@@ -639,6 +652,8 @@ const buildSubscriptionDefaults = (
 	),
 	client_routing_rules: settings?.client_routing_rules ?? [],
 	default_device_limit_type: settings?.default_device_limit_type ?? "ip",
+	blocked_client_apps: settings?.blocked_client_apps ?? [],
+	client_app_stats: settings?.client_app_stats ?? {},
 });
 
 const cleanOverridePayload = (
@@ -791,6 +806,7 @@ const buildSubscriptionPayload = (
 	happ_sub_expire: Boolean(values.happ_sub_expire),
 	happ_sub_expire_button_link: values.happ_sub_expire_button_link?.trim() || "",
 	default_device_limit_type: values.default_device_limit_type === "hwid" ? "hwid" : "ip",
+	blocked_client_apps: values.blocked_client_apps ?? [],
 });
 
 const buildAdminSubscriptionPayload = (
@@ -3313,6 +3329,140 @@ export const IntegrationSettingsPage = () => {
 											</FormHelperText>
 										</FormControl>
 									</SimpleGrid>
+								</Box>
+								<Box className="master-settings-card">
+									<Flex
+										justify="space-between"
+										align={{ base: "flex-start", sm: "center" }}
+										mb={4}
+										flexDirection={{ base: "column", sm: "row" }}
+										gap={3}
+									>
+										<HStack spacing={3} align="center">
+											<Box
+												p={2}
+												borderRadius="lg"
+												bg={colorMode === "dark" ? "whiteAlpha.100" : "blackAlpha.50"}
+												color={colorMode === "dark" ? "primary.300" : "primary.600"}
+											>
+												<svg
+													width="20"
+													height="20"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													strokeWidth="2"
+													strokeLinecap="round"
+													strokeLinejoin="round"
+												>
+													<rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+													<line x1="12" y1="18" x2="12.01" y2="18" />
+												</svg>
+											</Box>
+											<Box>
+												<Heading size="sm" mb={1}>
+													{t("settings.subscriptions.clientAppsTitle", "Client Apps")}
+												</Heading>
+												<Text fontSize="sm" color="gray.500">
+													{t(
+														"settings.subscriptions.clientAppsDescription",
+														"Choose which apps your users may use to update their subscriptions. Blocked apps get a \"not allowed\" response.",
+													)}
+												</Text>
+											</Box>
+										</HStack>
+									</Flex>
+									<SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={3.5}>
+										{CLIENT_APPS_LIST.map((app) => {
+											const currentBlocked = watchSubscription("blocked_client_apps") || [];
+											const isBlocked = currentBlocked.some(
+												(b) => b.toLowerCase() === app.key.toLowerCase(),
+											);
+											const isAllowed = !isBlocked;
+											const stats = subscriptionBundle?.settings?.client_app_stats || {};
+											const pct =
+												stats[app.key] !== undefined
+													? `${stats[app.key].toFixed(1)}%`
+													: "0.0%";
+
+											return (
+												<Flex
+													key={app.key}
+													p={3.5}
+													borderRadius="xl"
+													borderWidth="1px"
+													borderColor={
+														colorMode === "dark" ? "whiteAlpha.100" : "gray.200"
+													}
+													bg={colorMode === "dark" ? "whiteAlpha.50" : "gray.50"}
+													justify="space-between"
+													align="center"
+													transition="all 0.2s ease"
+													_hover={{
+														borderColor:
+															colorMode === "dark" ? "whiteAlpha.200" : "gray.300",
+														bg:
+															colorMode === "dark" ? "whiteAlpha.100" : "gray.100",
+													}}
+												>
+													<Box>
+														<Text fontWeight="semibold" fontSize="sm">
+															{app.name}
+														</Text>
+														<Text fontSize="xs" color="gray.500" mt={0.5}>
+															{t(
+																`settings.subscriptions.clientAppPlatforms.${app.key}`,
+																app.platform,
+															)}{" "}
+															· {pct}
+														</Text>
+													</Box>
+													<Switch
+														colorScheme="primary"
+														isChecked={isAllowed}
+														onChange={(e) => {
+															let updated: string[];
+															if (e.target.checked) {
+																updated = currentBlocked.filter(
+																	(k) =>
+																		k.toLowerCase() !== app.key.toLowerCase(),
+																);
+															} else {
+																updated = [
+																	...currentBlocked.filter(
+																		(k) =>
+																			k.toLowerCase() !==
+																			app.key.toLowerCase(),
+																	),
+																	app.key,
+																];
+															}
+															setSubscriptionValue(
+																"blocked_client_apps",
+																updated,
+																{
+																	shouldDirty: true,
+																	shouldValidate: true,
+																},
+															);
+														}}
+													/>
+												</Flex>
+											);
+										})}
+									</SimpleGrid>
+									<Flex justify="flex-end" mt={5}>
+										<Button
+											colorScheme="primary"
+											size="sm"
+											leftIcon={<SaveIcon />}
+											onClick={handleSaveAll}
+											isLoading={saveAllMutation.isLoading}
+											isDisabled={saveAllMutation.isLoading}
+										>
+											{t("settings.subscriptions.saveChanges", "Save changes")}
+										</Button>
+									</Flex>
 								</Box>
 								<Box className="master-settings-card">
 									<Heading size="sm" mb={1}>
