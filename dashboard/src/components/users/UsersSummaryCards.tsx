@@ -6,7 +6,7 @@ import {
 	Text,
 } from "@chakra-ui/react";
 import {
-	ClockIcon,
+	NoSymbolIcon,
 	ShieldCheckIcon,
 	SignalIcon,
 	UserGroupIcon,
@@ -346,7 +346,7 @@ export const UsersSummaryCards: FC = () => {
 	const onHoldUsers = breakdown.on_hold ?? 0;
 	const limitedUsers = breakdown.limited ?? 0;
 	const expiredUsers = breakdown.expired ?? 0;
-	const attentionUsers = onHoldUsers + limitedUsers + expiredUsers;
+	const totalLimitedUsers = limitedUsers + expiredUsers;
 	const usageTotal = users.usage_total ?? 0;
 
 	// Percentages
@@ -363,8 +363,8 @@ export const UsersSummaryCards: FC = () => {
 	const onlinePercent =
 		totalUsers > 0 ? Math.round((onlineUsers / totalUsers) * 100) : 0;
 
-	const attentionPercent =
-		totalUsers > 0 ? Math.round((attentionUsers / totalUsers) * 100) : 0;
+	const limitedPercent =
+		totalUsers > 0 ? Math.round((totalLimitedUsers / totalUsers) * 100) : 0;
 
 	return (
 		<SimpleGrid
@@ -443,43 +443,34 @@ export const UsersSummaryCards: FC = () => {
 				isRTL={isRTL}
 			/>
 
-			{/* Card 4: Subscription Status & Attention */}
+			{/* Card 4: Limited & Expired Users (روز یا حجم تمام شده) */}
 			<UserStatCard
-				label={isRTL ? "وضعیت اشتراک‌ها" : "Subscriptions"}
-				icon={<ClockIcon width={16} />}
-				value={numberWithCommas(attentionUsers)}
-				percent={attentionPercent}
-				beaconColor={attentionUsers > 0 ? "#f59e0b" : "#10b981"}
-				gradStart={attentionUsers > 0 ? "#f59e0b" : "#10b981"}
-				gradEnd={attentionUsers > 0 ? "#fbbf24" : "#34d399"}
+				label={isRTL ? "کاربران لیمیت" : "Limited Users"}
+				icon={<NoSymbolIcon width={16} />}
+				value={numberWithCommas(totalLimitedUsers)}
+				percent={limitedPercent}
+				beaconColor={totalLimitedUsers > 0 ? "#ef4444" : "#10b981"}
+				gradStart={totalLimitedUsers > 0 ? "#ef4444" : "#10b981"}
+				gradEnd={totalLimitedUsers > 0 ? "#f87171" : "#34d399"}
 				glowColor={
-					attentionUsers > 0
-						? "rgba(245, 158, 11, 0.4)"
+					totalLimitedUsers > 0
+						? "rgba(239, 68, 68, 0.4)"
 						: "rgba(16, 185, 129, 0.4)"
 				}
 				badgeText={
-					attentionUsers > 0
-						? (isRTL ? `${attentionUsers} نیاز به اقدام` : `${attentionUsers} alert`)
-						: (isRTL ? "سالم" : "Healthy")
+					totalLimitedUsers > 0
+						? (isRTL ? `${totalLimitedUsers} لیمیت` : `${totalLimitedUsers} limited`)
+						: (isRTL ? "بدون لیمیت" : "Healthy")
 				}
 				extraPills={
 					<HStack spacing={2} align="center" flexWrap="wrap">
-						{onHoldUsers > 0 && (
-							<HStack spacing={1} align="center" fontSize="10.5px" color="purple.400">
-								<Box w="5px" h="5px" borderRadius="full" bg="purple.400" />
-								<Text as="span" fontWeight="700">
-									{onHoldUsers}
-								</Text>
-								<Text as="span">{isRTL ? "انتظار" : "On Hold"}</Text>
-							</HStack>
-						)}
 						{limitedUsers > 0 && (
 							<HStack spacing={1} align="center" fontSize="10.5px" color="red.400">
 								<Box w="5px" h="5px" borderRadius="full" bg="red.400" />
 								<Text as="span" fontWeight="700">
 									{limitedUsers}
 								</Text>
-								<Text as="span">{isRTL ? "محدود" : "Limited"}</Text>
+								<Text as="span">{isRTL ? "اتمام حجم" : "Volume Cap"}</Text>
 							</HStack>
 						)}
 						{expiredUsers > 0 && (
@@ -488,19 +479,28 @@ export const UsersSummaryCards: FC = () => {
 								<Text as="span" fontWeight="700">
 									{expiredUsers}
 								</Text>
-								<Text as="span">{isRTL ? "منقضی" : "Expired"}</Text>
+								<Text as="span">{isRTL ? "اتمام روز" : "Expired"}</Text>
+							</HStack>
+						)}
+						{onHoldUsers > 0 && (
+							<HStack spacing={1} align="center" fontSize="10.5px" color="purple.400">
+								<Box w="5px" h="5px" borderRadius="full" bg="purple.400" />
+								<Text as="span" fontWeight="700">
+									{onHoldUsers}
+								</Text>
+								<Text as="span">{isRTL ? "در انتظار" : "On Hold"}</Text>
 							</HStack>
 						)}
 					</HStack>
 				}
 				footerText={
-					attentionUsers > 0
+					totalLimitedUsers > 0
 						? (isRTL
-								? "• اشتراک‌های نیازمند پیگیری و تمدید"
-								: "• Subscriptions requiring renewal")
+								? `• ${limitedUsers} اتمام حجم | ${expiredUsers} اتمام روز`
+								: `• ${limitedUsers} volume cap | ${expiredUsers} days ended`)
 						: (isRTL
-								? "• تمامی اشتراک‌ها پایدار هستند"
-								: "• All subscriptions healthy")
+								? "• هیچ کاربری با اتمام حجم یا زمان وجود ندارد"
+								: "• All users have active time & data")
 				}
 				isRTL={isRTL}
 			/>
