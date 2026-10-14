@@ -403,79 +403,16 @@ export const UsersPage: FC = () => {
 					}}
 				>
 					<UsersTable
-						toolbar={<UsersFilterBar />}
-						headerActions={
-							<HStack spacing={1.5}>
-								<ResourceRefreshButton
-									aria-label={t("refresh")}
-									label={t("refresh")}
-									icon={<ReloadIcon />}
-									onClick={() => {
-										refetchUsers(true);
-										void refreshOnlineUsers();
-									}}
-									isLoading={loading}
-								/>
-								<Menu placement={isRTL ? "bottom-start" : "bottom-end"} isLazy>
-									<MenuButton
-										as={Button}
-										size="sm"
-										variant="ghost"
-										rightIcon={<ChevronDownIcon width={14} />}
-										aria-label={t("usersTable.autoRefresh")}
-										borderRadius="full"
-										borderWidth="1px"
-										borderColor="panel.border"
-										bg="panel.surface"
-										px={3}
-										fontSize="xs"
-										fontWeight="600"
-										transition="all 0.2s ease"
-										_hover={{
-											borderColor: "var(--rb-panel-accent-glow)",
-											bg: "var(--rb-panel-accent-soft)",
-											color: "var(--rb-panel-accent)",
-										}}
-									>
-										{autoRefreshInterval
-											? `${t("usersTable.autoRefresh")} · ${autoRefreshInterval / 1000}s`
-											: t("usersTable.autoRefreshOff")}
-									</MenuButton>
-									<Portal>
-										<MenuList
-											zIndex={1800}
-											minW="180px"
-											bg="panel.surface"
-											borderColor="panel.border"
-											borderRadius="14px"
-											boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.6)"
-											p={1.5}
-										>
-											<MenuItem
-												onClick={() => setAutoRefreshInterval(0)}
-												fontWeight={autoRefreshInterval === 0 ? "bold" : "normal"}
-												borderRadius="8px"
-											>
-												{t("usersTable.autoRefreshOff")}
-											</MenuItem>
-											{AUTO_REFRESH_INTERVALS.map((interval) => (
-												<MenuItem
-													key={interval}
-													onClick={() => setAutoRefreshInterval(interval)}
-													fontWeight={
-														autoRefreshInterval === interval ? "bold" : "normal"
-													}
-													borderRadius="8px"
-												>
-													{t("usersTable.autoRefreshEvery", {
-														seconds: interval / 1000,
-													})}
-												</MenuItem>
-											))}
-										</MenuList>
-									</Portal>
-								</Menu>
-							</HStack>
+						toolbar={
+							<UsersFilterBar
+								onRefresh={() => {
+									refetchUsers(true);
+									void refreshOnlineUsers();
+								}}
+								isRefreshing={loading}
+								autoRefreshInterval={autoRefreshInterval}
+								onAutoRefreshChange={setAutoRefreshInterval}
+							/>
 						}
 					/>
 				</Box>

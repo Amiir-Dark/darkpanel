@@ -1,4 +1,5 @@
 import {
+	Box,
 	chakra,
 	HStack,
 	IconButton,
@@ -24,6 +25,7 @@ const ClearIcon = chakra(XMarkIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 
 type SearchInputProps = InputProps & {
 	containerProps?: InputGroupProps;
+	hideMatchOptionsOnMobile?: boolean;
 	isLoading?: boolean;
 	matchOptions: SearchMatchOptions;
 	onClear?: () => void;
@@ -33,6 +35,7 @@ type SearchInputProps = InputProps & {
 
 export const SearchInput: FC<SearchInputProps> = ({
 	containerProps,
+	hideMatchOptionsOnMobile = true,
 	isLoading = false,
 	matchOptions,
 	onClear,
@@ -51,43 +54,59 @@ export const SearchInput: FC<SearchInputProps> = ({
 			<InputLeftElement pointerEvents="none" h="full">
 				<SearchIcon color="panel.textMuted" />
 			</InputLeftElement>
-			<Input value={value} pe="116px" {...inputProps} />
+			<Input
+				value={value}
+				pe={
+					hideMatchOptionsOnMobile
+						? { base: "38px", md: "116px" }
+						: "116px"
+				}
+				{...inputProps}
+			/>
 			<InputRightElement w="auto" pe={1} h="full">
 				<HStack spacing={0.5}>
 					{isLoading && <Spinner size="xs" color="panel.textMuted" />}
-					<Tooltip label={t("search.matchCase")} hasArrow>
-						<IconButton
-							aria-label={t("search.matchCase")}
-							aria-pressed={matchOptions.matchCase}
-							icon={<Text fontSize="xs">Aa</Text>}
-							onClick={() => toggle("matchCase")}
-							type="button"
-							size="xs"
-							variant="ghost"
-							color={matchOptions.matchCase ? "primary.400" : "panel.textMuted"}
-							bg={matchOptions.matchCase ? "panel.hover" : "transparent"}
-						/>
-					</Tooltip>
-					<Tooltip label={t("search.matchWholeWord")} hasArrow>
-						<IconButton
-							aria-label={t("search.matchWholeWord")}
-							aria-pressed={matchOptions.matchWholeWord}
-							icon={
-								<Text fontSize="xs" textDecoration="underline">
-									ab
-								</Text>
-							}
-							onClick={() => toggle("matchWholeWord")}
-							type="button"
-							size="xs"
-							variant="ghost"
-							color={
-								matchOptions.matchWholeWord ? "primary.400" : "panel.textMuted"
-							}
-							bg={matchOptions.matchWholeWord ? "panel.hover" : "transparent"}
-						/>
-					</Tooltip>
-					{rightElement}
+					<Box display={hideMatchOptionsOnMobile ? { base: "none", md: "inline-flex" } : "inline-flex"}>
+						<Tooltip label={t("search.matchCase")} hasArrow>
+							<IconButton
+								aria-label={t("search.matchCase")}
+								aria-pressed={matchOptions.matchCase}
+								icon={<Text fontSize="xs">Aa</Text>}
+								onClick={() => toggle("matchCase")}
+								type="button"
+								size="xs"
+								variant="ghost"
+								color={matchOptions.matchCase ? "primary.400" : "panel.textMuted"}
+								bg={matchOptions.matchCase ? "panel.hover" : "transparent"}
+							/>
+						</Tooltip>
+					</Box>
+					<Box display={hideMatchOptionsOnMobile ? { base: "none", md: "inline-flex" } : "inline-flex"}>
+						<Tooltip label={t("search.matchWholeWord")} hasArrow>
+							<IconButton
+								aria-label={t("search.matchWholeWord")}
+								aria-pressed={matchOptions.matchWholeWord}
+								icon={
+									<Text fontSize="xs" textDecoration="underline">
+										ab
+									</Text>
+								}
+								onClick={() => toggle("matchWholeWord")}
+								type="button"
+								size="xs"
+								variant="ghost"
+								color={
+									matchOptions.matchWholeWord ? "primary.400" : "panel.textMuted"
+								}
+								bg={matchOptions.matchWholeWord ? "panel.hover" : "transparent"}
+							/>
+						</Tooltip>
+					</Box>
+					{rightElement && (
+						<Box display={hideMatchOptionsOnMobile ? { base: "none", md: "inline-flex" } : "inline-flex"}>
+							{rightElement}
+						</Box>
+					)}
 					{onClear && String(value ?? "").length > 0 && (
 						<IconButton
 							aria-label={t("clear")}

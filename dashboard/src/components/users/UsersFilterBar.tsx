@@ -5,7 +5,12 @@ import {
 	Checkbox,
 	chakra,
 	Flex,
+	HStack,
 	IconButton,
+	Menu,
+	MenuButton,
+	MenuItem,
+	MenuList,
 	Popover,
 	PopoverArrow,
 	PopoverBody,
@@ -13,13 +18,16 @@ import {
 	PopoverContent,
 	PopoverHeader,
 	PopoverTrigger,
+	Portal,
+	Spacer,
 	Stack,
 	Text,
 	Tooltip,
-	useBreakpointValue,
 } from "@chakra-ui/react";
 import {
-	FunnelIcon,
+	AdjustmentsHorizontalIcon,
+	ArrowPathIcon,
+	ChevronDownIcon,
 	PlusIcon,
 	QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
@@ -39,30 +47,41 @@ import { canViewUserTraffic, isUserManagementLocked } from "utils/adminTraffic";
 
 const iconProps = {
 	baseStyle: {
-		w: 4,
-		h: 4,
+		w: 5,
+		h: 5,
 	},
 };
 
-const FilterIcon = chakra(FunnelIcon, iconProps);
+const FilterIcon = chakra(AdjustmentsHorizontalIcon, iconProps);
 const PlusIconStyled = chakra(PlusIcon, iconProps);
-const HelpIcon = chakra(QuestionMarkCircleIcon, iconProps);
+const ReloadIconStyled = chakra(ArrowPathIcon, iconProps);
+const HelpIcon = chakra(QuestionMarkCircleIcon, { baseStyle: { w: 4, h: 4 } });
 
 const formatChipCount = (value: number, locale: string) =>
 	new Intl.NumberFormat(locale || "en").format(value);
 
-/**
- * Users-only search & filter bar: mobile-first search + advanced filters
- * popover. Intentionally separate from the shared <Filters /> so the
- * Admins page keeps its own untouched toolbar.
- */
-export const UsersFilterBar: FC = () => {
+const AUTO_REFRESH_INTERVALS = [3_000, 5_000, 10_000, 30_000] as const;
+
+export interface UsersFilterBarProps {
+	onRefresh?: () => void;
+	isRefreshing?: boolean;
+	autoRefreshInterval?: number;
+	onAutoRefreshChange?: (interval: number) => void;
+}
+
+export const UsersFilterBar: FC<UsersFilterBarProps> = ({
+	onRefresh,
+	isRefreshing = false,
+	autoRefreshInterval,
+	onAutoRefreshChange,
+}) => {
 	const loading = useDashboard((state) => state.loading);
 	const filters = useDashboard((state) => state.filters);
 	const onFilterChange = useDashboard((state) => state.onFilterChange);
 	const onCreateUser = useDashboard((state) => state.onCreateUser);
 	const { t, i18n } = useTranslation();
 	const locale = i18n.language || "en";
+	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const [search, setSearch] = useState("");
 	const { userData } = useGetUser();
 	const hasPrivilegedRole =
@@ -190,22 +209,21 @@ export const UsersFilterBar: FC = () => {
 		onCreateUser(true);
 	};
 
-	const isMobile = useBreakpointValue({ base: true, sm: false }) ?? false;
-
 	const activeFilterTotal =
 		activeFilters.length + (serviceId ? 1 : 0) + (ownerFilter ? 1 : 0);
 	const hasClearableFilters = activeFilterTotal > 0;
 
 	return (
 		<Flex align="center" gap={2} w="full" minW={0}>
+			{/* 1. Search users input - exactly matching Photo 2 */}
 			<SearchInput
 				containerProps={{
-					flex: "1 1 auto",
+					flex: { base: "1 1 auto", md: "0 0 340px" },
 					minW: 0,
-					maxW: { base: "100%", sm: "380px" },
+					maxW: { base: "100%", md: "380px" },
 				}}
 				className="rb-users-search-input"
-				placeholder={t("search")}
+				placeholder={t("users.searchPlaceholder", "Search users...")}
 				value={search}
 				onChange={onSearchChange}
 				matchOptions={matchOptions}
@@ -218,15 +236,16 @@ export const UsersFilterBar: FC = () => {
 				}
 				isLoading={loading}
 				onClear={clearSearch}
-				borderRadius="full"
+				borderRadius="12px"
+				h="40px"
 				borderColor="panel.border"
 				bg="panel.surface"
 				_hover={{
 					borderColor: "panel.borderStrong",
 				}}
 				_focusVisible={{
-					borderColor: "var(--rb-panel-accent)",
-					boxShadow: "0 0 16px -2px var(--rb-panel-accent-glow)",
+					borderColor: "blue.500",
+					boxShadow: "0 0 16px -2px rgba(37, 99, 235, 0.4)",
 					bg: "panel.surface",
 				}}
 				rightElement={
@@ -243,26 +262,52 @@ export const UsersFilterBar: FC = () => {
 				}
 			/>
 
+			{/* 2. Mobile Create Button [ + ] - blue rounded box, right after search input */}
+			{showCreateButton && (
+				<IconButton
+					className="rb-users-create-btn-mobile"
+					display={{ base: "inline-flex", md: "none" }}
+					aria-label={t("createUser")}
+					icon={<PlusIconStyled w={5} h={5} color="white" />}
+					bg="#2563eb"
+					_hover={{ bg: "#1d4ed8" }}
+					_active={{ bg: "#1e40af", transform: "scale(0.96)" }}
+					color="white"
+					borderRadius="12px"
+					w="40px"
+					h="40px"
+					minW="40px"
+					flexShrink={0}
+					boxShadow="0 2px 8px rgba(37, 99, 235, 0.35)"
+					transition="all 0.2s ease"
+					onClick={handleCreate}
+				/>
+			)}
+
+			{/* Spacer for desktop layout: pushes actions to the right */}
+			<Spacer display={{ base: "none", md: "block" }} />
+
+			{/* 3. Filter Button [ 🎛 ] - dark box with AdjustmentsHorizontalIcon */}
 			<Popover placement="bottom-end">
 				<PopoverTrigger>
 					<Box position="relative" flexShrink={0}>
 						<IconButton
 							aria-label={t("filters.advancedButton")}
-							icon={<FilterIcon />}
+							icon={<FilterIcon w={5} h={5} />}
 							variant="ghost"
-							borderRadius="full"
+							borderRadius="12px"
 							borderWidth="1px"
 							borderColor="panel.border"
 							bg="panel.surface"
 							w="40px"
 							h="40px"
-							transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+							minW="40px"
+							color="panel.textSecondary"
+							transition="all 0.2s ease"
 							_hover={{
-								borderColor: "var(--rb-panel-accent-glow)",
-								bg: "var(--rb-panel-accent-soft)",
-								color: "var(--rb-panel-accent)",
-								transform: "scale(1.04)",
-								boxShadow: "0 0 14px var(--rb-panel-accent-glow)",
+								borderColor: "panel.borderStrong",
+								bg: "panel.hover",
+								color: "panel.textPrimary",
 							}}
 							_active={{
 								transform: "scale(0.96)",
@@ -271,9 +316,9 @@ export const UsersFilterBar: FC = () => {
 						{hasClearableFilters && (
 							<Badge
 								className="rb-users-filter-badge"
-								bg="var(--rb-panel-accent)"
+								bg="blue.500"
 								color="white"
-								boxShadow="0 0 10px var(--rb-panel-accent-glow)"
+								boxShadow="0 0 10px rgba(37, 99, 235, 0.5)"
 								variant="solid"
 								borderRadius="full"
 								position="absolute"
@@ -316,7 +361,7 @@ export const UsersFilterBar: FC = () => {
 									key={option.key}
 									isChecked={activeFilters.includes(option.key)}
 									onChange={() => toggleAdvancedFilter(option.key)}
-									colorScheme="red"
+									colorScheme="blue"
 								>
 									<Text fontSize="sm">{getFilterLabel(option.key)}</Text>
 								</Checkbox>
@@ -366,6 +411,27 @@ export const UsersFilterBar: FC = () => {
 									</Select>
 								</Box>
 							)}
+							{onAutoRefreshChange && (
+								<Box pt={2} borderTopWidth="1px" borderColor="panel.border">
+									<Text fontSize="xs" fontWeight="bold" color="panel.textSecondary" mb={1.5}>
+										{t("usersTable.autoRefresh")}
+									</Text>
+									<HStack spacing={1.5} flexWrap="wrap">
+										{([0, 3000, 5000, 10000, 30000] as const).map((interval) => (
+											<Button
+												key={interval}
+												size="xs"
+												variant={autoRefreshInterval === interval ? "solid" : "outline"}
+												colorScheme={autoRefreshInterval === interval ? "blue" : "gray"}
+												borderRadius="8px"
+												onClick={() => onAutoRefreshChange(interval)}
+											>
+												{interval === 0 ? t("usersTable.autoRefreshOff") : `${interval / 1000}s`}
+											</Button>
+										))}
+									</HStack>
+								</Box>
+							)}
 						</Stack>
 						<Button
 							variant="ghost"
@@ -382,62 +448,131 @@ export const UsersFilterBar: FC = () => {
 				</PopoverContent>
 			</Popover>
 
-			{/* On desktop the bulk/create actions sit at the end of the row;
-				on mobile they stay compact next to the search field. */}
-			{!isMobile && <Box flex="1 1 auto" minW={0} />}
-			{showCreateButton &&
-				(isMobile ? (
-					<IconButton
-						className="rb-users-create-btn"
-						aria-label={t("createUser")}
-						icon={<PlusIconStyled w={5} h={5} />}
-						bg="var(--rb-panel-accent)"
-						color="white"
-						borderRadius="full"
-						w="40px"
+			{/* 4. Refresh Button [ 🔄 ] - dark box with circular reload icon */}
+			{onRefresh && (
+				<IconButton
+					aria-label={t("refresh")}
+					icon={
+						<ReloadIconStyled
+							w={5}
+							h={5}
+							style={
+								isRefreshing
+									? { animation: "spin 0.8s linear infinite" }
+									: undefined
+							}
+						/>
+					}
+					variant="ghost"
+					borderRadius="12px"
+					borderWidth="1px"
+					borderColor="panel.border"
+					bg="panel.surface"
+					w="40px"
+					h="40px"
+					minW="40px"
+					flexShrink={0}
+					color="panel.textSecondary"
+					transition="all 0.2s ease"
+					_hover={{
+						borderColor: "panel.borderStrong",
+						bg: "panel.hover",
+						color: "panel.textPrimary",
+					}}
+					_active={{
+						transform: "scale(0.96)",
+					}}
+					onClick={onRefresh}
+					isDisabled={isRefreshing}
+				/>
+			)}
+
+			{/* 5. Desktop-only Auto-refresh menu pill */}
+			{autoRefreshInterval !== undefined && onAutoRefreshChange && (
+				<Menu placement={isRTL ? "bottom-start" : "bottom-end"} isLazy>
+					<MenuButton
+						as={Button}
+						display={{ base: "none", md: "inline-flex" }}
+						size="sm"
+						variant="ghost"
+						rightIcon={<ChevronDownIcon width={14} />}
+						aria-label={t("usersTable.autoRefresh")}
+						borderRadius="12px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						bg="panel.surface"
+						px={3}
 						h="40px"
-						flexShrink={0}
-						boxShadow="0 0 16px -2px var(--rb-panel-accent-glow), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25)"
-						transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+						fontSize="xs"
+						fontWeight="600"
+						transition="all 0.2s ease"
 						_hover={{
-							bg: "var(--rb-panel-accent-hover)",
-							transform: "scale(1.05)",
-							boxShadow: "0 0 24px var(--rb-panel-accent-glow)",
+							borderColor: "panel.borderStrong",
+							bg: "panel.hover",
 						}}
-						_active={{
-							transform: "scale(0.95)",
-						}}
-						onClick={handleCreate}
-					/>
-				) : (
-					<Button
-						className="rb-users-create-btn"
-						leftIcon={<PlusIconStyled />}
-						bg="var(--rb-panel-accent)"
-						color="white"
-						borderRadius="full"
-						h="40px"
-						px={5}
-						fontSize="sm"
-						fontWeight="bold"
-						whiteSpace="nowrap"
-						flexShrink={0}
-						boxShadow="0 0 16px -2px var(--rb-panel-accent-glow), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25)"
-						transition="all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
-						_hover={{
-							bg: "var(--rb-panel-accent-hover)",
-							transform: "translateY(-1px)",
-							boxShadow: "0 0 24px var(--rb-panel-accent-glow)",
-						}}
-						_active={{
-							transform: "scale(0.97)",
-						}}
-						onClick={handleCreate}
 					>
-						{t("createUser")}
-					</Button>
-				))}
+						{autoRefreshInterval
+							? `${t("usersTable.autoRefresh")} · ${autoRefreshInterval / 1000}s`
+							: t("usersTable.autoRefreshOff")}
+					</MenuButton>
+					<Portal>
+						<MenuList
+							zIndex={1800}
+							minW="180px"
+							bg="panel.surface"
+							borderColor="panel.border"
+							borderRadius="14px"
+							boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.6)"
+							p={1.5}
+						>
+							<MenuItem
+								onClick={() => onAutoRefreshChange(0)}
+								fontWeight={autoRefreshInterval === 0 ? "bold" : "normal"}
+								borderRadius="8px"
+								fontSize="xs"
+							>
+								{t("usersTable.autoRefreshOff")}
+							</MenuItem>
+							{AUTO_REFRESH_INTERVALS.map((interval) => (
+								<MenuItem
+									key={interval}
+									onClick={() => onAutoRefreshChange(interval)}
+									fontWeight={autoRefreshInterval === interval ? "bold" : "normal"}
+									borderRadius="8px"
+									fontSize="xs"
+								>
+									{interval / 1000}s
+								</MenuItem>
+							))}
+						</MenuList>
+					</Portal>
+				</Menu>
+			)}
+
+			{/* 6. Desktop-only Create User button with text */}
+			{showCreateButton && (
+				<Button
+					className="rb-users-create-btn"
+					display={{ base: "none", md: "inline-flex" }}
+					leftIcon={<PlusIconStyled w={4} h={4} />}
+					bg="#2563eb"
+					_hover={{ bg: "#1d4ed8" }}
+					_active={{ bg: "#1e40af", transform: "scale(0.98)" }}
+					color="white"
+					borderRadius="12px"
+					h="40px"
+					px={4}
+					fontSize="sm"
+					fontWeight="600"
+					whiteSpace="nowrap"
+					flexShrink={0}
+					boxShadow="0 2px 8px rgba(37, 99, 235, 0.35)"
+					transition="all 0.2s ease"
+					onClick={handleCreate}
+				>
+					{t("createUser")}
+				</Button>
+			)}
 		</Flex>
 	);
-
 };

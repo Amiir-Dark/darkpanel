@@ -1576,7 +1576,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				flexWrap="wrap"
 				mb={1}
 			>
-				<Box flex="1 1 auto" minW={{ base: "100%", md: "360px" }}>
+				<Box flex="1 1 auto" minW={0} w="full">
 					{toolbar}
 				</Box>
 				{headerActions && (
