@@ -9,7 +9,11 @@ export const NotificationBell = () => {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const inbox = useQuery(["notifications", "bell"], () => getNotifications({ limit: 6 }), { refetchInterval: 30000 });
+    const inbox = useQuery(["notifications", "bell"], () => getNotifications({ limit: 6 }), {
+        refetchInterval: 30000,
+        staleTime: 20000,
+        refetchIntervalInBackground: false,
+    });
     const markAll = useMutation(() => markNotificationsRead({ all: true }), {
         onSuccess: () => queryClient.invalidateQueries("notifications"),
     });

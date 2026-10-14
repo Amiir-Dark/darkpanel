@@ -67,6 +67,9 @@ export const useServicesStore = create((set, get) => ({
         ]);
     },
     async fetchServiceOptions(params) {
+        if (!params?.force && get().serviceOptions.length > 0) {
+            return get().serviceOptions;
+        }
         const requestId = ++serviceOptionsFetchSequence;
         set({ isOptionsLoading: true });
         try {

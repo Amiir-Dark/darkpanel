@@ -8,10 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { Link as RouterLink } from "react-router-dom";
 import { deleteExternalApp, exportExternalAppDatabase, getExternalApps, getSubscriptionSettings, installFaoxima, installMirzaBot, installExternalArchive, setExternalAppEnabled, updateExternalAppSettings, updateExternalMirzaBot, } from "service/settings";
-const ExternalAppFilesModal = lazy(async () => ({
-    default: (await import("components/ExternalAppFilesModal"))
-        .ExternalAppFilesModal,
-}));
+import { ExternalAppFilesModal } from "components/ExternalAppFilesModal";
 const errorDetail = (error) => {
     const candidate = error;
     return (candidate?.data?.detail ||
@@ -449,9 +446,7 @@ export const ExternalAppsPage = () => {
                 keep_database: deleteTarget.has_database && keepDatabase,
             });
         }}/>
-			{managedApp && (<Suspense fallback={null}>
-					<ExternalAppFilesModal app={managedApp} initialView={managerView} onClose={() => setManagedApp(null)}/>
-				</Suspense>)}
+			{managedApp && <ExternalAppFilesModal app={managedApp} initialView={managerView} onClose={() => setManagedApp(null)}/> }
 			<Modal isOpen={Boolean(settingsTarget)} onClose={() => setSettingsTarget(null)} size="xl">
 				<ModalOverlay bg="blackAlpha.500"/>
 				<ModalContent bg={panelBg}>

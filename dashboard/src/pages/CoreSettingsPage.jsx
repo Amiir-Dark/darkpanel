@@ -27,50 +27,20 @@ import { sortByTraffic } from "../utils/trafficSort";
 const JsonEditor = lazy(async () => ({
     default: (await import("../components/JsonEditor")).JsonEditor,
 }));
-const BalancerModal = lazy(async () => ({
-    default: (await import("../components/BalancerModal")).BalancerModal,
-}));
-const DnsModal = lazy(async () => ({
-    default: (await import("../components/DnsModal")).DnsModal,
-}));
-const DnsPresetsModal = lazy(async () => ({
-    default: (await import("../components/DnsPresetsModal")).DnsPresetsModal,
-}));
-const FakeDnsModal = lazy(async () => ({
-    default: (await import("../components/FakeDnsModal")).FakeDnsModal,
-}));
-const NordVPNModal = lazy(async () => ({
-    default: (await import("../components/NordVPNModal")).NordVPNModal,
-}));
-const OutboundModal = lazy(async () => ({
-    default: (await import("../components/OutboundModal")).OutboundModal,
-}));
-const OutboundSubscriptionsModal = lazy(async () => ({
-    default: (await import("../components/OutboundSubscriptionsModal"))
-        .OutboundSubscriptionsModal,
-}));
-const PsiphonProxyModal = lazy(async () => ({
-    default: (await import("../components/PsiphonProxyModal")).PsiphonProxyModal,
-}));
-const ReverseModal = lazy(async () => ({
-    default: (await import("../components/ReverseModal")).ReverseModal,
-}));
-const RuleModal = lazy(async () => ({
-    default: (await import("../components/RuleModal")).RuleModal,
-}));
-const RouteTestModal = lazy(async () => ({
-    default: (await import("../components/xray/RouteTestModal")).RouteTestModal,
-}));
-const TorProxyModal = lazy(async () => ({
-    default: (await import("../components/TorProxyModal")).TorProxyModal,
-}));
-const WarpModal = lazy(async () => ({
-    default: (await import("../components/WarpModal")).WarpModal,
-}));
-const WindscribeProxyModal = lazy(async () => ({
-    default: (await import("../components/WindscribeProxyModal"))
-        .WindscribeProxyModal,
-}));
+import { BalancerModal } from "../components/BalancerModal";
+import { DnsModal } from "../components/DnsModal";
+import { DnsPresetsModal } from "../components/DnsPresetsModal";
+import { FakeDnsModal } from "../components/FakeDnsModal";
+import { NordVPNModal } from "../components/NordVPNModal";
+import { OutboundModal } from "../components/OutboundModal";
+import { OutboundSubscriptionsModal } from "../components/OutboundSubscriptionsModal";
+import { PsiphonProxyModal } from "../components/PsiphonProxyModal";
+import { ReverseModal } from "../components/ReverseModal";
+import { RuleModal } from "../components/RuleModal";
+import { RouteTestModal } from "../components/xray/RouteTestModal";
+import { TorProxyModal } from "../components/TorProxyModal";
+import { WarpModal } from "../components/WarpModal";
+import { WindscribeProxyModal } from "../components/WindscribeProxyModal";
 const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 const DeleteIconStyled = chakra(DeleteIcon, { baseStyle: { w: 4, h: 4 } });
 const EditIconStyled = chakra(EditIcon, { baseStyle: { w: 4, h: 4 } });
@@ -3751,8 +3721,7 @@ export const CoreSettingsPage = () => {
 						</VStack>
 					</Box>)}
 			</Box>
-			<Suspense fallback={null}>
-				{isOutboundOpen && (<OutboundModal isOpen={isOutboundOpen} onClose={handleOutboundModalClose} mode={editingOutboundIndex !== null ? "edit" : "create"} initialOutbound={editingOutboundIndex !== null
+			{isOutboundOpen && (<OutboundModal isOpen={isOutboundOpen} onClose={handleOutboundModalClose} mode={editingOutboundIndex !== null ? "edit" : "create"} initialOutbound={editingOutboundIndex !== null
                 ? canonicalOutbounds[editingOutboundIndex]
                 : null} existingTags={availableOutboundTags} onSubmitOutbound={handleOutboundSave}/>)}
 				{isRuleOpen && (<RuleModal isOpen={isRuleOpen} mode={editingRuleIndex !== null ? "edit" : "create"} initialRule={editingRuleIndex !== null
@@ -3786,7 +3755,6 @@ export const CoreSettingsPage = () => {
 				{isDnsOpen && (<DnsModal isOpen={isDnsOpen} onClose={handleDnsModalClose} form={form} setDnsServers={setDnsServers} dnsIndex={editingDnsIndex} currentDnsData={editingDnsIndex !== null ? dnsServers[editingDnsIndex] : null}/>)}
 				{isDnsPresetsOpen && (<DnsPresetsModal isOpen={isDnsPresetsOpen} onClose={onDnsPresetsClose} onSelectPreset={applyDnsPreset}/>)}
 				{isFakeDnsOpen && (<FakeDnsModal isOpen={isFakeDnsOpen} onClose={handleFakeDnsModalClose} form={form} setFakeDns={setFakeDns} fakeDnsIndex={editingFakeDnsIndex} currentFakeDnsData={editingFakeDnsIndex !== null ? fakeDns[editingFakeDnsIndex] : null}/>)}
-			</Suspense>
 			<ConfirmDialog isOpen={Boolean(outboundReset)} onClose={() => setOutboundReset(null)} onConfirm={confirmOutboundTrafficReset} title={t("pages.xray.outbound.resetTraffic")} description={outboundReset?.index === -1
             ? t("pages.xray.outbound.resetTrafficScopeConfirm")
             : t("pages.xray.outbound.resetTrafficConfirm", {

@@ -10,6 +10,7 @@ const useGetUser = () => {
     const { data, isError, isLoading, isSuccess, error } = useQuery({
         queryKey: ["current-admin"],
         queryFn: () => fetchUser(),
+        staleTime: 30_000,
         refetchInterval: 30_000,
         refetchIntervalInBackground: false,
     });

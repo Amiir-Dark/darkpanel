@@ -23,9 +23,7 @@ import { SearchInput } from "./common/SearchInput";
 import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
 import { DataTable, ResourceListCard, ResourceRefreshButton, } from "./ui";
 import { XrayModalBody, XrayModalContent, XrayModalFooter, XrayModalHeader, } from "./xray/XrayDialog";
-const FinalMaskEditor = lazy(async () => ({
-    default: (await import("./FinalMaskEditor")).FinalMaskEditor,
-}));
+import { FinalMaskEditor } from "./FinalMaskEditor";
 const JsonEditor = lazy(async () => ({
     default: (await import("./JsonEditor")).JsonEditor,
 }));
@@ -819,9 +817,7 @@ const HostForm = ({ data, inboundTag, inboundOptions, nodes, initialFocusRef, on
 								<Text mb={4} fontSize="xs" color="panel.textMuted">
 									{t("hostsPage.section.finalMaskDescription")}
 								</Text>
-								<Suspense fallback={<Spinner size="sm"/>}>
-									<FinalMaskEditor value={sanitizedFinalMask} onChange={(value) => onChange("finalmask", value)} capabilities={capabilities}/>
-								</Suspense>
+								<FinalMaskEditor value={sanitizedFinalMask} onChange={(value) => onChange("finalmask", value)} capabilities={capabilities}/>
 								{finalMaskError && (<Text mt={3} fontSize="sm" color="red.500">
 										{finalMaskError}
 									</Text>)}

@@ -66,13 +66,13 @@ func (s *Server) handleCoreXrayReleases(w http.ResponseWriter, r *http.Request) 
 }
 
 func fetchXrayCoreReleaseTags(ctx context.Context, limit int) ([]string, bool, error) {
+	if cached := cachedXrayCoreReleaseTags(limit); len(cached) > 0 {
+		return cached, false, nil
+	}
 	tags, err := requestXrayCoreReleaseTags(ctx, limit)
 	if err == nil {
 		storeXrayCoreReleaseCache(tags)
 		return tags, false, nil
-	}
-	if cached := cachedXrayCoreReleaseTags(limit); len(cached) > 0 {
-		return cached, true, nil
 	}
 	return nil, false, err
 }

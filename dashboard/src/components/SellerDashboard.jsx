@@ -94,8 +94,9 @@ export const SellerDashboard = ({ adminUsername, }) => {
     const { data: usersResponse, isLoading: isUsersLoading } = useQuery(["seller-dashboard-users", adminUsername], () => apiFetch("/users", {
         query: { limit: 1000 },
     }), {
-        staleTime: 10_000,
-        refetchInterval: 15_000,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
+        refetchIntervalInBackground: false,
     });
     // Fetch daily usage history for bar chart
     const { data: usageHistory, isLoading: isUsageLoading } = useQuery(["seller-dashboard-usage", adminUsername, usagePeriodDays], async () => {

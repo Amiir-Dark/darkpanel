@@ -1037,8 +1037,9 @@ export const Statistics = (props) => {
         query: { admin: userData.username, limit: 1000 },
     }), {
         enabled: Boolean(userData.username),
-        staleTime: 10_000,
-        refetchInterval: 15_000,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
+        refetchIntervalInBackground: false,
     });
     const systemData = useMemo(() => sanitizeSystemStats(rawSystemData), [rawSystemData]);
     useSystemMetricsStream(true);
