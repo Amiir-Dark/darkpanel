@@ -1666,6 +1666,9 @@ func TestMigration64EnsuresUsersTableWhenMissing(t *testing.T) {
 	}
 	defer db.Close()
 
+	if _, err := db.ExecContext(ctx, `CREATE TABLE nodes (id INTEGER PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.ExecContext(ctx, `CREATE TABLE goose_db_version (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		version_id INTEGER NOT NULL,
@@ -1688,4 +1691,36 @@ func TestMigration64EnsuresUsersTableWhenMissing(t *testing.T) {
 	assertTableColumns(t, ctx, db, "sqlite", "user_hwids", []string{"id", "user_id", "hwid", "user_agent", "last_seen_at"})
 	assertTableColumns(t, ctx, db, "sqlite", "subscription_settings", []string{"default_device_limit_type", "blocked_client_apps"})
 }
+
+func TestGooseVersionClearedWhenNodesTableMissing(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	if _, err := db.ExecContext(ctx, `CREATE TABLE goose_db_version (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		version_id INTEGER NOT NULL,
+		is_applied INTEGER NOT NULL,
+		tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	for v := 1; v <= 61; v++ {
+		if _, err := db.ExecContext(ctx, `INSERT INTO goose_db_version (version_id, is_applied) VALUES (?, 1)`, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := RunMigrations(ctx, db, "sqlite"); err != nil {
+		t.Fatalf("run migrations on unmigrated database: %v", err)
+	}
+
+	assertTableColumns(t, ctx, db, "sqlite", "nodes", []string{"id", "name", "address"})
+	assertTableColumns(t, ctx, db, "sqlite", "users", []string{"id", "username"})
+	assertTableColumns(t, ctx, db, "sqlite", "admins", []string{"id", "username"})
+}
+
 
