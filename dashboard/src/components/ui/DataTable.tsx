@@ -24,7 +24,6 @@ import {
 	VStack,
 } from "@chakra-ui/react";
 import {
-	AdjustmentsHorizontalIcon,
 	DocumentDuplicateIcon,
 } from "@heroicons/react/24/outline";
 import {
@@ -120,19 +119,7 @@ const installSelectAllShortcut = () => {
 	}, true);
 };
 
-const ActionsHeaderIcon = () => (
-	<Box
-		className="rb-actions-header-icon"
-		display="inline-flex"
-		alignItems="center"
-		justifyContent="flex-end"
-		w="full"
-		color="panel.textMuted"
-		aria-hidden="true"
-	>
-		<Box as={AdjustmentsHorizontalIcon} w={3.5} h={3.5} />
-	</Box>
-);
+const ActionsHeaderIcon = () => null;
 
 const isBelowBreakpoint = (
 	current: DataTableBreakpoint,
