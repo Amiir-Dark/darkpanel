@@ -156,8 +156,15 @@ CREATE TABLE admins (
 		}
 	}
 
-	if err := createTable(ctx, tx, dialect, "users", `
-CREATE TABLE users (
+	adminColType := "INTEGER"
+	if dialect == "mysql" || dialect == "mariadb" {
+		_ = tx.QueryRowContext(ctx, "SELECT column_type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'admins' AND column_name = 'id'").Scan(&adminColType)
+		if adminColType == "" {
+			adminColType = "INTEGER"
+		}
+	}
+
+	sqliteSQL := `CREATE TABLE users (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	username VARCHAR(34) COLLATE NOCASE,
 	credential_key VARCHAR(64) NULL,
@@ -181,8 +188,9 @@ CREATE TABLE users (
 	admin_disabled_at DATETIME NULL,
 	service_limit_disabled_at DATETIME NULL,
 	FOREIGN KEY(admin_id) REFERENCES admins(id)
-)`, `
-CREATE TABLE users (
+)`
+
+	mysqlSQL := fmt.Sprintf(`CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
 	username VARCHAR(34),
 	credential_key VARCHAR(64) NULL,
@@ -193,7 +201,7 @@ CREATE TABLE users (
 	data_limit BIGINT NULL,
 	data_limit_reset_strategy VARCHAR(32) NOT NULL DEFAULT 'no_reset',
 	expire INTEGER NULL,
-	admin_id INTEGER NULL,
+	admin_id %s NULL,
 	sub_revoked_at DATETIME NULL,
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 	note VARCHAR(500) NULL,
@@ -205,10 +213,15 @@ CREATE TABLE users (
 	last_status_change DATETIME NULL,
 	admin_disabled_at DATETIME NULL,
 	service_limit_disabled_at DATETIME NULL,
-	PRIMARY KEY (id),
-	CONSTRAINT fk_users_admin_id_admins FOREIGN KEY(admin_id) REFERENCES admins(id)
-)`); err != nil {
+	PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`, adminColType)
+
+	if err := createTable(ctx, tx, dialect, "users", sqliteSQL, mysqlSQL); err != nil {
 		return err
+	}
+
+	if dialect == "mysql" || dialect == "mariadb" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE users ADD CONSTRAINT fk_users_admin_id_admins FOREIGN KEY (admin_id) REFERENCES admins (id)`)
 	}
 
 	_ = createIndex(ctx, tx, dialect, "users", "ix_users_username", []string{"username"}, false)
