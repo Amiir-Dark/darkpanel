@@ -1631,7 +1631,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 						)}
 						actionsDisplay="inline"
 						actionsPlacement="end"
-						actionsColumnWidth={compactRowActions ? "88px" : "210px"}
+						actionsColumnWidth={compactRowActions ? "124px" : "210px"}
 						actionsAlwaysVisible
 						onRowClick={
 							isDesktop
@@ -2188,6 +2188,35 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 							}}
 						/>
 					</span>
+				</Tooltip>
+				<Tooltip label={t("usersTable.qrCode")}>
+					<IconButton
+						aria-label={t("usersTable.qrCode")}
+						icon={<QRIcon />}
+						variant="ghost"
+						size="sm"
+						minW="32px"
+						h="32px"
+						borderRadius="full"
+						borderWidth="1px"
+						borderColor="transparent"
+						transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+						_hover={{
+							borderColor: "var(--rb-panel-accent-glow)",
+							bg: "var(--rb-panel-accent-soft)",
+							color: "var(--rb-panel-accent)",
+							transform: "scale(1.08)",
+							boxShadow: "0 0 10px var(--rb-panel-accent-glow)",
+						}}
+						_active={{
+							transform: "scale(0.95)",
+						}}
+						onClick={() => {
+							const links = generateUserLinks(user, linkTemplates);
+							setQRCode(links, user.username);
+							setSubLink(subscriptionLink);
+						}}
+					/>
 				</Tooltip>
 				{menuActions && menuActions.length > 0 && (
 					<RowActionsMenu actions={menuActions} label={t("actions")} />
