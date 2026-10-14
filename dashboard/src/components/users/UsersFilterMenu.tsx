@@ -526,15 +526,31 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 			dir={isRTL ? "rtl" : "ltr"}
 			onMouseLeave={handleContainerMouseLeave}
 		>
+			<style>{`
+				@keyframes rbMenuIn {
+					0% { opacity: 0; transform: translateY(-4px) scale(0.98); }
+					100% { opacity: 1; transform: translateY(0) scale(1); }
+				}
+				@keyframes rbFlyoutInRight {
+					0% { opacity: 0; transform: translateX(-6px) scale(0.98); }
+					100% { opacity: 1; transform: translateX(0) scale(1); }
+				}
+				@keyframes rbFlyoutInLeft {
+					0% { opacity: 0; transform: translateX(6px) scale(0.98); }
+					100% { opacity: 1; transform: translateX(0) scale(1); }
+				}
+			`}</style>
+
 			{/* Main Menu Box - Fixed width, never moves or shifts */}
 			<Box
-				bg="panel.surface"
+				bg="#121316"
 				borderWidth="1px"
-				borderColor="panel.border"
+				borderColor="rgba(255, 255, 255, 0.08)"
 				borderRadius="14px"
-				boxShadow="0 16px 40px rgba(0, 0, 0, 0.7)"
+				boxShadow="0 20px 50px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08)"
 				w="180px"
 				py={1.5}
+				animation="rbMenuIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards"
 			>
 				<MainMenuItem
 					label={isRTL ? "وضعیت" : "Status"}
@@ -585,7 +601,7 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 					onClick={() => setActiveSubmenu("sort")}
 				/>
 
-				<Box my={1.5} borderTopWidth="1px" borderColor="panel.border" />
+				<Box my={1.5} borderTopWidth="1px" borderColor="rgba(255, 255, 255, 0.08)" />
 
 				<Flex
 					align="center"
@@ -595,19 +611,25 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 					mx={1.5}
 					borderRadius="8px"
 					cursor={hasAnyActiveFilter ? "pointer" : "default"}
-					color={hasAnyActiveFilter ? "panel.textPrimary" : "panel.textMuted"}
+					color={hasAnyActiveFilter ? "rgba(255, 255, 255, 0.9)" : "rgba(255, 255, 255, 0.35)"}
 					opacity={hasAnyActiveFilter ? 1 : 0.6}
 					fontSize="13px"
 					fontWeight="500"
-					transition="all 0.15s ease"
+					role="group"
+					transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
 					_hover={
 						hasAnyActiveFilter
-							? { bg: "panel.hover", color: "panel.textPrimary" }
+							? { bg: "rgba(255, 255, 255, 0.08)", color: "white" }
 							: undefined
 					}
 					onClick={hasAnyActiveFilter ? handleReset : undefined}
 				>
-					<ArrowPathIcon width={16} height={16} />
+					<Box
+						transition="transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+						_groupHover={hasAnyActiveFilter ? { transform: "rotate(-60deg)" } : undefined}
+					>
+						<ArrowPathIcon width={16} height={16} />
+					</Box>
 					<Text>{isRTL ? "بازنشانی" : "Reset"}</Text>
 				</Flex>
 			</Box>
@@ -619,14 +641,19 @@ export const UsersFilterMenu: FC<UsersFilterMenuProps> = ({ onClose }) => {
 					top={0}
 					left={flyoutSide === "right" ? "calc(100% + 5px)" : "auto"}
 					right={flyoutSide === "left" ? "calc(100% + 5px)" : "auto"}
-					bg="panel.surface"
+					bg="#121316"
 					borderWidth="1px"
-					borderColor="panel.border"
+					borderColor="rgba(255, 255, 255, 0.08)"
 					borderRadius="14px"
-					boxShadow="0 16px 40px rgba(0, 0, 0, 0.7)"
+					boxShadow="0 20px 50px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08)"
 					minW="190px"
 					py={1.5}
 					zIndex={100}
+					animation={
+						flyoutSide === "right"
+							? "rbFlyoutInRight 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards"
+							: "rbFlyoutInLeft 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards"
+					}
 					onMouseEnter={cancelCloseTimer}
 					_before={{
 						content: '""',
@@ -664,27 +691,45 @@ const MainMenuItem: FC<{
 		cursor="pointer"
 		fontSize="13px"
 		fontWeight="500"
-		color={isOpen ? "white" : "panel.textSecondary"}
-		bg={isOpen ? "panel.hover" : "transparent"}
-		transition="all 0.15s ease"
+		color={isOpen ? "white" : "rgba(255, 255, 255, 0.75)"}
+		bg={isOpen ? "rgba(255, 255, 255, 0.08)" : "transparent"}
+		transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+		role="group"
 		_hover={{
-			bg: "panel.hover",
+			bg: "rgba(255, 255, 255, 0.08)",
 			color: "white",
 		}}
 		onMouseEnter={onMouseEnter}
 		onClick={onClick}
 	>
-		<HStack spacing={2.5} align="center">
-			<Box color={isOpen ? "var(--rb-panel-accent, #3b82f6)" : "inherit"}>
+		<HStack
+			spacing={2.5}
+			align="center"
+			transition="transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+			_groupHover={{
+				transform: arrowDirection === "left" ? "translateX(-3px)" : "translateX(3px)",
+			}}
+		>
+			<Box
+				color={isOpen ? "var(--rb-panel-accent, #3b82f6)" : "inherit"}
+				transition="color 0.15s ease"
+			>
 				{icon}
 			</Box>
 			<Text>{label}</Text>
 		</HStack>
-		<Box color="panel.textMuted">
+		<Box
+			color="rgba(255, 255, 255, 0.45)"
+			transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+			_groupHover={{
+				color: "white",
+				transform: arrowDirection === "left" ? "translateX(-2px)" : "translateX(2px)",
+			}}
+		>
 			{arrowDirection === "left" ? (
-				<ChevronLeftIcon width={13} />
+				<ChevronLeftIcon width={13} strokeWidth={2.2} />
 			) : (
-				<ChevronRightIcon width={13} />
+				<ChevronRightIcon width={13} strokeWidth={2.2} />
 			)}
 		</Box>
 	</Flex>
@@ -707,25 +752,41 @@ const SubmenuItem: FC<{
 		cursor="pointer"
 		fontSize="13px"
 		fontWeight="500"
-		color={isSelected ? "white" : "panel.textSecondary"}
-		bg={isSelected ? "panel.hover" : "transparent"}
-		transition="all 0.15s ease"
+		color={isSelected ? "white" : "rgba(255, 255, 255, 0.75)"}
+		bg={isSelected ? "rgba(37, 99, 235, 0.15)" : "transparent"}
+		transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+		role="group"
 		_hover={{
-			bg: "panel.hover",
+			bg: isSelected ? "rgba(37, 99, 235, 0.25)" : "rgba(255, 255, 255, 0.08)",
 			color: "white",
 		}}
 		onClick={onClick}
 	>
-		<HStack spacing={2.5} align="center">
+		<HStack
+			spacing={2.5}
+			align="center"
+			transition="transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+			_groupHover={{
+				transform: "translateX(3px)",
+			}}
+		>
 			{icon && (
-				<Box color={isSelected ? "var(--rb-panel-accent, #3b82f6)" : "inherit"}>
+				<Box
+					color={isSelected ? "var(--rb-panel-accent, #3b82f6)" : "inherit"}
+					transition="color 0.15s ease"
+				>
 					{icon}
 				</Box>
 			)}
 			<Text>{label}</Text>
 		</HStack>
 		{isSelected && (
-			<Box color="white" ml={3}>
+			<Box
+				color="white"
+				ml={3}
+				transition="transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+				_groupHover={{ transform: "scale(1.15)" }}
+			>
 				<CheckIcon width={15} height={15} strokeWidth={2.5} />
 			</Box>
 		)}
