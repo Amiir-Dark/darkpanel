@@ -103,10 +103,12 @@ CREATE TABLE next_plans (
 	increase_data_limit BOOLEAN NOT NULL DEFAULT 0,
 	start_on_first_connect BOOLEAN NOT NULL DEFAULT 0,
 	trigger_on VARCHAR(16) NOT NULL DEFAULT 'either',
-	PRIMARY KEY (id),
-	FOREIGN KEY(user_id) REFERENCES users(id)
+	PRIMARY KEY (id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE next_plans ADD CONSTRAINT fk_next_plans_user_id FOREIGN KEY (user_id) REFERENCES users (id)`)
 	}
 	for _, item := range []struct {
 		column string

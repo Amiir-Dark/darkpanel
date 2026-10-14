@@ -52,10 +52,12 @@ CREATE TABLE node_usages (
 	uplink BIGINT DEFAULT 0,
 	downlink BIGINT DEFAULT 0,
 	PRIMARY KEY (id),
-	FOREIGN KEY(node_id) REFERENCES nodes(id),
 	UNIQUE KEY uq_node_usages_created_node (created_at, node_id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE node_usages ADD CONSTRAINT fk_node_usages_node_id FOREIGN KEY (node_id) REFERENCES nodes (id)`)
 	}
 	for _, item := range []struct {
 		column string
@@ -89,11 +91,13 @@ CREATE TABLE node_user_usages (
 	node_id INTEGER NULL,
 	used_traffic BIGINT DEFAULT 0,
 	PRIMARY KEY (id),
-	FOREIGN KEY(user_id) REFERENCES users(id),
-	FOREIGN KEY(node_id) REFERENCES nodes(id),
 	UNIQUE KEY uq_node_user_usages_created_user_node (created_at, user_id, node_id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE node_user_usages ADD CONSTRAINT fk_node_user_usages_user_id FOREIGN KEY (user_id) REFERENCES users (id)`)
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE node_user_usages ADD CONSTRAINT fk_node_user_usages_node_id FOREIGN KEY (node_id) REFERENCES nodes (id)`)
 	}
 	if _, err := DropIndexIfExists(ctx, tx, dialect, "node_user_usages", "ix_node_user_usages_user_id"); err != nil {
 		return err

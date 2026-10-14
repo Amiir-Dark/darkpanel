@@ -72,10 +72,12 @@ CREATE TABLE users (
 	last_status_change DATETIME NULL,
 	admin_disabled_at DATETIME NULL,
 	service_limit_disabled_at DATETIME NULL,
-	PRIMARY KEY (id),
-	CONSTRAINT fk_users_admin_id_admins FOREIGN KEY(admin_id) REFERENCES admins(id)
+	PRIMARY KEY (id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE users ADD CONSTRAINT fk_users_admin_id_admins FOREIGN KEY (admin_id) REFERENCES admins (id)`)
 	}
 	for _, item := range []struct {
 		column string
@@ -147,10 +149,12 @@ CREATE TABLE proxies (
 	user_id INTEGER NULL,
 	type VARCHAR(32) NOT NULL,
 	settings JSON NOT NULL,
-	PRIMARY KEY (id),
-	FOREIGN KEY(user_id) REFERENCES users(id)
+	PRIMARY KEY (id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE proxies ADD CONSTRAINT fk_proxies_user_id FOREIGN KEY (user_id) REFERENCES users (id)`)
 	}
 	if err := createTable(ctx, tx, dialect, "inbounds", `
 CREATE TABLE inbounds (
@@ -229,10 +233,12 @@ CREATE TABLE hosts (
 	noise_setting VARCHAR(2000) NULL,
 	random_user_agent BOOLEAN NOT NULL DEFAULT 0,
 	use_sni_as_host BOOLEAN NOT NULL DEFAULT 0,
-	PRIMARY KEY (id),
-	FOREIGN KEY(inbound_tag) REFERENCES inbounds(tag)
+	PRIMARY KEY (id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE hosts ADD CONSTRAINT fk_hosts_inbound_tag FOREIGN KEY (inbound_tag) REFERENCES inbounds (tag)`)
 	}
 	for _, item := range []struct {
 		column string
@@ -267,7 +273,7 @@ CREATE TABLE hosts (
 			return err
 		}
 	}
-	return createTable(ctx, tx, dialect, "exclude_inbounds_association", `
+	if err := createTable(ctx, tx, dialect, "exclude_inbounds_association", `
 CREATE TABLE exclude_inbounds_association (
 	proxy_id INTEGER NULL,
 	inbound_tag VARCHAR(256) NULL,
@@ -276,8 +282,13 @@ CREATE TABLE exclude_inbounds_association (
 )`, `
 CREATE TABLE exclude_inbounds_association (
 	proxy_id INTEGER NULL,
-	inbound_tag VARCHAR(256) NULL,
-	FOREIGN KEY(proxy_id) REFERENCES proxies(id),
-	FOREIGN KEY(inbound_tag) REFERENCES inbounds(tag)
-)`)
+	inbound_tag VARCHAR(256) NULL
+)`); err != nil {
+		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE exclude_inbounds_association ADD CONSTRAINT fk_exclude_inbounds_proxy FOREIGN KEY (proxy_id) REFERENCES proxies (id)`)
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE exclude_inbounds_association ADD CONSTRAINT fk_exclude_inbounds_tag FOREIGN KEY (inbound_tag) REFERENCES inbounds (tag)`)
+	}
+	return nil
 }

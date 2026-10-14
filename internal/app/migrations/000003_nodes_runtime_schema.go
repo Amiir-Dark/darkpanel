@@ -118,10 +118,12 @@ CREATE TABLE node_usages (
 	uplink BIGINT DEFAULT 0,
 	downlink BIGINT DEFAULT 0,
 	PRIMARY KEY (id),
-	FOREIGN KEY(node_id) REFERENCES nodes(id),
 	UNIQUE KEY uq_node_usages_created_node (created_at, node_id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE node_usages ADD CONSTRAINT fk_node_usages_node_id FOREIGN KEY (node_id) REFERENCES nodes (id)`)
 	}
 	if err := ensureMasterNodeState(ctx, tx, dialect); err != nil {
 		return err
@@ -144,11 +146,13 @@ CREATE TABLE node_user_usages (
 	node_id INTEGER NULL,
 	used_traffic BIGINT DEFAULT 0,
 	PRIMARY KEY (id),
-	FOREIGN KEY(user_id) REFERENCES users(id),
-	FOREIGN KEY(node_id) REFERENCES nodes(id),
 	UNIQUE KEY uq_node_user_usages_created_user_node (created_at, user_id, node_id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE node_user_usages ADD CONSTRAINT fk_node_user_usages_user_id FOREIGN KEY (user_id) REFERENCES users (id)`)
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE node_user_usages ADD CONSTRAINT fk_node_user_usages_node_id FOREIGN KEY (node_id) REFERENCES nodes (id)`)
 	}
 	if err := createTable(ctx, tx, dialect, "node_operations", `
 CREATE TABLE node_operations (
@@ -180,11 +184,13 @@ CREATE TABLE node_operations (
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
-	FOREIGN KEY(node_id) REFERENCES nodes(id) ON DELETE SET NULL,
-	FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL,
 	UNIQUE KEY uq_node_operations_idempotency_key (idempotency_key)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(dialect) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE node_operations ADD CONSTRAINT fk_node_operations_node_id FOREIGN KEY (node_id) REFERENCES nodes (id) ON DELETE SET NULL`)
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE node_operations ADD CONSTRAINT fk_node_operations_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL`)
 	}
 	for _, index := range []struct {
 		name    string

@@ -45,10 +45,12 @@ CREATE TABLE haproxy_targets (
 	node_id BIGINT NOT NULL,
 	listeners JSON NOT NULL,
 	PRIMARY KEY (config_id, node_id),
-	UNIQUE KEY uq_haproxy_target_node (node_id),
-	CONSTRAINT fk_haproxy_target_config FOREIGN KEY (config_id) REFERENCES haproxy_configs(id) ON DELETE CASCADE
+	UNIQUE KEY uq_haproxy_target_node (node_id)
 )`); err != nil {
 		return err
+	}
+	if NormalizeDialect(activeDialect()) == "mysql" {
+		_, _ = tx.ExecContext(ctx, `ALTER TABLE haproxy_targets ADD CONSTRAINT fk_haproxy_target_config FOREIGN KEY (config_id) REFERENCES haproxy_configs(id) ON DELETE CASCADE`)
 	}
 	return createTable(ctx, tx, activeDialect(), "haproxy_templates", `
 CREATE TABLE haproxy_templates (
