@@ -3127,50 +3127,12 @@ export const IntegrationSettingsPage = () => {
 																	    : "Configure Telegram bot for automated and manual panel backup files."}
 															</Text>
 														</Box>
-														{resellerTab !== "config_remarks" && resellerTab !== "client_apps" && (
-															<HStack spacing={2}>
-																<Button
-																	variant="outline"
-																	size="sm"
-																	leftIcon={<RefreshIcon />}
-																	onClick={() => refetchSubscriptionSettings()}
-																>
-																	{t("refresh")}
-																</Button>
-															</HStack>
-														)}
 													</Flex>
 
 													{/* Tab 1: Sub Access & Custom Remarks */}
 													{resellerTab === "sub_access" && (
-														<>
-															{/* 1. Sub Access Section (Matching Screenshot) */}
-															<Box
-																p={5}
-																borderRadius="xl"
-																borderWidth="1px"
-																borderColor={borderColor}
-																bg={subCardBg}
-															>
-																<Flex align="center" gap={3} mb={4}>
-																	<Box
-																		p={2}
-																		borderRadius="lg"
-																		borderWidth="1px"
-																		borderColor={borderColor}
-																		bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
-																	>
-																		<WindowIcon style={{ width: 22, height: 22 }} />
-																	</Box>
-																	<Box>
-																		<Heading size="sm">Sub Access</Heading>
-																		<Text fontSize="xs" color="gray.500" mt={0.5}>
-																			Configure the subscription access page headers and link delivery limits.
-																		</Text>
-																	</Box>
-																</Flex>
-
-																<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+														<VStack spacing={5} align="stretch">
+															<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 																	{/* Max links per user */}
 																	<FormControl>
 																		<FormLabel fontSize="xs">
@@ -3456,9 +3418,8 @@ export const IntegrationSettingsPage = () => {
 																/>
 															</Flex>
 														</VStack>
-													</Box>
-												</>
-											)}
+													</VStack>
+												)}
 
 											{/* Tab 2: Client Apps */}
 											{resellerTab === "client_apps" && (
@@ -3589,42 +3550,27 @@ export const IntegrationSettingsPage = () => {
 
 											{/* Tab 4: Telegram Bot Backup Section */}
 											{resellerTab === "telegram" && (
-												<Box
-													p={5}
-													borderRadius="xl"
-													borderWidth="1px"
-													borderColor={borderColor}
-													bg={subCardBg}
-												>
+												<VStack spacing={4} align="stretch">
 													<Flex
 														justify="space-between"
-														align={{ base: "flex-start", md: "center" }}
-														flexDirection={{ base: "column", md: "row" }}
-														gap={3}
-														mb={4}
+														align="center"
+														p={3.5}
+														borderRadius="xl"
+														borderWidth="1px"
+														borderColor={borderColor}
+														bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
 													>
-														<Flex align="center" gap={3}>
-															<Box
-																p={2}
-																borderRadius="lg"
-																borderWidth="1px"
-																borderColor={borderColor}
-																bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
-															>
-																<PaperAirplaneIcon style={{ width: 22, height: 22 }} />
-															</Box>
-															<Box>
-																<Heading size="xs">
-																	{t("settings.subscriptions.telegramBackupTitle", "Telegram Bot Backup")}
-																</Heading>
-																<Text fontSize="xs" color="gray.500" mt={0.5}>
-																	{t(
-																		"settings.subscriptions.telegramBackupDesc",
-																		"Configure a dedicated Telegram bot to receive automatic and manual panel backup files.",
-																	)}
-																</Text>
-															</Box>
-														</Flex>
+														<Box>
+															<Text fontWeight="semibold" fontSize="sm">
+																{t("settings.subscriptions.telegramBackupTitle", "Telegram Bot Backup")}
+															</Text>
+															<Text fontSize="xs" color="gray.500" mt={0.5}>
+																{t(
+																	"settings.subscriptions.telegramBackupDesc",
+																	"Configure a dedicated Telegram bot to receive automatic and manual panel backup files.",
+																)}
+															</Text>
+														</Box>
 														<HStack spacing={3}>
 															<Text fontSize="xs" fontWeight="semibold" color="gray.500">
 																{Boolean(settings.telegram_backup_enabled) ? "Enabled" : "Disabled"}
@@ -3734,7 +3680,7 @@ export const IntegrationSettingsPage = () => {
 															</Button>
 														</HStack>
 													</Flex>
-												</Box>
+												</VStack>
 											)}
 
 											{/* Save Button for current view */}
