@@ -25,6 +25,11 @@ const (
 	legacyAlembicFinalBaseline int64 = 16
 )
 
+// LatestGooseVersion returns the current latest goose migration version.
+func LatestGooseVersion() int64 {
+	return latestGooseVersion
+}
+
 type Runner struct {
 	DB      *sql.DB
 	Dialect string
