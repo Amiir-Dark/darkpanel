@@ -179,6 +179,7 @@ func (s *Service) Import(ctx context.Context, archivePath string) (ImportResult,
 			return ImportResult{}, Error{Message: "restored database could not be migrated to the current schema: " + err.Error()}
 		}
 		_ = migrations.RepairMySQLMissingAutoIncrements(ctx, s.db, s.dialect)
+		_ = migrations.EnsurePerformanceIndexes(ctx, s.db, s.dialect)
 	}
 
 	filesRestored := []string{}

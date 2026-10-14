@@ -118,6 +118,7 @@ func (r Runner) run(ctx context.Context, targetVersion int64) error {
 		return err
 	}
 	_ = RepairMySQLMissingAutoIncrements(ctx, r.DB, dialect)
+	_ = EnsurePerformanceIndexes(ctx, r.DB, dialect)
 	return nil
 }
 

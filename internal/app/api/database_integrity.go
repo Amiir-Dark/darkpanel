@@ -88,6 +88,7 @@ func checkDatabaseIntegrity(ctx context.Context, db *sql.DB) error {
 	}
 
 	_ = migrations.RepairMySQLMissingAutoIncrements(ctx, db, "mysql")
+	_ = migrations.EnsurePerformanceIndexes(ctx, db, "mysql")
 
 	return nil
 }

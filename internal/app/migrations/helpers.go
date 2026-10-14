@@ -515,3 +515,41 @@ WHERE TABLE_SCHEMA = DATABASE()
 	return nil
 }
 
+// EnsurePerformanceIndexes automatically ensures that critical performance indexes
+// for users, online sessions, and usage logs exist in the database on startup.
+func EnsurePerformanceIndexes(ctx context.Context, db DBTX, dialect string) error {
+	indexes := []struct {
+		table   string
+		name    string
+		columns []string
+	}{
+		{"users", "ix_users_status_created_id", []string{"status", "created_at", "id"}},
+		{"users", "ix_users_created_id", []string{"created_at", "id"}},
+		{"users", "ix_users_status_used_traffic", []string{"status", "used_traffic"}},
+		{"user_online_ips", "ix_user_online_ips_seen_user", []string{"last_seen_at", "user_id"}},
+		{"vpn_user_sessions", "ix_vpn_user_sessions_ended_seen", []string{"ended_at", "last_seen_at", "user_id"}},
+		{"user_usage_logs", "ix_user_usage_logs_user_id", []string{"user_id"}},
+		{"user_presence", "ix_user_presence_online_user", []string{"online_at", "user_id"}},
+	}
+
+	for _, idx := range indexes {
+		hasTable, err := HasTable(ctx, db, dialect, idx.table)
+		if err != nil || !hasTable {
+			continue
+		}
+		allCols := true
+		for _, col := range idx.columns {
+			hasCol, err := HasColumn(ctx, db, dialect, idx.table, col)
+			if err != nil || !hasCol {
+				allCols = false
+				break
+			}
+		}
+		if allCols {
+			_, _ = CreateIndexIfMissing(ctx, db, dialect, idx.table, idx.name, idx.columns, false)
+		}
+	}
+	return nil
+}
+
+
