@@ -179,6 +179,56 @@ func TestMySQLAccessDeniedBackupError(t *testing.T) {
 	}
 }
 
+func TestMySQLOOMBackupError(t *testing.T) {
+	err := mysqlBackupCommandError("restore", "ERROR 2013 (HY000) at line 10: Lost connection to MySQL server during query")
+	if !strings.Contains(err.Error(), "Out-Of-Memory") || !strings.Contains(err.Error(), "swap file") {
+		t.Fatalf("expected actionable OOM/swap error, got %v", err)
+	}
+}
+
+func TestFilterMySQLDumpForDatabase(t *testing.T) {
+	tempDir := t.TempDir()
+	inputPath := filepath.Join(tempDir, "input.sql")
+	outputPath := filepath.Join(tempDir, "output.sql")
+
+	largeData := strings.Repeat("A", 128*1024)
+	inputContent := "CREATE DATABASE /*!32312 IF NOT EXISTS*/ `rebecca`;\n" +
+		"USE `rebecca`;\n" +
+		"-- CURRENT DATABASE: `rebecca`\n" +
+		"DROP DATABASE IF EXISTS `rebecca`;\n" +
+		"CREATE TABLE `users` (`id` int);\n" +
+		"INSERT INTO `users` VALUES ('" + largeData + "');\n"
+
+	if err := os.WriteFile(inputPath, []byte(inputContent), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := filterMySQLDumpForDatabase(inputPath, outputPath); err != nil {
+		t.Fatalf("filterMySQLDumpForDatabase failed: %v", err)
+	}
+
+	outputBytes, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputContent := string(outputBytes)
+
+	if strings.Contains(outputContent, "CREATE DATABASE") ||
+		strings.Contains(outputContent, "USE `rebecca`") ||
+		strings.Contains(outputContent, "-- CURRENT DATABASE:") ||
+		strings.Contains(outputContent, "DROP DATABASE") {
+		t.Fatalf("output still contains prohibited database statements: %s", outputContent[:200])
+	}
+
+	if !strings.Contains(outputContent, "CREATE TABLE `users`") {
+		t.Fatalf("output missing CREATE TABLE statement")
+	}
+
+	if !strings.Contains(outputContent, largeData) {
+		t.Fatalf("output missing large row data")
+	}
+}
+
 func writeBackupArchiveForTest(t *testing.T, archivePath string, files map[string][]byte) {
 	t.Helper()
 	file, err := os.Create(archivePath)

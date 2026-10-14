@@ -321,6 +321,7 @@ func (s *Service) exportMySQL(ctx context.Context, outputPath string) error {
 		"--defaults-extra-file=" + defaultsFile,
 		"--single-transaction",
 		"--quick",
+		"--max-allowed-packet=512M",
 		"--routines",
 		"--triggers",
 		"--events",
@@ -367,19 +368,32 @@ func (s *Service) restoreMySQL(ctx context.Context, payloadPath string) error {
 	if err := filterMySQLDumpForDatabase(payloadPath, filteredPath); err != nil {
 		return err
 	}
-	rollbackRawPath := filepath.Join(tempDir, "rollback.sql")
-	if err := s.exportMySQL(ctx, rollbackRawPath); err != nil {
-		return Error{Message: "Failed to create a rollback backup before restoring MySQL/MariaDB: " + err.Error()}
+
+	tables, _ := s.tableNames(ctx)
+	rollbackPath := ""
+	if len(tables) > 0 {
+		rollbackRawPath := filepath.Join(tempDir, "rollback.sql")
+		if err := s.exportMySQL(ctx, rollbackRawPath); err != nil {
+			return Error{Message: "Failed to create a rollback backup before restoring MySQL/MariaDB: " + err.Error()}
+		}
+		rollbackPath = filepath.Join(tempDir, "rollback-filtered.sql")
+		if err := filterMySQLDumpForDatabase(rollbackRawPath, rollbackPath); err != nil {
+			return err
+		}
+		_ = os.Remove(rollbackRawPath)
 	}
-	rollbackPath := filepath.Join(tempDir, "rollback-filtered.sql")
-	if err := filterMySQLDumpForDatabase(rollbackRawPath, rollbackPath); err != nil {
+
+	if err := s.dropMySQLTables(ctx); err != nil {
+		if rollbackPath != "" {
+			return s.restoreMySQLRollback(command, defaultsFile, databaseName, rollbackPath, err)
+		}
 		return err
 	}
-	if err := s.dropMySQLTables(ctx); err != nil {
-		return s.restoreMySQLRollback(command, defaultsFile, databaseName, rollbackPath, err)
-	}
 	if err := restoreMySQLDump(ctx, command, defaultsFile, databaseName, filteredPath); err != nil {
-		return s.restoreMySQLRollback(command, defaultsFile, databaseName, rollbackPath, err)
+		if rollbackPath != "" {
+			return s.restoreMySQLRollback(command, defaultsFile, databaseName, rollbackPath, err)
+		}
+		return err
 	}
 	return nil
 }
@@ -402,7 +416,12 @@ func restoreMySQLDump(ctx context.Context, command string, defaultsFile string, 
 		return err
 	}
 	defer input.Close()
-	restoreCmd := exec.CommandContext(ctx, command, "--defaults-extra-file="+defaultsFile, "--database="+databaseName)
+	restoreCmd := exec.CommandContext(ctx, command,
+		"--defaults-extra-file="+defaultsFile,
+		"--max-allowed-packet=512M",
+		"--default-character-set=utf8mb4",
+		"--database="+databaseName,
+	)
 	restoreCmd.Stdin = input
 	if stderr, err := restoreCmd.CombinedOutput(); err != nil {
 		return mysqlBackupCommandError("restore", string(stderr))
@@ -415,6 +434,9 @@ func mysqlBackupCommandError(action string, stderr string) error {
 	lower := strings.ToLower(detail)
 	if strings.Contains(lower, "error 1045") || strings.Contains(lower, "access denied for user") {
 		return Error{Message: "MySQL/MariaDB rejected Rebecca's configured database credentials (error 1045). Check MYSQL_PASSWORD and SQLALCHEMY_DATABASE_URL."}
+	}
+	if strings.Contains(lower, "error 2013") || strings.Contains(lower, "lost connection") {
+		return Error{Message: "Lost connection to MySQL/MariaDB server during " + action + " (ERROR 2013). This usually means MySQL was terminated by the Linux Out-Of-Memory (OOM) killer due to insufficient server RAM. Add a swap file (e.g. 2GB swap) on your server. Detail: " + detail}
 	}
 	if detail == "" {
 		detail = "database command failed"
@@ -855,7 +877,11 @@ func (s *Service) writeMySQLDefaultsFile(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	lines := []string{"[client]"}
+	lines := []string{
+		"[client]",
+		"max_allowed_packet=512M",
+		"default-character-set=utf8mb4",
+	}
 	if parsed.User != nil {
 		if user := parsed.User.Username(); user != "" {
 			lines = append(lines, "user="+mysqlOptionValue(user))
@@ -900,26 +926,57 @@ func filterMySQLDumpForDatabase(inputPath string, outputPath string) error {
 		return err
 	}
 	defer output.Close()
-	scanner := bufio.NewScanner(input)
-	scanner.Buffer(make([]byte, 0, 1024*1024), 64*1024*1024)
-	writer := bufio.NewWriter(output)
+
+	reader := bufio.NewReaderSize(input, 64*1024)
+	writer := bufio.NewWriterSize(output, 64*1024)
 	defer writer.Flush()
-	for scanner.Scan() {
-		line := scanner.Text()
-		normalized := strings.TrimSpace(line)
-		upper := strings.ToUpper(normalized)
-		if strings.HasPrefix(upper, "USE ") ||
-			strings.Contains(upper, "DROP DATABASE") ||
-			strings.Contains(upper, "CREATE DATABASE") ||
-			strings.HasPrefix(upper, "-- CURRENT DATABASE:") {
-			continue
-		}
-		if _, err := writer.WriteString(line + "\n"); err != nil {
+
+	for {
+		line, isPrefix, err := reader.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return err
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return err
+
+		normalized := strings.TrimSpace(string(line))
+		upper := strings.ToUpper(normalized)
+		skip := strings.HasPrefix(upper, "USE ") ||
+			strings.Contains(upper, "DROP DATABASE") ||
+			strings.Contains(upper, "CREATE DATABASE") ||
+			strings.HasPrefix(upper, "-- CURRENT DATABASE:")
+
+		if !skip {
+			if _, err := writer.Write(line); err != nil {
+				return err
+			}
+			if !isPrefix {
+				if err := writer.WriteByte('\n'); err != nil {
+					return err
+				}
+			}
+		}
+
+		for isPrefix {
+			line, isPrefix, err = reader.ReadLine()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			if !skip {
+				if _, err := writer.Write(line); err != nil {
+					return err
+				}
+				if !isPrefix {
+					if err := writer.WriteByte('\n'); err != nil {
+						return err
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
