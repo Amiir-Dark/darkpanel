@@ -2228,7 +2228,7 @@ export const IntegrationSettingsPage = () => {
 														setResellerTab("telegram");
 														window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#telegram`);
 													},
-													label: t("settings.telegram", "ربات تلگرام"),
+													label: "Telegram Bot",
 												},
 										  ]
 										: []),
@@ -2238,7 +2238,7 @@ export const IntegrationSettingsPage = () => {
 													value: "placeholders",
 													isActive: activeIntegrationTab === 4,
 													onClick: () => handleIntegrationTabChange(4),
-													label: t("placeholders.settingsMenu", "تنظیمات پلیس‌هولدر"),
+													label: "Placeholder Settings",
 												},
 										  ]
 										: []),
@@ -3097,17 +3097,17 @@ export const IntegrationSettingsPage = () => {
 														<Box>
 															<Heading size="sm" mb={1}>
 																{resellerTab === "sub_access"
-																	? "تنظیمات سابسکریپشن (Sub Access)"
+																	? "Sub Access"
 																	: resellerTab === "client_apps"
-																	  ? "نرم‌افزارهای مجاز (Client Apps)"
-																	  : "ربات تلگرام بکاپ (Telegram Bot)"}
+																	  ? "Client Apps"
+																	  : "Telegram Bot"}
 															</Heading>
 															<Text fontSize="sm" color="gray.500">
 																{resellerTab === "sub_access"
-																	? "تنظیم هدرهای سابسکریپشن، محدودیت لینک‌ها و نام‌های اختصاصی کانفیگ‌ها"
+																	? "Configure subscription headers, delivery limits, and custom remarks."
 																	: resellerTab === "client_apps"
-																	  ? "انتخاب نرم‌افزارهای مجاز برای اتصال و بروزرسانی سابسکریپشن کاربران شما"
-																	  : "تنظیمات ربات تلگرام جهت ارسال بکاپ دستی و خودکار از کاربران پنل شما"}
+																	  ? "Choose which client applications are allowed to connect and update subscriptions."
+																	  : "Configure Telegram bot for automated and manual panel backup files."}
 															</Text>
 														</Box>
 														<HStack spacing={2}>
@@ -3459,12 +3459,12 @@ export const IntegrationSettingsPage = () => {
 															</Box>
 															<Box>
 																<Heading size="xs">
-																	{t("settings.subscriptions.customConfigNames", "نام‌های سفارشی کانفیگ (Custom Config Names)")}
+																	{t("settings.subscriptions.customConfigNames", "Custom Config Remarks")}
 																</Heading>
 																<Text fontSize="xs" color="gray.500" mt={0.5}>
 																	{t(
 																		"settings.subscriptions.customConfigNamesDesc",
-																		"برای هر ورودی یا سرور نام اختصاصی تعیین کنید تا در لینک‌های دریافتی کاربران شما نمایش داده شود.",
+																		"Assign custom names to each inbound or server to display in subscription config links.",
 																	)}
 																</Text>
 															</Box>
@@ -3496,7 +3496,7 @@ export const IntegrationSettingsPage = () => {
 																			<Flex justify="space-between" align="center" mb={2}>
 																				<Badge colorScheme="purple">{inb.inbound_tag}</Badge>
 																				<Text fontSize="xs" color="gray.500">
-																					{inb.remark || "پیش‌فرض"}
+																					{inb.remark || "Default"}
 																				</Text>
 																			</Flex>
 																			<FormControl>
@@ -3523,7 +3523,7 @@ export const IntegrationSettingsPage = () => {
 															</SimpleGrid>
 														) : (
 															<Text fontSize="xs" color="gray.500" mt={2}>
-																{t("settings.subscriptions.noInboundsFound", "هیچ ورودی فعالی یافت نشد.")}
+																{t("settings.subscriptions.noInboundsFound", "No active inbounds found.")}
 															</Text>
 														)}
 													</Box>
@@ -3685,19 +3685,19 @@ export const IntegrationSettingsPage = () => {
 															</Box>
 															<Box>
 																<Heading size="xs">
-																	{t("settings.subscriptions.telegramBackupTitle", "بکاپ تلگرام کاربران (Telegram Bot Backup)")}
+																	{t("settings.subscriptions.telegramBackupTitle", "Telegram Bot Backup")}
 																</Heading>
 																<Text fontSize="xs" color="gray.500" mt={0.5}>
 																	{t(
 																		"settings.subscriptions.telegramBackupDesc",
-																		"افزودن ربات تلگرام اختصاصی برای دریافت خودکار و دستی فایل بکاپ کاربران پنل شما.",
+																		"Configure a dedicated Telegram bot to receive automatic and manual panel backup files.",
 																	)}
 																</Text>
 															</Box>
 														</Flex>
 														<HStack spacing={3}>
 															<Text fontSize="xs" fontWeight="semibold" color="gray.500">
-																{Boolean(settings.telegram_backup_enabled) ? "فعال" : "غیرفعال"}
+																{Boolean(settings.telegram_backup_enabled) ? "Enabled" : "Disabled"}
 															</Text>
 															<Switch
 																colorScheme="primary"
@@ -3715,7 +3715,7 @@ export const IntegrationSettingsPage = () => {
 
 													<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
 														<FormControl>
-															<FormLabel fontSize="xs">توکن ربات تلگرام (Bot Token)</FormLabel>
+															<FormLabel fontSize="xs">Telegram Bot Token</FormLabel>
 															<Input
 																type="password"
 																placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
@@ -3730,9 +3730,9 @@ export const IntegrationSettingsPage = () => {
 															/>
 														</FormControl>
 														<FormControl>
-															<FormLabel fontSize="xs">شناسه چت یا کاربر (Chat ID)</FormLabel>
+															<FormLabel fontSize="xs">Chat ID / User ID</FormLabel>
 															<Input
-																placeholder="123456789 یا -100..."
+																placeholder="123456789 or -100..."
 																value={settings.telegram_chat_id ?? ""}
 																onChange={(e) =>
 																	handleAdminTemplateChange(
@@ -3744,7 +3744,7 @@ export const IntegrationSettingsPage = () => {
 															/>
 														</FormControl>
 														<FormControl>
-															<FormLabel fontSize="xs">دوره بکاپ خودکار (Interval)</FormLabel>
+															<FormLabel fontSize="xs">Backup Interval</FormLabel>
 															<Select
 																value={settings.telegram_backup_interval || "daily"}
 																onChange={(e) =>
@@ -3755,9 +3755,9 @@ export const IntegrationSettingsPage = () => {
 																	)
 																}
 															>
-																<option value="12h">هر ۱۲ ساعت (12 Hours)</option>
-																<option value="daily">روزانه (Daily)</option>
-																<option value="weekly">هفتگی (Weekly)</option>
+																<option value="12h">Every 12 Hours</option>
+																<option value="daily">Daily</option>
+																<option value="weekly">Weekly</option>
 															</Select>
 														</FormControl>
 													</SimpleGrid>
@@ -3775,12 +3775,12 @@ export const IntegrationSettingsPage = () => {
 														<Box>
 															{settings.telegram_backup_last_sent_at ? (
 																<Text fontSize="xs" color="gray.500">
-																	آخرین ارسال بکاپ:{" "}
-																	{new Date(settings.telegram_backup_last_sent_at).toLocaleString("fa-IR")}
+																	Last backup sent:{" "}
+																	{new Date(settings.telegram_backup_last_sent_at).toLocaleString("en-US")}
 																</Text>
 															) : (
 																<Text fontSize="xs" color="gray.500">
-																	هنوز بکاپی ارسال نشده است
+																	No backup sent yet
 																</Text>
 															)}
 														</Box>
@@ -3791,7 +3791,7 @@ export const IntegrationSettingsPage = () => {
 																isLoading={isTestingResellerBot}
 																onClick={() => handleTestResellerBot(admin.id)}
 															>
-																تست اتصال ربات
+																Test Bot Connection
 															</Button>
 															<Button
 																size="sm"
@@ -3800,7 +3800,7 @@ export const IntegrationSettingsPage = () => {
 																isLoading={isBackingUpReseller}
 																onClick={() => handleTriggerResellerBackup(admin.id)}
 															>
-																ارسال بکاپ الان
+																Send Backup Now
 															</Button>
 														</HStack>
 													</Flex>
