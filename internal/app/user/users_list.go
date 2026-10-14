@@ -246,25 +246,6 @@ LEFT JOIN services s ON u.service_id = s.id
 LEFT JOIN user_subscription_access usa ON usa.user_id = u.id`
 }
 
-func usersSummaryFromSQL() string {
-	return ` FROM users u
-LEFT JOIN (
-	SELECT user_id, SUM(used_traffic_at_reset) AS reseted_usage
-	FROM user_usage_logs
-	GROUP BY user_id
-) rul ON rul.user_id = u.id
-LEFT JOIN (
-	SELECT uoi.user_id
-	FROM user_online_ips uoi
-	WHERE uoi.last_seen_at >= ?
-		AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = uoi.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')
-	UNION
-	SELECT vus.user_id
-	FROM vpn_user_sessions vus
-	WHERE vus.ended_at IS NULL AND vus.last_seen_at >= ?
-		AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = vus.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')
-) online_user ON online_user.user_id = u.id`
-}
 
 func (r Repository) usersSummary(ctx context.Context, filter usersFilter) (usersSummary, error) {
 	keyJSON, err := json.Marshal(struct {
@@ -302,32 +283,70 @@ func (r Repository) usersSummary(ctx context.Context, filter usersFilter) (users
 }
 
 func (r Repository) queryUsersSummary(ctx context.Context, filter usersFilter) (usersSummary, error) {
-	cutoff := dbTime(online.Cutoff(time.Now()))
-	query := `SELECT
-	u.status,
-	COUNT(u.id),
-	COALESCE(SUM(COALESCE(u.used_traffic, 0) + COALESCE(rul.reseted_usage, 0)), 0),
-	COALESCE(SUM(CASE WHEN online_user.user_id IS NOT NULL OR ` + online.LastSeenExpression + ` >= ? THEN 1 ELSE 0 END), 0)` + usersSummaryFromSQL() + filter.whereSQL() + ` GROUP BY u.status`
-	args := append([]any{cutoff, cutoff, cutoff}, filter.args...)
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	// 1. Status breakdown and current used traffic directly from the users table.
+	statusQuery := `SELECT u.status, COUNT(u.id), COALESCE(SUM(u.used_traffic), 0) FROM users u` + filter.whereSQL() + ` GROUP BY u.status`
+	statusRows, err := r.db.QueryContext(ctx, statusQuery, filter.args...)
 	if err != nil {
 		return usersSummary{}, err
 	}
-	defer rows.Close()
+	defer statusRows.Close()
 
 	result := usersSummary{statusBreakdown: map[string]int64{}}
-	for rows.Next() {
+	for statusRows.Next() {
 		var status string
-		var count, usage, onlineCount int64
-		if err := rows.Scan(&status, &count, &usage, &onlineCount); err != nil {
+		var count, usedTraffic int64
+		if err := statusRows.Scan(&status, &count, &usedTraffic); err != nil {
 			return usersSummary{}, err
 		}
 		result.statusBreakdown[status] = count
 		result.total += count
-		result.usageTotal += usage
-		result.onlineTotal += onlineCount
+		result.usageTotal += usedTraffic
 	}
-	return result, rows.Err()
+	if err := statusRows.Err(); err != nil {
+		return usersSummary{}, err
+	}
+
+	// 2. Sum of reset traffic from user_usage_logs.
+	var resetUsage int64
+	var resetQuery string
+	var resetArgs []any
+	if len(filter.where) == 0 {
+		resetQuery = `SELECT COALESCE(SUM(used_traffic_at_reset), 0) FROM user_usage_logs`
+	} else {
+		resetQuery = `SELECT COALESCE(SUM(uul.used_traffic_at_reset), 0) FROM user_usage_logs uul JOIN users u ON u.id = uul.user_id` + filter.whereSQL()
+		resetArgs = filter.args
+	}
+	if err := r.db.QueryRowContext(ctx, resetQuery, resetArgs...).Scan(&resetUsage); err != nil {
+		return usersSummary{}, err
+	}
+	result.usageTotal += resetUsage
+
+	// 3. Online users count - only scans activity from the last 20 seconds.
+	cutoff := dbTime(online.Cutoff(time.Now()))
+	onlineQuery := `SELECT COUNT(DISTINCT active_user.user_id) FROM (
+		SELECT uoi.user_id
+		FROM user_online_ips uoi
+		WHERE uoi.last_seen_at >= ?
+			AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = uoi.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')
+		UNION
+		SELECT vus.user_id
+		FROM vpn_user_sessions vus
+		WHERE vus.ended_at IS NULL AND vus.last_seen_at >= ?
+			AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = vus.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')
+		UNION
+		SELECT up.user_id
+		FROM user_presence up
+		WHERE up.online_at >= ?
+	) active_user JOIN users u ON u.id = active_user.user_id` + filter.whereSQL()
+
+	onlineArgs := append([]any{cutoff, cutoff, cutoff}, filter.args...)
+	var onlineCount int64
+	if err := r.db.QueryRowContext(ctx, onlineQuery, onlineArgs...).Scan(&onlineCount); err != nil {
+		return usersSummary{}, err
+	}
+	result.onlineTotal = onlineCount
+
+	return result, nil
 }
 
 func (r Repository) usersRows(ctx context.Context, filter usersFilter, req UsersListRequest) ([]usersListRow, error) {
