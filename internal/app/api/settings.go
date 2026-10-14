@@ -179,8 +179,13 @@ func (s *Server) handleSubscriptionSettings(w http.ResponseWriter, r *http.Reque
 	}
 	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
 	manageAll := principal.Role == string(adminapp.RoleFullAccess) ||
-		(principal.Role == string(adminapp.RoleSudo) && principal.Context.Admin.Permissions.Sudo.Subscriptions)
-	if !manageAll && !hasSelfPermission(principal.Context.Admin, "self_subscription") {
+		(principal.Role == string(adminapp.RoleSudo) && principal.Context.Admin.Permissions.Sudo.Subscriptions) ||
+		principal.Context.Admin.Permissions.Sections.Integrations
+	hasSelfSub := hasSelfPermission(principal.Context.Admin, "self_subscription") ||
+		principal.Role == string(adminapp.RoleReseller) ||
+		principal.Role == string(adminapp.RoleFullAccess) ||
+		principal.Context.Admin.Permissions.Sections.Integrations
+	if !manageAll && !hasSelfSub {
 		writeError(w, http.StatusForbidden, "You're not allowed")
 		return
 	}
@@ -241,18 +246,34 @@ func (s *Server) handleAdminSubscriptionSettingsPath(w http.ResponseWriter, r *h
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
-	adminID, err := strconv.ParseInt(path, 10, 64)
-	if err != nil || adminID <= 0 {
-		writeError(w, http.StatusNotFound, "not found")
-		return
-	}
 	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	var adminID int64
+	var err error
+	if path == "self" || path == "me" || path == "0" {
+		adminID = principal.ID
+	} else {
+		adminID, err = strconv.ParseInt(path, 10, 64)
+		if err != nil || adminID <= 0 {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+	}
 	manageAll := principal.Role == string(adminapp.RoleFullAccess) ||
-		(principal.Role == string(adminapp.RoleSudo) && principal.Context.Admin.Permissions.Sudo.Subscriptions)
+		(principal.Role == string(adminapp.RoleSudo) && principal.Context.Admin.Permissions.Sudo.Subscriptions) ||
+		principal.Context.Admin.Permissions.Sections.Integrations ||
+		principal.Context.Admin.Permissions.AdminManagement.CanEdit
 	if !manageAll {
-		if adminID != principal.ID || !hasSelfPermission(principal.Context.Admin, "self_subscription") {
+		isSelf := adminID == principal.ID || adminID == 0
+		hasSelfSub := hasSelfPermission(principal.Context.Admin, "self_subscription") ||
+			principal.Role == string(adminapp.RoleReseller) ||
+			principal.Role == string(adminapp.RoleFullAccess) ||
+			principal.Context.Admin.Permissions.Sections.Integrations
+		if !isSelf || !hasSelfSub {
 			writeError(w, http.StatusForbidden, "You're not allowed")
 			return
+		}
+		if adminID == 0 {
+			adminID = principal.ID
 		}
 	}
 	if r.Method != http.MethodPut {

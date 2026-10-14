@@ -396,6 +396,10 @@ func hasSelfPermission(dbadmin adminapp.Admin, key string) bool {
 	if dbadmin.Role == adminapp.RoleFullAccess {
 		return true
 	}
+	if (dbadmin.Role == adminapp.RoleReseller || dbadmin.Permissions.Sections.Integrations) &&
+		(key == "self_subscription" || key == "self_placeholders") {
+		return true
+	}
 	if dbadmin.Permissions.SelfPermissions == nil {
 		return false
 	}

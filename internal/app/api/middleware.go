@@ -167,6 +167,8 @@ func sudoScopeAllowed(scopes adminapp.SudoPermissionSettings, path string) bool 
 		return scopes.PHPMyAdmin
 	case strings.HasPrefix(path, "/api/maintenance"):
 		return scopes.Maintenance
+	case path == "/api/settings/all":
+		return scopes.Settings || scopes.Subscriptions || scopes.Backups
 	case strings.HasPrefix(path, "/api/settings"):
 		return scopes.Settings
 	case strings.HasPrefix(path, "/api/core"), strings.HasPrefix(path, "/api/xray"),

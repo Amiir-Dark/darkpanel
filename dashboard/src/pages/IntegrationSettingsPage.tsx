@@ -935,8 +935,14 @@ export const IntegrationSettingsPage = () => {
 				(activeIntegrationTab >= 2 || isSelfOnlySubscription),
 		},
 	);
-	const selfAdminFromBundle = subscriptionBundle?.admins?.[0];
-	const effectiveSelfAdminId = selfAdminFromBundle?.id ?? currentAdminId;
+	const selfAdminFromBundle = useMemo(
+		() =>
+			subscriptionBundle?.admins?.find((a) => a.id === currentAdminId) ||
+			subscriptionBundle?.admins?.[0],
+		[subscriptionBundle?.admins, currentAdminId],
+	);
+	const effectiveSelfAdminId =
+		(currentAdminId > 0 ? currentAdminId : selfAdminFromBundle?.id) ?? 0;
 
 	const maintenanceInfoQuery = useQuery<RuntimeMaintenanceInfo>(
 		"maintenance-info",
@@ -1015,12 +1021,17 @@ export const IntegrationSettingsPage = () => {
 					subscription_settings: admin.subscription_settings || {},
 				};
 			});
-			if (isSelfOnlySubscription && subscriptionBundle.admins[0]) {
-				const self = subscriptionBundle.admins[0];
-				next[effectiveSelfAdminId] = {
-					...self,
-					subscription_settings: self.subscription_settings || {},
-				};
+			if (isSelfOnlySubscription) {
+				const self =
+					subscriptionBundle.admins.find((a) => a.id === effectiveSelfAdminId) ||
+					subscriptionBundle.admins[0];
+				if (self) {
+					next[effectiveSelfAdminId] = {
+						...self,
+						id: effectiveSelfAdminId,
+						subscription_settings: self.subscription_settings || {},
+					};
+				}
 			}
 			setAdminOverrides(next);
 		}
@@ -1554,8 +1565,33 @@ export const IntegrationSettingsPage = () => {
 		[adminOverrides, subscriptionBundle?.admins],
 	);
 	const adminSelfSaveMutation = useMutation(
-		(payload: AdminSubscriptionUpdatePayload) =>
-			updateAdminSubscriptionSettings(effectiveSelfAdminId, payload),
+		(payload: AdminSubscriptionUpdatePayload) => {
+			const targetId =
+				effectiveSelfAdminId > 0
+					? effectiveSelfAdminId
+					: currentAdminId > 0
+					  ? currentAdminId
+					  : 0;
+			return updateAdminSubscriptionSettings(targetId, payload);
+		},
+		{
+			onSuccess: () => {
+				generateSuccessMessage(t("settings.savedSuccessfully"), toast);
+				void refetchSubscriptionSettings();
+			},
+			onError: (err) => {
+				generateErrorMessage(err, toast);
+			},
+		},
+	);
+	const singleAdminSaveMutation = useMutation(
+		({
+			id,
+			settings,
+		}: {
+			id: number;
+			settings: AdminSubscriptionUpdatePayload;
+		}) => updateAdminSubscriptionSettings(id, settings),
 		{
 			onSuccess: () => {
 				generateSuccessMessage(t("settings.savedSuccessfully"), toast);
@@ -4547,15 +4583,29 @@ export const IntegrationSettingsPage = () => {
 
 																<Flex
 																	className="master-settings-action-row"
+																	justify="space-between"
 																	mt={4}
 																>
 																	<Button
 																		variant="outline"
 																		leftIcon={<RefreshIcon />}
 																		onClick={() => handleAdminReset(admin.id)}
-																		isDisabled={saveAllMutation.isLoading}
+																		isDisabled={saveAllMutation.isLoading || singleAdminSaveMutation.isLoading}
 																	>
 																		{t("settings.subscriptions.resetOverrides")}
+																	</Button>
+																	<Button
+																		colorScheme="primary"
+																		leftIcon={<SaveIcon />}
+																		onClick={() =>
+																			singleAdminSaveMutation.mutate({
+																				id: admin.id,
+																				settings: buildAdminSubscriptionPayload(admin),
+																			})
+																		}
+																		isLoading={singleAdminSaveMutation.isLoading}
+																	>
+																		{t("settings.save", "Save changes")}
 																	</Button>
 																</Flex>
 															</>
