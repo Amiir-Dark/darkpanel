@@ -4568,15 +4568,20 @@ restart_command() {
     fi
     
     if is_binary_install; then
-        if ! restart_binary_database_if_running; then
-            return 1
-        fi
         if [ "$no_logs" = true ]; then
+            if ! restart_binary_database_if_running; then
+                return 1
+            fi
             schedule_binary_service_restart 1
             colorized_echo green "DarkPanel restart scheduled."
             return
         fi
-        restart_binary_service_now
+        systemctl stop "$APP_NAME.service" 2>/dev/null || true
+        if ! restart_binary_database_if_running; then
+            systemctl start "$APP_NAME.service" 2>/dev/null || true
+            return 1
+        fi
+        systemctl start "$APP_NAME.service"
         follow_rebecca_logs
         return
     fi
