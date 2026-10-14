@@ -93,6 +93,9 @@ type Manager struct {
 	httpClient     *http.Client
 	run            Runner
 	operationMutex sync.Mutex
+	cacheMu        sync.RWMutex
+	cachedRecords  []Record
+	cacheExpiry    time.Time
 }
 
 func NewManager(db *sql.DB, cfg Config) *Manager {
@@ -200,7 +203,23 @@ func (m *Manager) Prepare(ctx context.Context) error {
 	return rows.Err()
 }
 
+func (m *Manager) invalidateCache() {
+	m.cacheMu.Lock()
+	m.cachedRecords = nil
+	m.cacheExpiry = time.Time{}
+	m.cacheMu.Unlock()
+}
+
 func (m *Manager) List(ctx context.Context) ([]Record, error) {
+	m.cacheMu.RLock()
+	if time.Now().Before(m.cacheExpiry) && m.cachedRecords != nil {
+		out := make([]Record, len(m.cachedRecords))
+		copy(out, m.cachedRecords)
+		m.cacheMu.RUnlock()
+		return out, nil
+	}
+	m.cacheMu.RUnlock()
+
 	rows, err := m.db.QueryContext(ctx, `SELECT id, domain, admin_id, email, provider, alt_names, last_issued_at, last_renewed_at FROM subscription_domains ORDER BY domain ASC`)
 	if err != nil {
 		return nil, err
@@ -216,7 +235,18 @@ func (m *Manager) List(ctx context.Context) ([]Record, error) {
 		m.enrich(&record)
 		records = append(records, record)
 	}
-	return records, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	m.cacheMu.Lock()
+	m.cachedRecords = records
+	m.cacheExpiry = time.Now().Add(30 * time.Second)
+	m.cacheMu.Unlock()
+
+	out := make([]Record, len(records))
+	copy(out, records)
+	return out, nil
 }
 
 func (m *Manager) Get(ctx context.Context, domain string) (Record, error) {
@@ -389,6 +419,7 @@ func (m *Manager) SetServeTLS(ctx context.Context, domain string, enabled bool) 
 	if err := writeMetadata(dir, metadata); err != nil {
 		return Record{}, err
 	}
+	m.invalidateCache()
 	return m.Get(ctx, record.Domain)
 }
 
@@ -550,6 +581,7 @@ func (m *Manager) Revoke(ctx context.Context, domain string) (Record, error) {
 	if err := writeMetadata(dir, metadata); err != nil {
 		return Record{}, err
 	}
+	m.invalidateCache()
 	return m.Get(ctx, record.Domain)
 }
 
@@ -600,6 +632,7 @@ func (m *Manager) Delete(ctx context.Context, domain string) error {
 			return fmt.Errorf("delete certificate files: %w", err)
 		}
 	}
+	m.invalidateCache()
 	return nil
 }
 
@@ -674,6 +707,7 @@ func (m *Manager) store(ctx context.Context, domain string, adminID *int64, emai
 			return Record{}, fmt.Errorf("remove previous certificate files: %w", err)
 		}
 	}
+	m.invalidateCache()
 	return m.Get(ctx, domain)
 }
 

@@ -844,6 +844,8 @@ export const IntegrationSettingsPage = () => {
 		refetch: refetchPanelSettings,
 	} = useQuery<PanelSettingsResponse>("panel-settings", getPanelSettings, {
 		refetchOnWindowFocus: false,
+		staleTime: 60_000,
+		keepPreviousData: true,
 		enabled: canManageIntegrations && activeIntegrationTab === 0,
 	});
 
@@ -856,6 +858,8 @@ export const IntegrationSettingsPage = () => {
 		getRuntimeSettings,
 		{
 			refetchOnWindowFocus: false,
+			staleTime: 60_000,
+			keepPreviousData: true,
 			enabled: canManageIntegrations && activeIntegrationTab === 0,
 		},
 	);
@@ -866,6 +870,8 @@ export const IntegrationSettingsPage = () => {
 		refetch: refetchPHPMyAdminStatus,
 	} = useQuery("phpmyadmin-status", getPHPMyAdminStatus, {
 		refetchOnWindowFocus: false,
+		staleTime: 60_000,
+		keepPreviousData: true,
 		enabled: canManageIntegrations && activeIntegrationTab === 0,
 	});
 
@@ -878,6 +884,8 @@ export const IntegrationSettingsPage = () => {
 		getSubscriptionSettings,
 		{
 			refetchOnWindowFocus: false,
+			staleTime: 60_000,
+			keepPreviousData: true,
 			enabled: canManageIntegrations && activeIntegrationTab >= 2,
 		},
 	);
@@ -1433,21 +1441,30 @@ export const IntegrationSettingsPage = () => {
 		window.dispatchEvent(new Event("hashchange"));
 	};
 
-	const adminOptions = Object.values(adminOverrides);
-	const filteredAdmins =
-		adminSearchTerm.trim().length === 0
-			? adminOptions
-			: adminOptions.filter((admin) =>
-				matchesAnySearch(
-					[admin.username, admin.subscription_domain],
-					adminSearchTerm,
-					adminSearchMatch,
-				),
-			);
+	const adminOptions = useMemo(
+		() => Object.values(adminOverrides),
+		[adminOverrides],
+	);
+	const filteredAdmins = useMemo(() => {
+		if (adminSearchTerm.trim().length === 0) {
+			return adminOptions;
+		}
+		return adminOptions.filter((admin) =>
+			matchesAnySearch(
+				[admin.username, admin.subscription_domain],
+				adminSearchTerm,
+				adminSearchMatch,
+			),
+		);
+	}, [adminOptions, adminSearchTerm, adminSearchMatch]);
 
-	const runtimeDirty = Boolean(
-		runtimeSettings &&
-		JSON.stringify(runtimeSettingsForm) !== JSON.stringify(runtimeSettings),
+	const runtimeDirty = useMemo(
+		() =>
+			Boolean(
+				runtimeSettings &&
+				JSON.stringify(runtimeSettingsForm) !== JSON.stringify(runtimeSettings),
+			),
+		[runtimeSettings, runtimeSettingsForm],
 	);
 	const panelDirty = Boolean(
 		panelData && panelDefaultSubType !== panelData.default_subscription_type,

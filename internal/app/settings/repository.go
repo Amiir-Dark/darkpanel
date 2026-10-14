@@ -163,14 +163,17 @@ func (r Repository) SubscriptionBundle(ctx context.Context) (SubscriptionBundle,
 	if err != nil {
 		return SubscriptionBundle{}, err
 	}
-	certificates, err := r.subscriptionCertificates(ctx)
-	if err != nil {
-		return SubscriptionBundle{}, err
-	}
-	return SubscriptionBundle{Settings: settings, Admins: admins, Certificates: certificates}, nil
+	return SubscriptionBundle{Settings: settings, Admins: admins, Certificates: []SubscriptionCertificate{}}, nil
 }
 
 func (r Repository) SubscriptionSettings(ctx context.Context) (SubscriptionSettings, error) {
+	settings, err := r.subscriptionSettings(ctx)
+	if err == nil {
+		return settings, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return SubscriptionSettings{}, err
+	}
 	if err := r.ensureSubscriptionRecord(ctx); err != nil {
 		return SubscriptionSettings{}, err
 	}
