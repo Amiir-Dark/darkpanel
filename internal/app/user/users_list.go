@@ -18,7 +18,7 @@ import (
 
 const (
 	defaultUsersOrder    = "u.created_at DESC, u.id DESC"
-	usersSummaryCacheTTL = 5 * time.Second
+	usersSummaryCacheTTL = 30 * time.Second
 )
 
 type usersListRow struct {

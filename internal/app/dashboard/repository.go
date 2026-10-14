@@ -234,16 +234,32 @@ func (r Repository) onlineUsers(ctx context.Context, adminID *int64) (int64, err
 
 func (r Repository) onlineUserStats(ctx context.Context, adminID *int64) (int64, int64, error) {
 	cutoff := r.timeArg(online.Cutoff(time.Now()))
-	clauses := []string{
-		"u.status != ?",
-		online.UserPredicate,
-	}
-	args := []any{"deleted", cutoff, cutoff, cutoff}
+	adminFilter := ""
+	args := []any{cutoff, cutoff, cutoff, "deleted"}
 	if adminID != nil {
-		clauses = append(clauses, "u.admin_id = ?")
+		adminFilter = " AND u.admin_id = ?"
 		args = append(args, *adminID)
 	}
-	query := `SELECT COUNT(u.id), COALESCE(SUM(COALESCE(u.used_traffic, 0)), 0) FROM users u WHERE ` + strings.Join(clauses, " AND ")
+	query := `
+SELECT COUNT(u.id), COALESCE(SUM(COALESCE(u.used_traffic, 0)), 0)
+FROM users u
+INNER JOIN (
+	SELECT uoi.user_id
+	FROM user_online_ips uoi
+	WHERE uoi.last_seen_at >= ?
+		AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = uoi.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')
+	UNION
+	SELECT vus.user_id
+	FROM vpn_user_sessions vus
+	WHERE vus.ended_at IS NULL AND vus.last_seen_at >= ?
+		AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = vus.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')
+	UNION
+	SELECT up.user_id
+	FROM user_presence up
+	WHERE up.online_at >= ?
+) o ON o.user_id = u.id
+WHERE u.status != ?` + adminFilter
+
 	var count, usage int64
 	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&count, &usage); err != nil {
 		return 0, 0, err
