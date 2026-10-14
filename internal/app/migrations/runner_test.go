@@ -1657,3 +1657,35 @@ func assertNoIndex(t *testing.T, ctx context.Context, db *sql.DB, dialect string
 		t.Fatalf("did not expect index %s on %s", index, table)
 	}
 }
+
+func TestMigration64EnsuresUsersTableWhenMissing(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	if _, err := db.ExecContext(ctx, `CREATE TABLE goose_db_version (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		version_id INTEGER NOT NULL,
+		is_applied INTEGER NOT NULL,
+		tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	for v := 1; v <= 63; v++ {
+		if _, err := db.ExecContext(ctx, `INSERT INTO goose_db_version (version_id, is_applied) VALUES (?, 1)`, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := RunMigrations(ctx, db, "sqlite"); err != nil {
+		t.Fatalf("run migrations with missing users: %v", err)
+	}
+
+	assertTableColumns(t, ctx, db, "sqlite", "users", []string{"id", "username", "device_limit_type"})
+	assertTableColumns(t, ctx, db, "sqlite", "user_hwids", []string{"id", "user_id", "hwid", "user_agent", "last_seen_at"})
+	assertTableColumns(t, ctx, db, "sqlite", "subscription_settings", []string{"default_device_limit_type", "blocked_client_apps"})
+}
+
