@@ -9,7 +9,8 @@
 		"rules": {
 			"suspicious": {
 				"noExplicitAny": "off",
-				"noDocumentCookie": "off"
+				"noDocumentCookie": "off",
+				"noArrayIndexKey": "off"
 			},
 			"a11y": {
 				"noSvgWithoutTitle": "off"
@@ -23,6 +24,7 @@
 				"noStaticOnlyClass": "off"
 			},
 			"correctness": {
+				"useExhaustiveDependencies": "warn",
 				"noUnusedImports": "warn",
 				"noUnusedVariables": "warn",
 				"noUnusedFunctionParameters": "warn"

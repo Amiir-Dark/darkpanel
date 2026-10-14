@@ -136,7 +136,7 @@ const SparklineTrend: FC<{
 				/>
 				{coords.map((c, i) => (
 					<circle
-						key={i}
+						key={`coord-${c.x}-${c.y}-${i}`}
 						cx={c.x}
 						cy={c.y}
 						r="2.5"
@@ -148,7 +148,7 @@ const SparklineTrend: FC<{
 			<Flex justify="space-between" px={1} mt={1}>
 				{points.map((p, i) => (
 					<Text
-						key={i}
+						key={`pt-lbl-${p.label}-${i}`}
 						fontSize="11px"
 						color="gray.400"
 						fontWeight="medium"
@@ -1133,7 +1133,7 @@ export const SellerDashboard: FC<SellerDashboardProps> = ({
 									bar.bytes > 0 ? (bar.bytes / maxBarUsage) * 100 : 8;
 								return (
 									<Tooltip
-										key={i}
+										key={`bar-${bar.date || i}`}
 										label={`${bar.date}: ${formatBytes(bar.bytes)}`}
 										hasArrow
 										placement="top"
@@ -1181,7 +1181,7 @@ export const SellerDashboard: FC<SellerDashboardProps> = ({
 										idx === dailyUsageBars.length - 1,
 								)
 								.map((b, i) => (
-									<Text key={i} fontSize="10px" color="gray.400">
+									<Text key={`bar-lbl-${b.label}-${i}`} fontSize="10px" color="gray.400">
 										{b.label}
 									</Text>
 								))}

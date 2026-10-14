@@ -375,6 +375,7 @@ export function AppLayout() {
 		return items.filter(Boolean) as SettingsMenuItem[];
 	}, [
 		canManagePlaceholders,
+		canManageSubscription,
 		canViewRecentActions,
 		isPrivilegedAdmin,
 		sectionAccess,
