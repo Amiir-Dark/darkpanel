@@ -3587,50 +3587,22 @@ export const IntegrationSettingsPage = () => {
 
 											{/* Tab 3: Custom Config Remarks */}
 											{resellerTab === "config_remarks" && (
-												<Box
-													p={5}
-													borderRadius="xl"
-													borderWidth="1px"
+												<CustomConfigRemarksSection
+													adminId={admin.id}
+													remarks={(settings.inbound_remarks as Record<string, string>) || {}}
+													onChangeRemarks={(nextRemarks) =>
+														handleAdminTemplateChange(
+															admin.id,
+															"inbound_remarks" as any,
+															nextRemarks,
+														)
+													}
+													subscriptionInbounds={subscriptionBundle?.inbounds || []}
 													borderColor={borderColor}
-													bg={subCardBg}
-												>
-													<Flex align="center" justify="space-between" mb={4} flexWrap="wrap" gap={3}>
-														<Flex align="center" gap={3}>
-															<Box
-																p={2}
-																borderRadius="lg"
-																borderWidth="1px"
-																borderColor={borderColor}
-																bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
-															>
-																<ServerStackIcon style={{ width: 22, height: 22 }} />
-															</Box>
-															<Box>
-																<Heading size="xs">Custom Config Remarks</Heading>
-																<Text fontSize="xs" color="gray.500" mt={0.5}>
-																	Change host and config names to display customized remarks in your users' subscription links.
-																</Text>
-															</Box>
-														</Flex>
-													</Flex>
-
-													<CustomConfigRemarksSection
-														adminId={admin.id}
-														remarks={(settings.inbound_remarks as Record<string, string>) || {}}
-														onChangeRemarks={(nextRemarks) =>
-															handleAdminTemplateChange(
-																admin.id,
-																"inbound_remarks" as any,
-																nextRemarks,
-															)
-														}
-														subscriptionInbounds={subscriptionBundle?.inbounds || []}
-														borderColor={borderColor}
-														subCardBg={subCardBg}
-														fieldBg={fieldBg}
-														onRefresh={() => refetchSubscriptionSettings()}
-													/>
-												</Box>
+													subCardBg={subCardBg}
+													fieldBg={fieldBg}
+													onRefresh={() => refetchSubscriptionSettings()}
+												/>
 											)}
 
 											{/* Tab 4: Telegram Bot Backup Section */}
