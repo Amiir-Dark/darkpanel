@@ -562,6 +562,43 @@ func addAdvancedUsersFilters(filter *usersFilter, filters []string) {
 	if _, ok := normalized["sub_never_updated"]; ok {
 		filter.add("(SELECT usa.updated_at FROM user_subscription_access usa WHERE usa.user_id = u.id) IS NULL")
 	}
+	if _, ok := normalized["activated"]; ok {
+		filter.add("u.status != ?", "on_hold")
+	}
+	if _, ok := normalized["not_activated"]; ok {
+		filter.add("u.status = ?", "on_hold")
+	}
+
+	if _, ok := normalized["registered_1h"]; ok {
+		filter.add("u.created_at >= ?", dbTime(now.Add(-1*time.Hour)))
+	} else if _, ok := normalized["registered_24h"]; ok {
+		filter.add("u.created_at >= ?", dbTime(now.Add(-24*time.Hour)))
+	} else if _, ok := normalized["registered_7d"]; ok {
+		filter.add("u.created_at >= ?", dbTime(now.Add(-7*24*time.Hour)))
+	} else if _, ok := normalized["registered_30d"]; ok {
+		filter.add("u.created_at >= ?", dbTime(now.Add(-30*24*time.Hour)))
+	}
+
+	if _, ok := normalized["first_online_1h"]; ok {
+		filter.add("u.online_at IS NOT NULL AND u.online_at >= ?", dbTime(now.Add(-1*time.Hour)))
+	} else if _, ok := normalized["first_online_24h"]; ok {
+		filter.add("u.online_at IS NOT NULL AND u.online_at >= ?", dbTime(now.Add(-24*time.Hour)))
+	} else if _, ok := normalized["first_online_7d"]; ok {
+		filter.add("u.online_at IS NOT NULL AND u.online_at >= ?", dbTime(now.Add(-7*24*time.Hour)))
+	} else if _, ok := normalized["first_online_30d"]; ok {
+		filter.add("u.online_at IS NOT NULL AND u.online_at >= ?", dbTime(now.Add(-30*24*time.Hour)))
+	}
+
+	if _, ok := normalized["last_online_1h"]; ok {
+		filter.add("u.online_at IS NOT NULL AND u.online_at >= ?", dbTime(now.Add(-1*time.Hour)))
+	} else if _, ok := normalized["last_online_24h"]; ok {
+		filter.add("u.online_at IS NOT NULL AND u.online_at >= ?", dbTime(now.Add(-24*time.Hour)))
+	} else if _, ok := normalized["last_online_7d"]; ok {
+		filter.add("u.online_at IS NOT NULL AND u.online_at >= ?", dbTime(now.Add(-7*24*time.Hour)))
+	} else if _, ok := normalized["last_online_30d"]; ok {
+		filter.add("u.online_at IS NOT NULL AND u.online_at >= ?", dbTime(now.Add(-30*24*time.Hour)))
+	}
+
 	statuses := make([]string, 0, 4)
 	for key, status := range map[string]string{"expired": "expired", "limited": "limited", "disabled": "disabled", "on_hold": "on_hold"} {
 		if _, ok := normalized[key]; ok {

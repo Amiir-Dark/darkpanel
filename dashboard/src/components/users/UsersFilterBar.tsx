@@ -34,6 +34,7 @@ import {
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
 import { ADVANCED_FILTER_OPTIONS } from "components/Filters";
+import { UsersFilterMenu } from "./UsersFilterMenu";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import { useServicesStore } from "contexts/ServicesContext";
@@ -210,7 +211,11 @@ export const UsersFilterBar: FC<UsersFilterBarProps> = ({
 	};
 
 	const activeFilterTotal =
-		activeFilters.length + (serviceId ? 1 : 0) + (ownerFilter ? 1 : 0);
+		(filters.status ? 1 : 0) +
+		(filters.sort && filters.sort !== "-created_at" ? 1 : 0) +
+		activeFilters.length +
+		(serviceId ? 1 : 0) +
+		(ownerFilter ? 1 : 0);
 	const hasClearableFilters = activeFilterTotal > 0;
 
 	return (
@@ -287,165 +292,68 @@ export const UsersFilterBar: FC<UsersFilterBarProps> = ({
 			{/* Spacer for desktop layout: pushes actions to the right */}
 			<Spacer display={{ base: "none", md: "block" }} />
 
-			{/* 3. Filter Button [ 🎛 ] - dark box with AdjustmentsHorizontalIcon */}
-			<Popover placement="bottom-end">
-				<PopoverTrigger>
-					<Box position="relative" flexShrink={0}>
-						<IconButton
-							aria-label={t("filters.advancedButton")}
-							icon={<FilterIcon w={5} h={5} />}
-							variant="ghost"
-							borderRadius="12px"
-							borderWidth="1px"
-							borderColor="panel.border"
-							bg="panel.surface"
-							w="40px"
-							h="40px"
-							minW="40px"
-							color="panel.textSecondary"
-							transition="all 0.2s ease"
-							_hover={{
-								borderColor: "panel.borderStrong",
-								bg: "panel.hover",
-								color: "panel.textPrimary",
-							}}
-							_active={{
-								transform: "scale(0.96)",
-							}}
-						/>
-						{hasClearableFilters && (
-							<Badge
-								className="rb-users-filter-badge"
-								bg="blue.500"
-								color="white"
-								boxShadow="0 0 10px rgba(37, 99, 235, 0.5)"
-								variant="solid"
-								borderRadius="full"
-								position="absolute"
-								top="-3px"
-								insetInlineEnd="-3px"
-								fontSize="0.62rem"
-								px={1.5}
-								py={0.2}
-								pointerEvents="none"
-							>
-								{formatChipCount(activeFilterTotal, locale)}
-							</Badge>
-						)}
-					</Box>
-				</PopoverTrigger>
-				<PopoverContent
-					bg="panel.surface"
-					borderColor="panel.border"
-					borderRadius="18px"
-					boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.6)"
-					minW="270px"
-					overflow="hidden"
-				>
-					<PopoverArrow bg="panel.surface" />
-					<PopoverCloseButton />
-					<PopoverHeader
-						fontWeight="bold"
-						borderColor="panel.border"
-						fontSize="sm"
-						py={3}
-					>
-						{t("filters.advancedTitle")}
-					</PopoverHeader>
-					<PopoverBody py={3}>
-						<Stack spacing={2.5}>
-							{ADVANCED_FILTER_OPTIONS.filter(
-								(option) => option.key !== "top_speed" || canViewTraffic,
-							).map((option) => (
-								<Checkbox
-									key={option.key}
-									isChecked={activeFilters.includes(option.key)}
-									onChange={() => toggleAdvancedFilter(option.key)}
-									colorScheme="blue"
-								>
-									<Text fontSize="sm">{getFilterLabel(option.key)}</Text>
-								</Checkbox>
-							))}
-						</Stack>
-						<Stack spacing={3} mt={4} pt={3} borderTopWidth="1px" borderColor="panel.border">
-							<Box>
-								<Text fontSize="xs" fontWeight="bold" color="panel.textSecondary" mb={1.5}>
-									{t("filters.advanced.serviceLabel")}
-								</Text>
-								<Select
-									value={serviceId ? String(serviceId) : ""}
-									onChange={(event) => handleServiceChange(event.target.value)}
-									portalled={false}
-									size="sm"
-									borderRadius="10px"
-								>
-									<option value="">{t("filters.advanced.serviceAll")}</option>
-									{serviceOptions.map((service) => (
-										<option key={service.id} value={String(service.id)}>
-											{service.name}
-										</option>
-									))}
-								</Select>
-							</Box>
-							{hasPrivilegedRole && (
-								<Box>
-									<Text fontSize="xs" fontWeight="bold" color="panel.textSecondary" mb={1.5}>
-										{t("filters.advanced.adminLabel")}
-									</Text>
-									<Select
-										value={ownerFilter ?? ""}
-										onChange={(event) => handleAdminChange(event.target.value)}
-										portalled={false}
-										size="sm"
-										borderRadius="10px"
+			{/* 3. Filter Button [ 🎛 ] - dark box with AdjustmentsHorizontalIcon and cascading flyout menu */}
+			<Popover placement="bottom-end" isLazy closeOnBlur>
+				{({ onClose }) => (
+					<>
+						<PopoverTrigger>
+							<Box position="relative" flexShrink={0}>
+								<IconButton
+									aria-label={t("filters.advancedButton")}
+									icon={<FilterIcon w={5} h={5} />}
+									variant="ghost"
+									borderRadius="12px"
+									borderWidth="1px"
+									borderColor="panel.border"
+									bg="panel.surface"
+									w="40px"
+									h="40px"
+									minW="40px"
+									color="panel.textSecondary"
+									transition="all 0.2s ease"
+									_hover={{
+										borderColor: "panel.borderStrong",
+										bg: "panel.hover",
+										color: "panel.textPrimary",
+									}}
+									_active={{
+										transform: "scale(0.96)",
+									}}
+								/>
+								{hasClearableFilters && (
+									<Badge
+										className="rb-users-filter-badge"
+										bg="blue.500"
+										color="white"
+										boxShadow="0 0 10px rgba(37, 99, 235, 0.5)"
+										variant="solid"
+										borderRadius="full"
+										position="absolute"
+										top="-3px"
+										insetInlineEnd="-3px"
+										fontSize="0.62rem"
+										px={1.5}
+										py={0.2}
+										pointerEvents="none"
 									>
-										<option value="">{t("filters.advanced.adminAll")}</option>
-										<option value={userData.username}>
-											{t("filters.advanced.adminMyUsers")}
-										</option>
-										{safeAdminOptions.map((record) => (
-											<option key={record.username} value={record.username}>
-												{record.username}
-											</option>
-										))}
-									</Select>
-								</Box>
-							)}
-							{onAutoRefreshChange && (
-								<Box pt={2} borderTopWidth="1px" borderColor="panel.border">
-									<Text fontSize="xs" fontWeight="bold" color="panel.textSecondary" mb={1.5}>
-										{t("usersTable.autoRefresh")}
-									</Text>
-									<HStack spacing={1.5} flexWrap="wrap">
-										{([0, 3000, 5000, 10000, 30000] as const).map((interval) => (
-											<Button
-												key={interval}
-												size="xs"
-												variant={autoRefreshInterval === interval ? "solid" : "outline"}
-												colorScheme={autoRefreshInterval === interval ? "blue" : "gray"}
-												borderRadius="8px"
-												onClick={() => onAutoRefreshChange(interval)}
-											>
-												{interval === 0 ? t("usersTable.autoRefreshOff") : `${interval / 1000}s`}
-											</Button>
-										))}
-									</HStack>
-								</Box>
-							)}
-						</Stack>
-						<Button
-							variant="ghost"
-							size="sm"
-							mt={3.5}
-							w="full"
-							borderRadius="10px"
-							onClick={clearAdvancedFilters}
-							isDisabled={!hasClearableFilters}
+										{formatChipCount(activeFilterTotal, locale)}
+									</Badge>
+								)}
+							</Box>
+						</PopoverTrigger>
+						<PopoverContent
+							bg="transparent"
+							border="none"
+							boxShadow="none"
+							p={0}
+							w="auto"
+							maxW="none"
+							_focus={{ boxShadow: "none" }}
 						>
-							{t("filters.advancedClear")}
-						</Button>
-					</PopoverBody>
-				</PopoverContent>
+							<UsersFilterMenu onClose={onClose} />
+						</PopoverContent>
+					</>
+				)}
 			</Popover>
 
 			{/* 4. Refresh Button [ 🔄 ] - dark box with circular reload icon */}
