@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/rebeccapanel/rebecca/internal/app/logging"
+	"github.com/rebeccapanel/rebecca/internal/app/migrations"
 )
 
 func checkDatabaseIntegrity(ctx context.Context, db *sql.DB) error {
@@ -85,6 +86,8 @@ func checkDatabaseIntegrity(ctx context.Context, db *sql.DB) error {
 		deleted, _ := deleteRows(ctx, db, `DELETE FROM service_admins WHERE service_id NOT IN (SELECT id FROM services)`)
 		logging.Warnf(logging.ComponentDatabase, "integrity repair removed %d service_admins referencing missing services", deleted)
 	}
+
+	_ = migrations.RepairMySQLMissingAutoIncrements(ctx, db, "mysql")
 
 	return nil
 }

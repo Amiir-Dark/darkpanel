@@ -186,7 +186,7 @@ func TestMySQLOOMBackupError(t *testing.T) {
 	}
 }
 
-func TestFilterMySQLDumpForDatabaseLargeRows(t *testing.T) {
+func TestFilterMySQLDumpForDatabase(t *testing.T) {
 	tempDir := t.TempDir()
 	inputPath := filepath.Join(tempDir, "input.sql")
 	outputPath := filepath.Join(tempDir, "output.sql")

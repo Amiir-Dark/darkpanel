@@ -467,3 +467,51 @@ func DropTableIfExists(ctx context.Context, db DBTX, dialect string, table strin
 	_, err := db.ExecContext(ctx, "DROP TABLE IF EXISTS "+QuoteIdent(dialect, table))
 	return err
 }
+
+// RepairMySQLMissingAutoIncrements detects tables in MySQL whose integer 'id' primary key column
+// was created or imported without AUTO_INCREMENT and adds AUTO_INCREMENT so inserts succeed.
+func RepairMySQLMissingAutoIncrements(ctx context.Context, db DBTX, dialect string) error {
+	if NormalizeDialect(dialect) != "mysql" {
+		return nil
+	}
+	query := `
+SELECT TABLE_NAME, COLUMN_TYPE, COALESCE(COLUMN_KEY, '')
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND COLUMN_NAME = 'id'
+  AND DATA_TYPE IN ('int', 'bigint', 'tinyint', 'smallint', 'mediumint')
+  AND (EXTRA IS NULL OR EXTRA NOT LIKE '%auto_increment%')
+  AND TABLE_NAME NOT IN ('settings', 'subscription_settings', 'auth_secrets', 'xray_config', 'panel_settings')
+`
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	type fixItem struct {
+		tableName  string
+		columnType string
+		columnKey  string
+	}
+	var fixes []fixItem
+	for rows.Next() {
+		var item fixItem
+		if err := rows.Scan(&item.tableName, &item.columnType, &item.columnKey); err == nil {
+			fixes = append(fixes, item)
+		}
+	}
+	_ = rows.Close()
+
+	for _, item := range fixes {
+		alterSQL := fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s %s NOT NULL AUTO_INCREMENT",
+			QuoteIdent("mysql", item.tableName), QuoteIdent("mysql", "id"), item.columnType)
+		if _, err := db.ExecContext(ctx, alterSQL); err != nil {
+			altSQL := fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s %s NOT NULL AUTO_INCREMENT, ADD PRIMARY KEY (%s)",
+				QuoteIdent("mysql", item.tableName), QuoteIdent("mysql", "id"), item.columnType, QuoteIdent("mysql", "id"))
+			_, _ = db.ExecContext(ctx, altSQL)
+		}
+	}
+	return nil
+}
+

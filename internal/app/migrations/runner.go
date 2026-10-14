@@ -111,9 +111,14 @@ func (r Runner) run(ctx context.Context, targetVersion int64) error {
 	}
 	if err != nil && strings.Contains(strings.ToLower(err.Error()), "no migration files found") {
 		_, ensureErr := goose.EnsureDBVersion(r.DB)
-		return ensureErr
+		if ensureErr != nil {
+			return ensureErr
+		}
+	} else if err != nil {
+		return err
 	}
-	return err
+	_ = RepairMySQLMissingAutoIncrements(ctx, r.DB, dialect)
+	return nil
 }
 
 // refuseNewerSchema stops an older build from running against a schema that
