@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -65,16 +64,30 @@ func TestDatabaseIntegrityRepairsOrphanNodeOperations(t *testing.T) {
 	}
 }
 
-func TestDatabaseIntegrityRejectsOrphanNodeUsage(t *testing.T) {
+func TestDatabaseIntegrityRepairsOrphanNodeUsage(t *testing.T) {
 	db := newIntegrityTestDB(t)
 	execIntegritySQL(t, db,
 		`INSERT INTO nodes (id) VALUES (1)`,
 		`INSERT INTO node_usages (id, node_id) VALUES (1, 99)`,
+		`INSERT INTO node_user_usages (id, node_id) VALUES (1, 99)`,
 	)
 
-	err := checkDatabaseIntegrity(context.Background(), db)
-	if err == nil || !strings.Contains(err.Error(), "point to missing nodes") {
-		t.Fatalf("expected orphan node guard, got %v", err)
+	if err := checkDatabaseIntegrity(context.Background(), db); err != nil {
+		t.Fatalf("expected orphan node usage to be repaired, got %v", err)
+	}
+	count, err := countRows(context.Background(), db, `SELECT COUNT(*) FROM node_usages WHERE node_id = 99`)
+	if err != nil {
+		t.Fatalf("count node usages: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected orphan node usages to be removed, got %d", count)
+	}
+	userCount, err := countRows(context.Background(), db, `SELECT COUNT(*) FROM node_user_usages WHERE node_id = 99`)
+	if err != nil {
+		t.Fatalf("count node user usages: %v", err)
+	}
+	if userCount != 0 {
+		t.Fatalf("expected orphan node user usages to be removed, got %d", userCount)
 	}
 }
 

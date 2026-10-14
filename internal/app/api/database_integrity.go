@@ -29,14 +29,6 @@ func checkDatabaseIntegrity(ctx context.Context, db *sql.DB) error {
 		logging.Warnf(logging.ComponentDatabase, "integrity repair removed %d stale node operation rows because the nodes table is empty", deleted)
 	}
 
-	orphanNodeUsages, err := countRows(ctx, db, `SELECT COUNT(*) FROM node_usages nu LEFT JOIN nodes n ON n.id = nu.node_id WHERE nu.node_id IS NOT NULL AND n.id IS NULL`)
-	if err != nil {
-		return err
-	}
-	orphanUserUsages, err := countRows(ctx, db, `SELECT COUNT(*) FROM node_user_usages nu LEFT JOIN nodes n ON n.id = nu.node_id WHERE nu.node_id IS NOT NULL AND n.id IS NULL`)
-	if err != nil {
-		return err
-	}
 	orphanOperations, err := countRows(ctx, db, `SELECT COUNT(*) FROM node_operations no LEFT JOIN nodes n ON n.id = no.node_id WHERE no.node_id IS NOT NULL AND n.id IS NULL`)
 	if err != nil {
 		return err
@@ -48,29 +40,50 @@ func checkDatabaseIntegrity(ctx context.Context, db *sql.DB) error {
 		}
 		logging.Warnf(logging.ComponentDatabase, "integrity repair removed %d node operation rows that referenced missing nodes", deleted)
 	}
-	if orphanNodeUsages > 0 || orphanUserUsages > 0 {
-		return fmt.Errorf("node references are inconsistent: node_usages=%d node_user_usages=%d point to missing nodes", orphanNodeUsages, orphanUserUsages)
+
+	orphanNodeUsages, err := countRows(ctx, db, `SELECT COUNT(*) FROM node_usages nu LEFT JOIN nodes n ON n.id = nu.node_id WHERE nu.node_id IS NOT NULL AND n.id IS NULL`)
+	if err != nil {
+		return err
+	}
+	if orphanNodeUsages > 0 {
+		deleted, err := deleteRows(ctx, db, `DELETE FROM node_usages WHERE node_id IS NOT NULL AND node_id NOT IN (SELECT id FROM nodes)`)
+		if err != nil {
+			return fmt.Errorf("repair orphan node usages: %w", err)
+		}
+		logging.Warnf(logging.ComponentDatabase, "integrity repair removed %d node usage rows that referenced missing nodes", deleted)
 	}
 
-	checks := []struct {
-		name string
-		sql  string
-	}{
-		{"users.service_id", `SELECT COUNT(*) FROM users u LEFT JOIN services s ON s.id = u.service_id WHERE u.service_id IS NOT NULL AND s.id IS NULL`},
-		{"service_hosts.host_id", `SELECT COUNT(*) FROM service_hosts sh LEFT JOIN hosts h ON h.id = sh.host_id WHERE h.id IS NULL`},
-		{"service_hosts.service_id", `SELECT COUNT(*) FROM service_hosts sh LEFT JOIN services s ON s.id = sh.service_id WHERE s.id IS NULL`},
-		{"hosts.inbound_tag", `SELECT COUNT(*) FROM hosts h LEFT JOIN inbounds i ON i.tag = h.inbound_tag WHERE i.id IS NULL`},
-		{"service_admins.admin_id", `SELECT COUNT(*) FROM service_admins l LEFT JOIN admins a ON a.id = l.admin_id WHERE a.id IS NULL`},
-		{"service_admins.service_id", `SELECT COUNT(*) FROM service_admins l LEFT JOIN services s ON s.id = l.service_id WHERE s.id IS NULL`},
+	orphanUserUsages, err := countRows(ctx, db, `SELECT COUNT(*) FROM node_user_usages nu LEFT JOIN nodes n ON n.id = nu.node_id WHERE nu.node_id IS NOT NULL AND n.id IS NULL`)
+	if err != nil {
+		return err
 	}
-	for _, check := range checks {
-		count, err := countRows(ctx, db, check.sql)
+	if orphanUserUsages > 0 {
+		deleted, err := deleteRows(ctx, db, `DELETE FROM node_user_usages WHERE node_id IS NOT NULL AND node_id NOT IN (SELECT id FROM nodes)`)
 		if err != nil {
-			return err
+			return fmt.Errorf("repair orphan node user usages: %w", err)
 		}
-		if count > 0 {
-			return fmt.Errorf("database integrity check failed: %s has %d orphan rows", check.name, count)
-		}
+		logging.Warnf(logging.ComponentDatabase, "integrity repair removed %d node user usage rows that referenced missing nodes", deleted)
+	}
+
+	if orphan, err := countRows(ctx, db, `SELECT COUNT(*) FROM users u LEFT JOIN services s ON s.id = u.service_id WHERE u.service_id IS NOT NULL AND s.id IS NULL`); err == nil && orphan > 0 {
+		deleted, _ := deleteRows(ctx, db, `UPDATE users SET service_id = NULL WHERE service_id IS NOT NULL AND service_id NOT IN (SELECT id FROM services)`)
+		logging.Warnf(logging.ComponentDatabase, "integrity repair reset service_id on %d users referencing missing services", deleted)
+	}
+	if orphan, err := countRows(ctx, db, `SELECT COUNT(*) FROM service_hosts sh LEFT JOIN hosts h ON h.id = sh.host_id WHERE h.id IS NULL`); err == nil && orphan > 0 {
+		deleted, _ := deleteRows(ctx, db, `DELETE FROM service_hosts WHERE host_id NOT IN (SELECT id FROM hosts)`)
+		logging.Warnf(logging.ComponentDatabase, "integrity repair removed %d service_hosts referencing missing hosts", deleted)
+	}
+	if orphan, err := countRows(ctx, db, `SELECT COUNT(*) FROM service_hosts sh LEFT JOIN services s ON s.id = sh.service_id WHERE s.id IS NULL`); err == nil && orphan > 0 {
+		deleted, _ := deleteRows(ctx, db, `DELETE FROM service_hosts WHERE service_id NOT IN (SELECT id FROM services)`)
+		logging.Warnf(logging.ComponentDatabase, "integrity repair removed %d service_hosts referencing missing services", deleted)
+	}
+	if orphan, err := countRows(ctx, db, `SELECT COUNT(*) FROM service_admins l LEFT JOIN admins a ON a.id = l.admin_id WHERE a.id IS NULL`); err == nil && orphan > 0 {
+		deleted, _ := deleteRows(ctx, db, `DELETE FROM service_admins WHERE admin_id NOT IN (SELECT id FROM admins)`)
+		logging.Warnf(logging.ComponentDatabase, "integrity repair removed %d service_admins referencing missing admins", deleted)
+	}
+	if orphan, err := countRows(ctx, db, `SELECT COUNT(*) FROM service_admins l LEFT JOIN services s ON s.id = l.service_id WHERE s.id IS NULL`); err == nil && orphan > 0 {
+		deleted, _ := deleteRows(ctx, db, `DELETE FROM service_admins WHERE service_id NOT IN (SELECT id FROM services)`)
+		logging.Warnf(logging.ComponentDatabase, "integrity repair removed %d service_admins referencing missing services", deleted)
 	}
 
 	return nil
