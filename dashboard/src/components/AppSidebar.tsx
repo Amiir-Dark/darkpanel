@@ -293,7 +293,9 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	}
 
 	const defaultTabByPath: Record<string, string> = {
-		"/settings": "panel",
+		"/settings": !sectionAccess?.[AdminSection.Integrations]
+			? (canManageSubscription ? "subscriptions" : "placeholders")
+			: "panel",
 		"/hosts": "inbounds",
 		"/usage": "services",
 		"/xray-settings": "basic",
@@ -319,18 +321,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		}
 	};
 
-	// 1. Main Navigation: Dashboard, Users, Subscriptions (for resellers / self), Usage
+	// 1. Main Navigation: Dashboard, Users, Usage
 	const mainItems: SidebarItem[] = [
 		{ title: t("dashboard"), url: "/", icon: HomeIconStyled },
 		{ title: t("users"), url: "/users", icon: UsersIconStyled },
 	];
-	if (canManageSubscription && !sectionAccess?.[AdminSection.Integrations]) {
-		mainItems.push({
-			title: t("subscriptions"),
-			url: "/settings#subscriptions",
-			icon: SubscriptionIconStyled,
-		});
-	}
 	if (canViewUsage) {
 		mainItems.push({
 			title: t("usage.menu"),
@@ -365,7 +360,11 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 
 	// 3. System & Settings
 	const systemItems: SidebarItem[] = [];
-	if (sectionAccess?.[AdminSection.Integrations]) {
+	if (
+		sectionAccess?.[AdminSection.Integrations] ||
+		canManageSubscription ||
+		canManagePlaceholders
+	) {
 		systemItems.push({
 			title: t("header.integrationSettings"),
 			url: "/settings",
@@ -411,15 +410,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				icon: PHPMyAdminIconStyled,
 			},
 		);
-	}
-	if (canManagePlaceholders) {
-		systemItems.push({
-			title: isPrivilegedAdmin
-				? t("placeholders.menu")
-				: t("placeholders.settingsMenu"),
-			url: "/placeholders",
-			icon: PlaceholderIconStyled,
-		});
 	}
 
 	// 4. Admin & Account

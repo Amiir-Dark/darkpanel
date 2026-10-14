@@ -3,6 +3,7 @@ export const integrationTabKeys = [
 	"telegram",
 	"subscriptions",
 	"ssl",
+	"placeholders",
 ] as const;
 
 export const parseSettingsHash = (value: string) => {

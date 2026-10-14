@@ -104,6 +104,7 @@ import {
 	integrationTabKeys,
 	parseSettingsHash,
 } from "utils/settingsTabs";
+import { PlaceholderSettingsPanel } from "./PlaceholderSettingsPage";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import {
 	DataTable,
@@ -840,7 +841,12 @@ export const IntegrationSettingsPage = () => {
 		getUserIsSuccess &&
 		(canManageIntegrations ||
 			Boolean(userData.permissions?.self_permissions?.self_subscription));
-	const isSelfOnlySubscription = !canManageIntegrations && canManageSubscription;
+	const canManagePlaceholders =
+		getUserIsSuccess &&
+		(canManageIntegrations ||
+			Boolean(userData.permissions?.self_permissions?.self_placeholders));
+	const isSelfOnlySubscription =
+		!canManageIntegrations && (canManageSubscription || canManagePlaceholders);
 	const currentAdminId = userData.id ?? 0;
 	const canReadMaintenance =
 		getUserIsSuccess &&
@@ -849,14 +855,23 @@ export const IntegrationSettingsPage = () => {
 				Boolean(userData.permissions?.sudo.maintenance)));
 	const queryClient = useQueryClient();
 	const [activeIntegrationTab, setActiveIntegrationTab] = useState(
-		() => (isSelfOnlySubscription ? 2 : readSettingsHash().index),
+		() => {
+			const hashResult = readSettingsHash();
+			if (hashResult.index >= 0 && hashResult.tab) {
+				return hashResult.index;
+			}
+			if (isSelfOnlySubscription) {
+				return canManageSubscription ? 2 : 4;
+			}
+			return 0;
+		},
 	);
 
 	useEffect(() => {
-		if (isSelfOnlySubscription && activeIntegrationTab !== 2) {
-			setActiveIntegrationTab(2);
+		if (isSelfOnlySubscription && activeIntegrationTab !== 2 && activeIntegrationTab !== 4) {
+			setActiveIntegrationTab(canManageSubscription ? 2 : 4);
 		}
-	}, [isSelfOnlySubscription, activeIntegrationTab]);
+	}, [isSelfOnlySubscription, activeIntegrationTab, canManageSubscription]);
 
 	const { data, isLoading, refetch } = useQuery(
 		"telegram-settings",
@@ -1109,8 +1124,11 @@ export const IntegrationSettingsPage = () => {
 				setActiveIntegrationTab(idx);
 			} else {
 				// default tab if none present in hash
-				setActiveIntegrationTab(0);
-				const defaultKey = integrationTabKeys[0];
+				const defaultIdx = isSelfOnlySubscription
+					? (canManageSubscription ? 2 : 4)
+					: 0;
+				setActiveIntegrationTab(defaultIdx);
+				const defaultKey = integrationTabKeys[defaultIdx];
 				window.history.replaceState(
 					null,
 					"",
@@ -1122,7 +1140,7 @@ export const IntegrationSettingsPage = () => {
 		const onHashChange = () => syncTabFromHash(window.location.hash);
 		window.addEventListener("hashchange", onHashChange);
 		return () => window.removeEventListener("hashchange", onHashChange);
-	}, [location.hash]);
+	}, [location.hash, isSelfOnlySubscription, canManageSubscription]);
 
 	useEffect(() => {
 		const { focus, tab } = readSettingsHash(location.hash);
@@ -2055,13 +2073,27 @@ export const IntegrationSettingsPage = () => {
 					tabs={
 						isSelfOnlySubscription
 							? [
-									{
-										value: "subscriptions",
-										isActive: true,
-										onClick: () => handleIntegrationTabChange(2),
-										label: t("settings.subscriptions.tabTitle"),
-									},
-								]
+									...(canManageSubscription
+										? [
+												{
+													value: "subscriptions",
+													isActive: activeIntegrationTab === 2,
+													onClick: () => handleIntegrationTabChange(2),
+													label: t("settings.subscriptions.tabTitle"),
+												},
+										  ]
+										: []),
+									...(canManagePlaceholders
+										? [
+												{
+													value: "placeholders",
+													isActive: activeIntegrationTab === 4,
+													onClick: () => handleIntegrationTabChange(4),
+													label: t("placeholders.settingsMenu", "تنظیمات پلیس‌هولدر"),
+												},
+										  ]
+										: []),
+							  ]
 							: [
 									{
 										value: "panel",
@@ -2087,26 +2119,38 @@ export const IntegrationSettingsPage = () => {
 										onClick: () => handleIntegrationTabChange(3),
 										label: t("settings.ssl.tabTitle"),
 									},
-								]
+									...(canManagePlaceholders
+										? [
+												{
+													value: "placeholders",
+													isActive: activeIntegrationTab === 4,
+													onClick: () => handleIntegrationTabChange(4),
+													label: t("placeholders.settingsMenu", "تنظیمات پلیس‌هولدر"),
+												},
+										  ]
+										: []),
+							  ]
 					}
 				/>
-				<Button
-					flexShrink={0}
-					alignSelf={{ base: "flex-end", md: "center" }}
-					colorScheme="primary"
-					leftIcon={<SaveIcon />}
-					onClick={handleSaveAll}
-					isLoading={
-						saveAllMutation.isLoading || adminSelfSaveMutation.isLoading
-					}
-					isDisabled={
-						!hasUnsavedChanges ||
-						saveAllMutation.isLoading ||
-						adminSelfSaveMutation.isLoading
-					}
-				>
-					{t("settings.save")}
-				</Button>
+				{!isSelfOnlySubscription && activeIntegrationTab !== 4 && (
+					<Button
+						flexShrink={0}
+						alignSelf={{ base: "flex-end", md: "center" }}
+						colorScheme="primary"
+						leftIcon={<SaveIcon />}
+						onClick={handleSaveAll}
+						isLoading={
+							saveAllMutation.isLoading || adminSelfSaveMutation.isLoading
+						}
+						isDisabled={
+							!hasUnsavedChanges ||
+							saveAllMutation.isLoading ||
+							adminSelfSaveMutation.isLoading
+						}
+					>
+						{t("settings.save")}
+					</Button>
+				)}
 			</Flex>
 			{activeIntegrationTab === 0 && (
 				<Box px={{ base: 0, md: 2 }} mt={3}>
@@ -4527,6 +4571,11 @@ export const IntegrationSettingsPage = () => {
 							</VStack>
 						</form>
 					)}
+				</Box>
+			)}
+			{activeIntegrationTab === 4 && canManagePlaceholders && (
+				<Box mt={4}>
+					<PlaceholderSettingsPanel isTab />
 				</Box>
 			)}
 			<Modal

@@ -42,7 +42,11 @@ const keyFor = (
 	item: Pick<SubscriptionPlaceholderSetting, "admin_id" | "service_id">,
 ) => `${item.admin_id ?? "default"}:${item.service_id}`;
 
-const PlaceholderSettingsPage = () => {
+export type PlaceholderSettingsPanelProps = {
+	isTab?: boolean;
+};
+
+export const PlaceholderSettingsPanel = ({ isTab = false }: PlaceholderSettingsPanelProps) => {
 	const { t } = useTranslation();
 	const toast = useToast();
 	const panelBg = useColorModeValue("whiteAlpha.800", "whiteAlpha.50");
@@ -137,29 +141,15 @@ const PlaceholderSettingsPage = () => {
 		);
 	}
 
-	return (
-		<Stack spacing={5} maxW="1180px" mx="auto">
-			<Box>
-				<Heading size="lg">{t("placeholders.title")}</Heading>
-				<Text mt={2} color="panel.textSecondary" maxW="760px">
-					{t("placeholders.subtitle")}
-				</Text>
-			</Box>
-
-			<Tabs variant="soft-rounded" colorScheme="pink">
-				<TabList>
-					<Tab>{t("placeholders.tab")}</Tab>
-				</TabList>
-				<TabPanels>
-					<TabPanel px={0} pb={0}>
-						<Card
-							bg={panelBg}
-							border="1px solid"
-							borderColor={borderColor}
-							borderRadius="2xl"
-							boxShadow="0 18px 50px rgba(0,0,0,.12)"
-							backdropFilter="blur(18px)"
-						>
+	const cardContent = (
+		<Card
+			bg={panelBg}
+			border="1px solid"
+			borderColor={borderColor}
+			borderRadius="2xl"
+			boxShadow="0 18px 50px rgba(0,0,0,.12)"
+			backdropFilter="blur(18px)"
+		>
 							<CardBody p={{ base: 4, md: 7 }}>
 								{!draft ? (
 									<Box textAlign="center" py={14}>
@@ -329,6 +319,28 @@ const PlaceholderSettingsPage = () => {
 								)}
 							</CardBody>
 						</Card>
+	);
+
+	if (isTab) {
+		return cardContent;
+	}
+
+	return (
+		<Stack spacing={5} maxW="1180px" mx="auto">
+			<Box>
+				<Heading size="lg">{t("placeholders.title")}</Heading>
+				<Text mt={2} color="panel.textSecondary" maxW="760px">
+					{t("placeholders.subtitle")}
+				</Text>
+			</Box>
+
+			<Tabs variant="soft-rounded" colorScheme="pink">
+				<TabList>
+					<Tab>{t("placeholders.tab")}</Tab>
+				</TabList>
+				<TabPanels>
+					<TabPanel px={0} pb={0}>
+						{cardContent}
 					</TabPanel>
 				</TabPanels>
 			</Tabs>
@@ -365,5 +377,7 @@ const PlaceholderField = ({
 		<FormHelperText>{hint}</FormHelperText>
 	</FormControl>
 );
+
+export const PlaceholderSettingsPage = () => <PlaceholderSettingsPanel isTab={false} />;
 
 export default PlaceholderSettingsPage;

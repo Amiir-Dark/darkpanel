@@ -367,7 +367,7 @@ export function AppLayout() {
 						label: isPrivilegedAdmin
 							? t("placeholders.menu")
 							: t("placeholders.settingsMenu"),
-						to: "/placeholders",
+						to: "/settings#placeholders",
 						icon: PlaceholderIcon,
 					}
 				: null,

@@ -254,7 +254,7 @@ export const router = createBrowserRouter(
 				},
 				{
 					path: "placeholders",
-					element: <LazyPage Page={PlaceholderSettingsPage} />,
+					element: <Navigate to="/settings#placeholders" replace />,
 				},
 				{
 					path: "integrations",
