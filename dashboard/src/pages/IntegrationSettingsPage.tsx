@@ -126,6 +126,7 @@ import {
 	type DataTableRowAction,
 } from "../components/ui";
 import { CustomConfigRemarksSection } from "components/CustomConfigRemarksSection";
+import { VariableTemplateInput } from "components/VariableTemplateInput";
 
 const CLIENT_OPTIONS = [
 	"clash-meta",
@@ -3191,20 +3192,22 @@ export const IntegrationSettingsPage = () => {
 																				<Text fontWeight="semibold">Profile title</Text>
 																			</HStack>
 																		</FormLabel>
-																		<Input
-																			placeholder="D..."
+																		<VariableTemplateInput
+																			placeholder="Default profile title"
 																			value={settings.subscription_profile_title ?? ""}
-																			onChange={(event) =>
+																			onChange={(val) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"subscription_profile_title",
-																					event.target.value,
+																					val,
 																				)
 																			}
+																			variables={[
+																				{ key: "{username}", label: "username", description: "Subscriber Username" },
+																				{ key: "{id}", label: "id", description: "Subscriber User ID" },
+																			]}
+																			helperText="Sent as the profile-title header. Supports variables: {username}, {id}"
 																		/>
-																		<FormHelperText fontSize="11px">
-																			Sent as the profile-title header. Supports variables: &#123;username&#125;, &#123;id&#125;, ...
-																		</FormHelperText>
 																	</FormControl>
 
 																	{/* Support URL */}
@@ -3239,20 +3242,22 @@ export const IntegrationSettingsPage = () => {
 																				<Text fontWeight="semibold">Announce message</Text>
 																			</HStack>
 																		</FormLabel>
-																		<Input
+																		<VariableTemplateInput
 																			placeholder="e.g. Welcome {username}!"
 																			value={settings.subscription_announcement ?? ""}
-																			onChange={(event) =>
+																			onChange={(val) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"subscription_announcement" as any,
-																					event.target.value,
+																					val,
 																				)
 																			}
+																			variables={[
+																				{ key: "{username}", label: "username", description: "Subscriber Username" },
+																				{ key: "{id}", label: "id", description: "Subscriber User ID" },
+																			]}
+																			helperText="Announcement text shown to users (announce header). Supports variables."
 																		/>
-																		<FormHelperText fontSize="11px">
-																			Announcement text shown to users (announce header). Supports variables.
-																		</FormHelperText>
 																	</FormControl>
 
 																	{/* Announce URL */}
@@ -3758,13 +3763,20 @@ export const IntegrationSettingsPage = () => {
 											<FormLabel>
 												{t("settings.subscriptions.profileTitle")}
 											</FormLabel>
-											<Input
+											<VariableTemplateInput
 												placeholder="Subscription"
-												{...subscriptionRegister("subscription_profile_title")}
+												value={watchSubscription("subscription_profile_title") || ""}
+												onChange={(val) =>
+													setSubscriptionValue("subscription_profile_title", val, {
+														shouldDirty: true,
+													})
+												}
+												variables={[
+													{ key: "{username}", label: "username", description: "Subscriber Username" },
+													{ key: "{id}", label: "id", description: "Subscriber User ID" },
+												]}
+												helperText={t("settings.subscriptions.profileTitleHint")}
 											/>
-											<FormHelperText>
-												{t("settings.subscriptions.profileTitleHint")}
-											</FormHelperText>
 										</FormControl>
 										<FormControl>
 											<FormLabel>
@@ -4590,7 +4602,7 @@ export const IntegrationSettingsPage = () => {
 																		<FormLabel>
 																			{t("settings.subscriptions.profileTitle")}
 																		</FormLabel>
-																		<Input
+																		<VariableTemplateInput
 																			placeholder={
 																				subscriptionBundle?.settings
 																					.subscription_profile_title || ""
@@ -4598,13 +4610,17 @@ export const IntegrationSettingsPage = () => {
 																			value={
 																				settings.subscription_profile_title ?? ""
 																			}
-																			onChange={(event) =>
+																			onChange={(val) =>
 																				handleAdminTemplateChange(
 																					admin.id,
 																					"subscription_profile_title",
-																					event.target.value,
+																					val,
 																				)
 																			}
+																			variables={[
+																				{ key: "{username}", label: "username", description: "Subscriber Username" },
+																				{ key: "{id}", label: "id", description: "Subscriber User ID" },
+																			]}
 																		/>
 																	</FormControl>
 																	<FormControl>
@@ -4655,7 +4671,7 @@ export const IntegrationSettingsPage = () => {
 																		<FormLabel>
 																			{t("settings.subscriptions.announcementText")}
 																		</FormLabel>
-																		<Input
+																		<VariableTemplateInput
 																			maxLength={200}
 																			placeholder={
 																				subscriptionBundle?.settings
@@ -4664,13 +4680,17 @@ export const IntegrationSettingsPage = () => {
 																			value={
 																				settings.subscription_announcement ?? ""
 																			}
-																			onChange={(event) =>
+																			onChange={(val) =>
 																				handleAdminTemplateChange(
 																					admin.id,
-																					"subscription_announcement",
-																					event.target.value,
+																					"subscription_announcement" as any,
+																					val,
 																				)
 																			}
+																			variables={[
+																				{ key: "{username}", label: "username", description: "Subscriber Username" },
+																				{ key: "{id}", label: "id", description: "Subscriber User ID" },
+																			]}
 																		/>
 																	</FormControl>
 																</SimpleGrid>
