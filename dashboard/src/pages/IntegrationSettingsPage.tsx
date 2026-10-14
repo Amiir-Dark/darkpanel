@@ -3127,16 +3127,18 @@ export const IntegrationSettingsPage = () => {
 																	    : "Configure Telegram bot for automated and manual panel backup files."}
 															</Text>
 														</Box>
-														<HStack spacing={2}>
-															<Button
-																variant="outline"
-																size="sm"
-																leftIcon={<RefreshIcon />}
-																onClick={() => refetchSubscriptionSettings()}
-															>
-																{t("refresh")}
-															</Button>
-														</HStack>
+														{resellerTab !== "config_remarks" && resellerTab !== "client_apps" && (
+															<HStack spacing={2}>
+																<Button
+																	variant="outline"
+																	size="sm"
+																	leftIcon={<RefreshIcon />}
+																	onClick={() => refetchSubscriptionSettings()}
+																>
+																	{t("refresh")}
+																</Button>
+															</HStack>
+														)}
 													</Flex>
 
 													{/* Tab 1: Sub Access & Custom Remarks */}
@@ -3460,129 +3462,109 @@ export const IntegrationSettingsPage = () => {
 
 											{/* Tab 2: Client Apps */}
 											{resellerTab === "client_apps" && (
-												<Box
-													p={5}
-													borderRadius="xl"
-													borderWidth="1px"
-													borderColor={borderColor}
-													bg={subCardBg}
+												<SimpleGrid
+													columns={{ base: 1, md: 2, lg: 3 }}
+													spacing={3.5}
 												>
-													<Heading size="xs" mb={1}>
-														{t(
-															"settings.subscriptions.clientAppsTitle",
-															"Client Apps",
-														)}
-													</Heading>
-													<Text fontSize="xs" color="gray.500" mb={3.5}>
-														{t(
-															"settings.subscriptions.clientAppsDescription",
-															"Choose which apps your users may use to update their subscriptions. Blocked apps get a \"not allowed\" response.",
-														)}
-													</Text>
-													<SimpleGrid
-														columns={{ base: 1, md: 2, lg: 3 }}
-														spacing={3.5}
-													>
-														{CLIENT_APPS_LIST.map((app) => {
-															const blocked =
-																(settings.blocked_client_apps as string[]) ||
-																[];
-															const isBlocked = blocked.some(
-																(b) =>
-																	b.toLowerCase() ===
-																	app.key.toLowerCase(),
-															);
-															const isAllowed = !isBlocked;
-															const stats =
-																subscriptionBundle?.settings
-																	?.client_app_stats || {};
-															const pct =
-																stats[app.key] !== undefined
-																	? `${stats[app.key].toFixed(1)}%`
-																	: "0.0%";
+													{CLIENT_APPS_LIST.map((app) => {
+														const blocked =
+															(settings.blocked_client_apps as string[]) ||
+															[];
+														const isBlocked = blocked.some(
+															(b) =>
+																b.toLowerCase() ===
+																app.key.toLowerCase(),
+														);
+														const isAllowed = !isBlocked;
+														const stats =
+															subscriptionBundle?.settings
+																?.client_app_stats || {};
+														const pct =
+															stats[app.key] !== undefined
+																? `${stats[app.key].toFixed(1)}%`
+																: "0.0%";
 
-															return (
-																<Flex
-																	key={app.key}
-																	p={3.5}
-																	borderRadius="xl"
-																	borderWidth="1px"
-																	borderColor={
+														return (
+															<Flex
+																key={app.key}
+																p={3.5}
+																borderRadius="xl"
+																borderWidth="1px"
+																borderColor={
+																	colorMode === "dark"
+																		? "whiteAlpha.100"
+																		: "gray.200"
+																}
+																bg={
+																	colorMode === "dark"
+																		? "whiteAlpha.50"
+																		: "gray.50"
+																}
+																justify="space-between"
+																align="center"
+																transition="all 0.2s ease"
+																_hover={{
+																	borderColor:
+																		colorMode === "dark"
+																			? "whiteAlpha.200"
+																			: "gray.300",
+																	bg:
 																		colorMode === "dark"
 																			? "whiteAlpha.100"
-																			: "gray.200"
-																	}
-																	bg={
-																		colorMode === "dark"
-																			? "whiteAlpha.50"
-																			: "gray.50"
-																	}
-																	justify="space-between"
-																	align="center"
-																	transition="all 0.2s ease"
-																	_hover={{
-																		borderColor:
-																			colorMode === "dark"
-																				? "whiteAlpha.200"
-																				: "gray.300",
-																		bg:
-																			colorMode === "dark"
-																				? "whiteAlpha.100"
-																				: "gray.100",
-																	}}
-																>
-																	<Box>
-																		<Text
-																			fontWeight="semibold"
-																			fontSize="sm"
-																		>
-																			{app.name}
-																		</Text>
-																		<Text
-																			fontSize="xs"
-																			color="gray.500"
-																			mt={0.5}
-																		>
-																			{t(
-																				`settings.subscriptions.clientAppPlatforms.${app.key}`,
-																				app.platform,
-																			)}{" "}
-																			· {pct}
-																		</Text>
-																	</Box>
-																	<Switch
-																		colorScheme="primary"
-																		isChecked={isAllowed}
-																		onChange={(e) => {
-																			let updated: string[];
-																			if (e.target.checked) {
-																				updated = blocked.filter(
+																			: "gray.100",
+																}}
+															>
+																<Box>
+																	<Text
+																		fontWeight="semibold"
+																		fontSize="sm"
+																	>
+																		{app.name}
+																	</Text>
+																	<Text
+																		fontSize="xs"
+																		color="gray.500"
+																		mt={0.5}
+																	>
+																		{t(
+																			`settings.subscriptions.clientAppPlatforms.${app.key}`,
+																			app.platform,
+																		)}{" "}
+																		· {pct}
+																	</Text>
+																</Box>
+																<Switch
+																	colorScheme="primary"
+																	isChecked={isAllowed}
+																	onChange={(e) => {
+																		let updated: string[];
+																		if (e.target.checked) {
+																			updated = blocked.filter(
+																				(k) =>
+																					k.toLowerCase() !==
+																					app.key.toLowerCase(),
+																			);
+																		} else {
+																			updated = [
+																				...blocked.filter(
 																					(k) =>
 																						k.toLowerCase() !==
 																						app.key.toLowerCase(),
-																				);
-																			} else {
-																				updated = [
-																					...blocked.filter(
-																						(k) =>
-																							k.toLowerCase() !==
-																							app.key.toLowerCase(),
-																					),
-																					app.key,
-																				];
-																			}
-																			handleAdminTemplateChange(
-																				admin.id,
-																				"blocked_client_apps" as any,
-																				updated as any,
-																			);
-																		}}
-																	/>
-																</Flex>
-															);
-														})}
-													</SimpleGrid>
-												</Box>
+																				),
+																				app.key,
+																			];
+																		}
+																		handleAdminTemplateChange(
+																			admin.id,
+																			"blocked_client_apps" as any,
+																			updated as any,
+																		);
+																	}}
+																/>
+															</Flex>
+														);
+													})}
+												</SimpleGrid>
 											)}
 
 											{/* Tab 3: Custom Config Remarks */}

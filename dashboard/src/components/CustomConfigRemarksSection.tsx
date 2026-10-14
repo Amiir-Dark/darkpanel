@@ -9,8 +9,6 @@ import {
 	Heading,
 	HStack,
 	IconButton,
-	InputGroup,
-	InputLeftElement,
 	SimpleGrid,
 	Spinner,
 	Text,
@@ -24,7 +22,6 @@ import {
 	ChevronDownIcon,
 	ChevronUpIcon,
 	FolderIcon,
-	MagnifyingGlassIcon,
 	PencilSquareIcon,
 	ServerStackIcon,
 	XMarkIcon,
@@ -79,7 +76,6 @@ export const CustomConfigRemarksSection: FC<CustomConfigRemarksSectionProps> = (
 	const [loadingDetails, setLoadingDetails] = useState<Record<number, boolean>>({});
 	const [editingHostId, setEditingHostId] = useState<number | null>(null);
 	const [editingValue, setEditingValue] = useState<string>("");
-	const [searchTerm, setSearchTerm] = useState<string>("");
 
 	// Fetch services list
 	const {
@@ -213,67 +209,10 @@ export const CustomConfigRemarksSection: FC<CustomConfigRemarksSectionProps> = (
 
 	const [expandedStandalone, setExpandedStandalone] = useState<boolean>(true);
 
-	// Filter logic
-	const normalizedSearch = searchTerm.trim().toLowerCase();
-	const filteredServices = useMemo(() => {
-		if (!normalizedSearch) return services;
-		return services.filter((s) => {
-			if (s.name.toLowerCase().includes(normalizedSearch)) return true;
-			if (s.description && s.description.toLowerCase().includes(normalizedSearch)) return true;
-			const detail = serviceDetails[s.id];
-			if (detail?.hosts?.some((h) =>
-				(h.remark && h.remark.toLowerCase().includes(normalizedSearch)) ||
-				(h.inbound_tag && h.inbound_tag.toLowerCase().includes(normalizedSearch)) ||
-				(h.address && h.address.toLowerCase().includes(normalizedSearch)) ||
-				(remarks[String(h.id)] && remarks[String(h.id)].toLowerCase().includes(normalizedSearch))
-			)) return true;
-			return false;
-		});
-	}, [services, normalizedSearch, serviceDetails, remarks]);
-
-	const filteredStandalone = useMemo(() => {
-		if (!normalizedSearch) return standaloneInbounds;
-		return standaloneInbounds.filter((h) =>
-			(h.remark && h.remark.toLowerCase().includes(normalizedSearch)) ||
-			(h.inbound_tag && h.inbound_tag.toLowerCase().includes(normalizedSearch)) ||
-			(h.address && h.address.toLowerCase().includes(normalizedSearch)) ||
-			(remarks[String(h.id)] && remarks[String(h.id)].toLowerCase().includes(normalizedSearch))
-		);
-	}, [standaloneInbounds, normalizedSearch, remarks]);
-
 	const hasAnyData = services.length > 0 || subscriptionInbounds.length > 0;
 
 	return (
 		<VStack spacing={4} align="stretch">
-			{/* Header info & Search bar */}
-			<Flex
-				align={{ base: "flex-start", sm: "center" }}
-				justify="space-between"
-				flexWrap="wrap"
-				gap={3}
-			>
-				<Box>
-					<Text fontSize="xs" color="gray.500">
-						Click on any service to view its configs and customize their display names using the pencil icon.
-					</Text>
-				</Box>
-				{hasAnyData && (
-					<Box minW={{ base: "full", sm: "240px" }}>
-						<InputGroup size="sm">
-							<InputLeftElement pointerEvents="none">
-								<MagnifyingGlassIcon style={{ width: 14, height: 14, color: "#A0AEC0" }} />
-							</InputLeftElement>
-							<Input
-								pl={8}
-								placeholder="Search services or configs..."
-								size="sm"
-								value={searchTerm}
-								onChange={(e) => setSearchTerm(e.target.value)}
-							/>
-						</InputGroup>
-					</Box>
-				)}
-			</Flex>
 
 			{isServicesLoading && services.length === 0 ? (
 				<Flex justify="center" align="center" py={8} direction="column" gap={3}>
@@ -311,7 +250,7 @@ export const CustomConfigRemarksSection: FC<CustomConfigRemarksSectionProps> = (
 			) : (
 				<VStack spacing={3.5} align="stretch">
 					{/* Services Accordion List */}
-					{filteredServices.map((service) => {
+					{services.map((service) => {
 						const isExpanded = Boolean(expandedServices[service.id]);
 						const detail = serviceDetails[service.id];
 						const isLoading = Boolean(loadingDetails[service.id]);
@@ -579,7 +518,7 @@ export const CustomConfigRemarksSection: FC<CustomConfigRemarksSectionProps> = (
 					})}
 
 					{/* Standalone Inbounds (if any exist not inside services) */}
-					{filteredStandalone.length > 0 && (
+					{standaloneInbounds.length > 0 && (
 						<Box
 							borderRadius="xl"
 							borderWidth="1px"
@@ -614,7 +553,7 @@ export const CustomConfigRemarksSection: FC<CustomConfigRemarksSectionProps> = (
 												{services.length > 0 ? "Other Configs & Inbounds" : "Inbounds & Hosts"}
 											</Heading>
 											<Badge colorScheme="purple" fontSize="10px" px={2} borderRadius="md">
-												{filteredStandalone.length} Configs
+												{standaloneInbounds.length} Configs
 											</Badge>
 										</HStack>
 										<Text fontSize="11px" color="gray.500" mt={0.5}>
@@ -646,7 +585,7 @@ export const CustomConfigRemarksSection: FC<CustomConfigRemarksSectionProps> = (
 									bg={colorMode === "dark" ? "blackAlpha.200" : "gray.50"}
 								>
 									<SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={3} pt={2}>
-										{filteredStandalone.map((host) => {
+										{standaloneInbounds.map((host) => {
 											const hostKey = String(host.id);
 											const customVal = remarks[hostKey] ?? "";
 											const hasCustom = Boolean(customVal);
