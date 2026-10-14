@@ -1025,6 +1025,23 @@ export const IntegrationSettingsPage = () => {
 	} | null>(null);
 	const [isTestingResellerBot, setIsTestingResellerBot] = useState(false);
 	const [isBackingUpReseller, setIsBackingUpReseller] = useState(false);
+	const [resellerTab, setResellerTab] = useState<"sub_access" | "client_apps" | "telegram">(() => {
+		const hash = window.location.hash.replace("#", "");
+		if (hash === "client_apps") return "client_apps";
+		if (hash === "telegram" || hash === "reseller_telegram") return "telegram";
+		return "sub_access";
+	});
+
+	useEffect(() => {
+		const handleHash = () => {
+			const hash = window.location.hash.replace("#", "");
+			if (hash === "client_apps") setResellerTab("client_apps");
+			else if (hash === "telegram" || hash === "reseller_telegram") setResellerTab("telegram");
+			else if (hash === "sub_access" || hash === "subscriptions") setResellerTab("sub_access");
+		};
+		window.addEventListener("hashchange", handleHash);
+		return () => window.removeEventListener("hashchange", handleHash);
+	}, []);
 
 	const handleTestResellerBot = async (adminId: number) => {
 		const admin = adminOverrides[adminId] || selfAdminFromBundle;
@@ -2184,10 +2201,34 @@ export const IntegrationSettingsPage = () => {
 									...(canManageSubscription
 										? [
 												{
-													value: "subscriptions",
-													isActive: activeIntegrationTab === 2,
-													onClick: () => handleIntegrationTabChange(2),
-													label: t("settings.subscriptions.tabTitle"),
+													value: "sub_access",
+													isActive: activeIntegrationTab === 2 && resellerTab === "sub_access",
+													onClick: () => {
+														setActiveIntegrationTab(2);
+														setResellerTab("sub_access");
+														window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#sub_access`);
+													},
+													label: "Sub Access",
+												},
+												{
+													value: "client_apps",
+													isActive: activeIntegrationTab === 2 && resellerTab === "client_apps",
+													onClick: () => {
+														setActiveIntegrationTab(2);
+														setResellerTab("client_apps");
+														window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#client_apps`);
+													},
+													label: "Client Apps",
+												},
+												{
+													value: "telegram",
+													isActive: activeIntegrationTab === 2 && resellerTab === "telegram",
+													onClick: () => {
+														setActiveIntegrationTab(2);
+														setResellerTab("telegram");
+														window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#telegram`);
+													},
+													label: t("settings.telegram", "ربات تلگرام"),
 												},
 										  ]
 										: []),
@@ -2240,7 +2281,7 @@ export const IntegrationSettingsPage = () => {
 							  ]
 					}
 				/>
-				{!isSelfOnlySubscription && activeIntegrationTab !== 4 && (
+				{activeIntegrationTab !== 4 && (
 					<Button
 						flexShrink={0}
 						alignSelf={{ base: "flex-end", md: "center" }}
@@ -3055,24 +3096,21 @@ export const IntegrationSettingsPage = () => {
 													>
 														<Box>
 															<Heading size="sm" mb={1}>
-																{t(
-																	"settings.subscriptions.myTitle",
-																	"تنظیمات سابسکریپشن اختصاصی",
-																)}
+																{resellerTab === "sub_access"
+																	? "تنظیمات سابسکریپشن (Sub Access)"
+																	: resellerTab === "client_apps"
+																	  ? "نرم‌افزارهای مجاز (Client Apps)"
+																	  : "ربات تلگرام بکاپ (Telegram Bot)"}
 															</Heading>
 															<Text fontSize="sm" color="gray.500">
-																{t(
-																	"settings.subscriptions.myDescription",
-																	"تنظیم دامنه اختصاصی، پیام‌ها و مدیریت کلاینت‌های مجاز برای کاربران شما",
-																)}
+																{resellerTab === "sub_access"
+																	? "تنظیم هدرهای سابسکریپشن، محدودیت لینک‌ها و نام‌های اختصاصی کانفیگ‌ها"
+																	: resellerTab === "client_apps"
+																	  ? "انتخاب نرم‌افزارهای مجاز برای اتصال و بروزرسانی سابسکریپشن کاربران شما"
+																	  : "تنظیمات ربات تلگرام جهت ارسال بکاپ دستی و خودکار از کاربران پنل شما"}
 															</Text>
 														</Box>
 														<HStack spacing={2}>
-															{admin.subscription_domain ? (
-																<Badge colorScheme="blue">
-																	{admin.subscription_domain}
-																</Badge>
-															) : null}
 															<Button
 																variant="outline"
 																size="sm"
@@ -3084,438 +3122,316 @@ export const IntegrationSettingsPage = () => {
 														</HStack>
 													</Flex>
 
-													{/* Client Apps for this admin */}
-													<Box
-														p={4}
-														borderRadius="xl"
-														borderWidth="1px"
-														borderColor={borderColor}
-														bg={subCardBg}
-													>
-														<Heading size="xs" mb={1}>
-															{t(
-																"settings.subscriptions.clientAppsTitle",
-																"Client Apps",
-															)}
-														</Heading>
-														<Text fontSize="xs" color="gray.500" mb={3.5}>
-															{t(
-																"settings.subscriptions.clientAppsDescription",
-																"Choose which apps your users may use to update their subscriptions. Blocked apps get a \"not allowed\" response.",
-															)}
-														</Text>
-														<SimpleGrid
-															columns={{ base: 1, md: 2, lg: 3 }}
-															spacing={3.5}
-														>
-															{CLIENT_APPS_LIST.map((app) => {
-																const blocked =
-																	(settings.blocked_client_apps as string[]) ||
-																	[];
-																const isBlocked = blocked.some(
-																	(b) =>
-																		b.toLowerCase() ===
-																		app.key.toLowerCase(),
-																);
-																const isAllowed = !isBlocked;
-																const stats =
-																	subscriptionBundle?.settings
-																		?.client_app_stats || {};
-																const pct =
-																	stats[app.key] !== undefined
-																		? `${stats[app.key].toFixed(1)}%`
-																		: "0.0%";
+													{/* Tab 1: Sub Access & Custom Remarks */}
+													{resellerTab === "sub_access" && (
+														<>
+															{/* 1. Sub Access Section (Matching Screenshot) */}
+															<Box
+																p={5}
+																borderRadius="xl"
+																borderWidth="1px"
+																borderColor={borderColor}
+																bg={subCardBg}
+															>
+																<Flex align="center" gap={3} mb={4}>
+																	<Box
+																		p={2}
+																		borderRadius="lg"
+																		borderWidth="1px"
+																		borderColor={borderColor}
+																		bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
+																	>
+																		<WindowIcon style={{ width: 22, height: 22 }} />
+																	</Box>
+																	<Box>
+																		<Heading size="sm">Sub Access</Heading>
+																		<Text fontSize="xs" color="gray.500" mt={0.5}>
+																			Configure the subscription access page headers and link delivery limits.
+																		</Text>
+																	</Box>
+																</Flex>
 
-																return (
+																<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+																	{/* Max links per user */}
+																	<FormControl>
+																		<FormLabel fontSize="xs">
+																			<HStack spacing={1.5}>
+																				<AdjustmentsHorizontalIcon style={{ width: 15, height: 15 }} />
+																				<Text fontWeight="semibold">Max links per user</Text>
+																			</HStack>
+																		</FormLabel>
+																		<Input
+																			type="number"
+																			placeholder="0 = unlimited"
+																			value={settings.max_links_per_user ?? ""}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"max_links_per_user" as any,
+																					event.target.value === "" ? 0 : Number(event.target.value),
+																				)
+																			}
+																		/>
+																		<FormHelperText fontSize="11px">
+																			Maximum number of config links delivered to each user (randomized on every request).
+																		</FormHelperText>
+																	</FormControl>
+
+																	{/* Update interval (hours) */}
+																	<FormControl>
+																		<FormLabel fontSize="xs">
+																			<HStack spacing={1.5}>
+																				<ClockIcon style={{ width: 15, height: 15 }} />
+																				<Text fontWeight="semibold">Update interval (hours)</Text>
+																			</HStack>
+																		</FormLabel>
+																		<Input
+																			type="number"
+																			placeholder="1"
+																			value={settings.subscription_update_interval ?? ""}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"subscription_update_interval",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																		<FormHelperText fontSize="11px">
+																			How often clients should check for updates (profile-update-interval header).
+																		</FormHelperText>
+																	</FormControl>
+
+																	{/* Profile title */}
+																	<FormControl>
+																		<FormLabel fontSize="xs">
+																			<HStack spacing={1.5}>
+																				<Text fontWeight="bold" fontSize="xs">T</Text>
+																				<Text fontWeight="semibold">Profile title</Text>
+																			</HStack>
+																		</FormLabel>
+																		<Input
+																			placeholder="D..."
+																			value={settings.subscription_profile_title ?? ""}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"subscription_profile_title",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																		<FormHelperText fontSize="11px">
+																			Sent as the profile-title header. Supports variables: &#123;username&#125;, &#123;id&#125;, ...
+																		</FormHelperText>
+																	</FormControl>
+
+																	{/* Support URL */}
+																	<FormControl>
+																		<FormLabel fontSize="xs">
+																			<HStack spacing={1.5}>
+																				<AtSymbolIcon style={{ width: 15, height: 15 }} />
+																				<Text fontWeight="semibold">Support URL</Text>
+																			</HStack>
+																		</FormLabel>
+																		<Input
+																			placeholder="https://t.me/your_support"
+																			value={settings.subscription_support_url ?? ""}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"subscription_support_url",
+																					event.target.value,
+																				)
+																			}
+																		/>
+																		<FormHelperText fontSize="11px">
+																			Support link shown to users (support-url header).
+																		</FormHelperText>
+																	</FormControl>
+
+																	{/* Announce message */}
+																	<FormControl>
+																		<FormLabel fontSize="xs">
+																			<HStack spacing={1.5}>
+																				<MegaphoneIcon style={{ width: 15, height: 15 }} />
+																				<Text fontWeight="semibold">Announce message</Text>
+																			</HStack>
+																		</FormLabel>
+																		<Input
+																			placeholder="e.g. Welcome {username}!"
+																			value={settings.subscription_announcement ?? ""}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"subscription_announcement" as any,
+																					event.target.value,
+																				)
+																			}
+																		/>
+																		<FormHelperText fontSize="11px">
+																			Announcement text shown to users (announce header). Supports variables.
+																		</FormHelperText>
+																	</FormControl>
+
+																	{/* Announce URL */}
+																	<FormControl>
+																		<FormLabel fontSize="xs">
+																			<HStack spacing={1.5}>
+																				<LinkIcon style={{ width: 15, height: 15 }} />
+																				<Text fontWeight="semibold">Announce URL</Text>
+																			</HStack>
+																		</FormLabel>
+																		<Input
+																			placeholder="https://t.me/your_channel"
+																			value={settings.announce_url ?? ""}
+																			onChange={(event) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"announce_url" as any,
+																					event.target.value,
+																				)
+																			}
+																		/>
+																		<FormHelperText fontSize="11px">
+																			URL for announcement details (announce-url header).
+																		</FormHelperText>
+																	</FormControl>
+																</SimpleGrid>
+
+																{/* Switches section matching screenshot */}
+																<VStack spacing={3} align="stretch" mt={5}>
+																	{/* 1. Randomize links */}
 																	<Flex
-																		key={app.key}
 																		p={3.5}
 																		borderRadius="xl"
 																		borderWidth="1px"
-																		borderColor={
-																			colorMode === "dark"
-																				? "whiteAlpha.100"
-																				: "gray.200"
-																		}
-																		bg={
-																			colorMode === "dark"
-																				? "whiteAlpha.50"
-																				: "gray.50"
-																		}
+																		borderColor={borderColor}
+																		bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
 																		justify="space-between"
 																		align="center"
-																		transition="all 0.2s ease"
-																		_hover={{
-																			borderColor:
-																				colorMode === "dark"
-																					? "whiteAlpha.200"
-																					: "gray.300",
-																			bg:
-																				colorMode === "dark"
-																					? "whiteAlpha.100"
-																					: "gray.100",
-																		}}
 																	>
-																		<Box>
-																			<Text
-																				fontWeight="semibold"
-																				fontSize="sm"
-																			>
-																				{app.name}
-																			</Text>
-																			<Text
-																				fontSize="xs"
-																				color="gray.500"
-																				mt={0.5}
-																			>
-																				{t(
-																					`settings.subscriptions.clientAppPlatforms.${app.key}`,
-																					app.platform,
-																				)}{" "}
-																				· {pct}
-																			</Text>
-																		</Box>
+																		<HStack spacing={3} align="flex-start">
+																			<Box mt={0.5} color="gray.400">
+																				<ArrowsRightLeftIcon style={{ width: 18, height: 18 }} />
+																			</Box>
+																			<Box>
+																				<Text fontWeight="semibold" fontSize="sm">Randomize links</Text>
+																				<Text fontSize="xs" color="gray.500" mt={0.5}>
+																					Shuffle the order of config links on each subscription request.
+																				</Text>
+																			</Box>
+																		</HStack>
 																		<Switch
 																			colorScheme="primary"
-																			isChecked={isAllowed}
-																			onChange={(e) => {
-																				let updated: string[];
-																				if (e.target.checked) {
-																					updated = blocked.filter(
-																						(k) =>
-																							k.toLowerCase() !==
-																							app.key.toLowerCase(),
-																					);
-																				} else {
-																					updated = [
-																						...blocked.filter(
-																							(k) =>
-																								k.toLowerCase() !==
-																								app.key.toLowerCase(),
-																						),
-																						app.key,
-																					];
-																				}
+																			isChecked={Boolean(settings.randomize_links)}
+																			onChange={(e) =>
 																				handleAdminTemplateChange(
 																					admin.id,
-																					"blocked_client_apps" as any,
-																					updated as any,
-																				);
-																			}}
+																					"randomize_links" as any,
+																					e.target.checked,
+																				)
+																			}
 																		/>
 																	</Flex>
-																);
-															})}
-														</SimpleGrid>
-													</Box>
 
-													{/* 1. Sub Access Section (Matching Screenshot) */}
-													<Box
-														p={5}
-														borderRadius="xl"
-														borderWidth="1px"
-														borderColor={borderColor}
-														bg={subCardBg}
-													>
-														<Flex align="center" gap={3} mb={4}>
-															<Box
-																p={2}
-																borderRadius="lg"
-																borderWidth="1px"
-																borderColor={borderColor}
-																bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
-															>
-																<WindowIcon style={{ width: 22, height: 22 }} />
-															</Box>
-															<Box>
-																<Heading size="sm">Sub Access</Heading>
-																<Text fontSize="xs" color="gray.500" mt={0.5}>
-																	Configure the subscription access page headers and link delivery limits.
-																</Text>
-															</Box>
-														</Flex>
+																	{/* 2. Show config links in templates */}
+																	<Flex
+																		p={3.5}
+																		borderRadius="xl"
+																		borderWidth="1px"
+																		borderColor={borderColor}
+																		bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
+																		justify="space-between"
+																		align="center"
+																	>
+																		<HStack spacing={3} align="flex-start">
+																			<Box mt={0.5} color="gray.400">
+																				<EyeIcon style={{ width: 18, height: 18 }} />
+																			</Box>
+																			<Box>
+																				<Text fontWeight="semibold" fontSize="sm">Show config links in templates</Text>
+																				<Text fontSize="xs" color="gray.500" mt={0.5}>
+																					Display the user's config links on the subscription access page. Turn off to hide them from every template.
+																				</Text>
+																			</Box>
+																		</HStack>
+																		<Switch
+																			colorScheme="primary"
+																			isChecked={settings.show_config_links !== false}
+																			onChange={(e) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"show_config_links" as any,
+																					e.target.checked,
+																				)
+																			}
+																		/>
+																	</Flex>
 
-														<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-															{/* Max links per user */}
-															<FormControl>
-																<FormLabel fontSize="xs">
-																	<HStack spacing={1.5}>
-																		<AdjustmentsHorizontalIcon style={{ width: 15, height: 15 }} />
-																		<Text fontWeight="semibold">Max links per user</Text>
-																	</HStack>
-																</FormLabel>
-																<Input
-																	type="number"
-																	placeholder="0 = unlimited"
-																	value={settings.max_links_per_user ?? ""}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"max_links_per_user" as any,
-																			event.target.value === "" ? 0 : Number(event.target.value),
-																		)
-																	}
-																/>
-																<FormHelperText fontSize="11px">
-																	Maximum number of config links delivered to each user (randomized on every request).
-																</FormHelperText>
-															</FormControl>
+																	{/* 3. Append username to links */}
+																	<Flex
+																		p={3.5}
+																		borderRadius="xl"
+																		borderWidth="1px"
+																		borderColor={borderColor}
+																		bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
+																		justify="space-between"
+																		align="center"
+																	>
+																		<HStack spacing={3} align="flex-start">
+																			<Box mt={0.5} color="gray.400">
+																				<AtSymbolIcon style={{ width: 18, height: 18 }} />
+																			</Box>
+																			<Box>
+																				<Text fontWeight="semibold" fontSize="sm">Append username to links</Text>
+																				<Text fontSize="xs" color="gray.500" mt={0.5}>
+																					Adds #username to the end of every subscription link, so client apps import the profile under the user's name. The link itself keeps working unchanged.
+																				</Text>
+																			</Box>
+																		</HStack>
+																		<Switch
+																			colorScheme="primary"
+																			isChecked={Boolean(settings.append_username_to_links)}
+																			onChange={(e) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"append_username_to_links" as any,
+																					e.target.checked,
+																				)
+																			}
+																		/>
+																	</Flex>
 
-															{/* Update interval (hours) */}
-															<FormControl>
-																<FormLabel fontSize="xs">
-																	<HStack spacing={1.5}>
-																		<ClockIcon style={{ width: 15, height: 15 }} />
-																		<Text fontWeight="semibold">Update interval (hours)</Text>
-																	</HStack>
-																</FormLabel>
-																<Input
-																	type="number"
-																	placeholder="1"
-																	value={settings.subscription_update_interval ?? ""}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"subscription_update_interval",
-																			event.target.value,
-																		)
-																	}
-																/>
-																<FormHelperText fontSize="11px">
-																	How often clients should check for updates (profile-update-interval header).
-																</FormHelperText>
-															</FormControl>
-
-															{/* Profile title */}
-															<FormControl>
-																<FormLabel fontSize="xs">
-																	<HStack spacing={1.5}>
-																		<Text fontWeight="bold" fontSize="xs">T</Text>
-																		<Text fontWeight="semibold">Profile title</Text>
-																	</HStack>
-																</FormLabel>
-																<Input
-																	placeholder="D..."
-																	value={settings.subscription_profile_title ?? ""}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"subscription_profile_title",
-																			event.target.value,
-																		)
-																	}
-																/>
-																<FormHelperText fontSize="11px">
-																	Sent as the profile-title header. Supports variables: &#123;username&#125;, &#123;id&#125;, ...
-																</FormHelperText>
-															</FormControl>
-
-															{/* Support URL */}
-															<FormControl>
-																<FormLabel fontSize="xs">
-																	<HStack spacing={1.5}>
-																		<AtSymbolIcon style={{ width: 15, height: 15 }} />
-																		<Text fontWeight="semibold">Support URL</Text>
-																	</HStack>
-																</FormLabel>
-																<Input
-																	placeholder="https://t.me/your_support"
-																	value={settings.subscription_support_url ?? ""}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"subscription_support_url",
-																			event.target.value,
-																		)
-																	}
-																/>
-																<FormHelperText fontSize="11px">
-																	Support link shown to users (support-url header).
-																</FormHelperText>
-															</FormControl>
-
-															{/* Announce message */}
-															<FormControl>
-																<FormLabel fontSize="xs">
-																	<HStack spacing={1.5}>
-																		<MegaphoneIcon style={{ width: 15, height: 15 }} />
-																		<Text fontWeight="semibold">Announce message</Text>
-																	</HStack>
-																</FormLabel>
-																<Input
-																	placeholder="e.g. Welcome {username}!"
-																	value={settings.subscription_announcement ?? ""}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"subscription_announcement" as any,
-																			event.target.value,
-																		)
-																	}
-																/>
-																<FormHelperText fontSize="11px">
-																	Announcement text shown to users (announce header). Supports variables.
-																</FormHelperText>
-															</FormControl>
-
-															{/* Announce URL */}
-															<FormControl>
-																<FormLabel fontSize="xs">
-																	<HStack spacing={1.5}>
-																		<LinkIcon style={{ width: 15, height: 15 }} />
-																		<Text fontWeight="semibold">Announce URL</Text>
-																	</HStack>
-																</FormLabel>
-																<Input
-																	placeholder="https://t.me/your_channel"
-																	value={settings.announce_url ?? ""}
-																	onChange={(event) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"announce_url" as any,
-																			event.target.value,
-																		)
-																	}
-																/>
-																<FormHelperText fontSize="11px">
-																	URL for announcement details (announce-url header).
-																</FormHelperText>
-															</FormControl>
-														</SimpleGrid>
-
-														{/* Switches section matching screenshot */}
-														<VStack spacing={3} align="stretch" mt={5}>
-															{/* 1. Randomize links */}
-															<Flex
-																p={3.5}
-																borderRadius="xl"
-																borderWidth="1px"
-																borderColor={borderColor}
-																bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
-																justify="space-between"
-																align="center"
-															>
-																<HStack spacing={3} align="flex-start">
-																	<Box mt={0.5} color="gray.400">
-																		<ArrowsRightLeftIcon style={{ width: 18, height: 18 }} />
-																	</Box>
-																	<Box>
-																		<Text fontWeight="semibold" fontSize="sm">Randomize links</Text>
-																		<Text fontSize="xs" color="gray.500" mt={0.5}>
-																			Shuffle the order of config links on each subscription request.
-																		</Text>
-																	</Box>
-																</HStack>
-																<Switch
-																	colorScheme="primary"
-																	isChecked={Boolean(settings.randomize_links)}
-																	onChange={(e) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"randomize_links" as any,
-																			e.target.checked,
-																		)
-																	}
-																/>
-															</Flex>
-
-															{/* 2. Show config links in templates */}
-															<Flex
-																p={3.5}
-																borderRadius="xl"
-																borderWidth="1px"
-																borderColor={borderColor}
-																bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
-																justify="space-between"
-																align="center"
-															>
-																<HStack spacing={3} align="flex-start">
-																	<Box mt={0.5} color="gray.400">
-																		<EyeIcon style={{ width: 18, height: 18 }} />
-																	</Box>
-																	<Box>
-																		<Text fontWeight="semibold" fontSize="sm">Show config links in templates</Text>
-																		<Text fontSize="xs" color="gray.500" mt={0.5}>
-																			Display the user's config links on the subscription access page. Turn off to hide them from every template.
-																		</Text>
-																	</Box>
-																</HStack>
-																<Switch
-																	colorScheme="primary"
-																	isChecked={settings.show_config_links !== false}
-																	onChange={(e) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"show_config_links" as any,
-																			e.target.checked,
-																		)
-																	}
-																/>
-															</Flex>
-
-															{/* 3. Append username to links */}
-															<Flex
-																p={3.5}
-																borderRadius="xl"
-																borderWidth="1px"
-																borderColor={borderColor}
-																bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
-																justify="space-between"
-																align="center"
-															>
-																<HStack spacing={3} align="flex-start">
-																	<Box mt={0.5} color="gray.400">
-																		<AtSymbolIcon style={{ width: 18, height: 18 }} />
-																	</Box>
-																	<Box>
-																		<Text fontWeight="semibold" fontSize="sm">Append username to links</Text>
-																		<Text fontSize="xs" color="gray.500" mt={0.5}>
-																			Adds #username to the end of every subscription link, so client apps import the profile under the user's name. The link itself keeps working unchanged.
-																		</Text>
-																	</Box>
-																</HStack>
-																<Switch
-																	colorScheme="primary"
-																	isChecked={Boolean(settings.append_username_to_links)}
-																	onChange={(e) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"append_username_to_links" as any,
-																			e.target.checked,
-																		)
-																	}
-																/>
-															</Flex>
-
-															{/* 4. Subscription template */}
-															<Flex
-																p={3.5}
-																borderRadius="xl"
-																borderWidth="1px"
-																borderColor={borderColor}
-																bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
-																justify="space-between"
-																align="center"
-															>
-																<HStack spacing={3} align="flex-start">
-																	<Box mt={0.5} color="gray.400">
-																		<WindowIcon style={{ width: 18, height: 18 }} />
-																	</Box>
-																	<Box>
-																		<Text fontWeight="semibold" fontSize="sm">Subscription template</Text>
-																		<Text fontSize="xs" color="gray.500" mt={0.5}>
-																			Serve the access template page for this subscription. Turn off to show the subscriber only their raw data as JSON instead of the HTML page.
-																		</Text>
-																	</Box>
-																</HStack>
-																<Switch
-																	colorScheme="primary"
-																	isChecked={settings.subscription_template_enabled !== false}
-																	onChange={(e) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"subscription_template_enabled" as any,
-																			e.target.checked,
+																	{/* 4. Subscription template */}
+																	<Flex
+																		p={3.5}
+																		borderRadius="xl"
+																		borderWidth="1px"
+																		borderColor={borderColor}
+																		bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}
+																		justify="space-between"
+																		align="center"
+																	>
+																		<HStack spacing={3} align="flex-start">
+																			<Box mt={0.5} color="gray.400">
+																				<WindowIcon style={{ width: 18, height: 18 }} />
+																			</Box>
+																			<Box>
+																				<Text fontWeight="semibold" fontSize="sm">Subscription template</Text>
+																				<Text fontSize="xs" color="gray.500" mt={0.5}>
+																					Serve the access template page for this subscription. Turn off to show the subscriber only their raw data as JSON instead of the HTML page.
+																				</Text>
+																			</Box>
+																		</HStack>
+																		<Switch
+																			colorScheme="primary"
+																			isChecked={settings.subscription_template_enabled !== false}
+																			onChange={(e) =>
+																				handleAdminTemplateChange(
+																					admin.id,
+																					"subscription_template_enabled" as any,
+																					e.target.checked,
 																		)
 																	}
 																/>
@@ -3523,7 +3439,7 @@ export const IntegrationSettingsPage = () => {
 														</VStack>
 													</Box>
 
-													{/* 2. Custom Config Names (Remarks) */}
+													{/* Custom Config Names (Remarks) */}
 													<Box
 														p={5}
 														borderRadius="xl"
@@ -3611,199 +3527,298 @@ export const IntegrationSettingsPage = () => {
 															</Text>
 														)}
 													</Box>
+												</>
+											)}
 
-													{/* 3. Telegram Bot Backup Section */}
-													<Box
-														p={5}
-														borderRadius="xl"
-														borderWidth="1px"
-														borderColor={borderColor}
-														bg={subCardBg}
+											{/* Tab 2: Client Apps */}
+											{resellerTab === "client_apps" && (
+												<Box
+													p={5}
+													borderRadius="xl"
+													borderWidth="1px"
+													borderColor={borderColor}
+													bg={subCardBg}
+												>
+													<Heading size="xs" mb={1}>
+														{t(
+															"settings.subscriptions.clientAppsTitle",
+															"Client Apps",
+														)}
+													</Heading>
+													<Text fontSize="xs" color="gray.500" mb={3.5}>
+														{t(
+															"settings.subscriptions.clientAppsDescription",
+															"Choose which apps your users may use to update their subscriptions. Blocked apps get a \"not allowed\" response.",
+														)}
+													</Text>
+													<SimpleGrid
+														columns={{ base: 1, md: 2, lg: 3 }}
+														spacing={3.5}
 													>
-														<Flex
-															justify="space-between"
-															align={{ base: "flex-start", md: "center" }}
-															flexDirection={{ base: "column", md: "row" }}
-															gap={3}
-															mb={4}
-														>
-															<Flex align="center" gap={3}>
-																<Box
-																	p={2}
-																	borderRadius="lg"
+														{CLIENT_APPS_LIST.map((app) => {
+															const blocked =
+																(settings.blocked_client_apps as string[]) ||
+																[];
+															const isBlocked = blocked.some(
+																(b) =>
+																	b.toLowerCase() ===
+																	app.key.toLowerCase(),
+															);
+															const isAllowed = !isBlocked;
+															const stats =
+																subscriptionBundle?.settings
+																	?.client_app_stats || {};
+															const pct =
+																stats[app.key] !== undefined
+																	? `${stats[app.key].toFixed(1)}%`
+																	: "0.0%";
+
+															return (
+																<Flex
+																	key={app.key}
+																	p={3.5}
+																	borderRadius="xl"
 																	borderWidth="1px"
-																	borderColor={borderColor}
-																	bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
-																>
-																	<PaperAirplaneIcon style={{ width: 22, height: 22 }} />
-																</Box>
-																<Box>
-																	<Heading size="xs">
-																		{t("settings.subscriptions.telegramBackupTitle", "بکاپ تلگرام کاربران (Telegram Bot Backup)")}
-																	</Heading>
-																	<Text fontSize="xs" color="gray.500" mt={0.5}>
-																		{t(
-																			"settings.subscriptions.telegramBackupDesc",
-																			"افزودن ربات تلگرام اختصاصی برای دریافت خودکار و دستی فایل بکاپ کاربران پنل شما.",
-																		)}
-																	</Text>
-																</Box>
-															</Flex>
-															<HStack spacing={3}>
-																<Text fontSize="xs" fontWeight="semibold" color="gray.500">
-																	{Boolean(settings.telegram_backup_enabled) ? "فعال" : "غیرفعال"}
-																</Text>
-																<Switch
-																	colorScheme="primary"
-																	isChecked={Boolean(settings.telegram_backup_enabled)}
-																	onChange={(e) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"telegram_backup_enabled" as any,
-																			e.target.checked,
-																		)
+																	borderColor={
+																		colorMode === "dark"
+																			? "whiteAlpha.100"
+																			: "gray.200"
 																	}
-																/>
-															</HStack>
-														</Flex>
+																	bg={
+																		colorMode === "dark"
+																			? "whiteAlpha.50"
+																			: "gray.50"
+																	}
+																	justify="space-between"
+																	align="center"
+																	transition="all 0.2s ease"
+																	_hover={{
+																		borderColor:
+																			colorMode === "dark"
+																				? "whiteAlpha.200"
+																				: "gray.300",
+																		bg:
+																			colorMode === "dark"
+																				? "whiteAlpha.100"
+																				: "gray.100",
+																	}}
+																>
+																	<Box>
+																		<Text
+																			fontWeight="semibold"
+																			fontSize="sm"
+																		>
+																			{app.name}
+																		</Text>
+																		<Text
+																			fontSize="xs"
+																			color="gray.500"
+																			mt={0.5}
+																		>
+																			{t(
+																				`settings.subscriptions.clientAppPlatforms.${app.key}`,
+																				app.platform,
+																			)}{" "}
+																			· {pct}
+																		</Text>
+																	</Box>
+																	<Switch
+																		colorScheme="primary"
+																		isChecked={isAllowed}
+																		onChange={(e) => {
+																			let updated: string[];
+																			if (e.target.checked) {
+																				updated = blocked.filter(
+																					(k) =>
+																						k.toLowerCase() !==
+																						app.key.toLowerCase(),
+																				);
+																			} else {
+																				updated = [
+																					...blocked.filter(
+																						(k) =>
+																							k.toLowerCase() !==
+																							app.key.toLowerCase(),
+																					),
+																					app.key,
+																				];
+																			}
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"blocked_client_apps" as any,
+																				updated as any,
+																			);
+																		}}
+																	/>
+																</Flex>
+															);
+														})}
+													</SimpleGrid>
+												</Box>
+											)}
 
-														<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-															<FormControl>
-																<FormLabel fontSize="xs">توکن ربات تلگرام (Bot Token)</FormLabel>
-																<Input
-																	type="password"
-																	placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-																	value={settings.telegram_bot_token ?? ""}
-																	onChange={(e) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"telegram_bot_token" as any,
-																			e.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-															<FormControl>
-																<FormLabel fontSize="xs">شناسه چت یا کاربر (Chat ID)</FormLabel>
-																<Input
-																	placeholder="123456789 یا -100..."
-																	value={settings.telegram_chat_id ?? ""}
-																	onChange={(e) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"telegram_chat_id" as any,
-																			e.target.value,
-																		)
-																	}
-																/>
-															</FormControl>
-															<FormControl>
-																<FormLabel fontSize="xs">دوره بکاپ خودکار (Interval)</FormLabel>
-																<Select
-																	value={settings.telegram_backup_interval || "daily"}
-																	onChange={(e) =>
-																		handleAdminTemplateChange(
-																			admin.id,
-																			"telegram_backup_interval" as any,
-																			e.target.value,
-																		)
-																	}
-																>
-																	<option value="12h">هر ۱۲ ساعت (12 Hours)</option>
-																	<option value="daily">روزانه (Daily)</option>
-																	<option value="weekly">هفتگی (Weekly)</option>
-																</Select>
-															</FormControl>
-														</SimpleGrid>
-
-														<Flex
-															justify="space-between"
-															align={{ base: "flex-start", sm: "center" }}
-															flexDirection={{ base: "column", sm: "row" }}
-															gap={3}
-															mt={4}
-															pt={3}
-															borderTopWidth="1px"
-															borderColor={borderColor}
-														>
-															<Box>
-																{settings.telegram_backup_last_sent_at ? (
-																	<Text fontSize="xs" color="gray.500">
-																		آخرین ارسال بکاپ:{" "}
-																		{new Date(settings.telegram_backup_last_sent_at).toLocaleString("fa-IR")}
-																	</Text>
-																) : (
-																	<Text fontSize="xs" color="gray.500">
-																		هنوز بکاپی ارسال نشده است
-																	</Text>
-																)}
-															</Box>
-															<HStack spacing={2}>
-																<Button
-																	size="sm"
-																	variant="outline"
-																	isLoading={isTestingResellerBot}
-																	onClick={() => handleTestResellerBot(admin.id)}
-																>
-																	تست اتصال ربات
-																</Button>
-																<Button
-																	size="sm"
-																	colorScheme="blue"
-																	leftIcon={<ArrowUpTrayIcon style={{ width: 15, height: 15 }} />}
-																	isLoading={isBackingUpReseller}
-																	onClick={() => handleTriggerResellerBackup(admin.id)}
-																>
-																	ارسال بکاپ الان
-																</Button>
-															</HStack>
-														</Flex>
-													</Box>
-
-													{/* 4. Custom Subscription Domain */}
-													<Box
-														p={5}
-														borderRadius="xl"
-														borderWidth="1px"
-														borderColor={borderColor}
-														bg={subCardBg}
+											{/* Tab 3: Telegram Bot Backup Section */}
+											{resellerTab === "telegram" && (
+												<Box
+													p={5}
+													borderRadius="xl"
+													borderWidth="1px"
+													borderColor={borderColor}
+													bg={subCardBg}
+												>
+													<Flex
+														justify="space-between"
+														align={{ base: "flex-start", md: "center" }}
+														flexDirection={{ base: "column", md: "row" }}
+														gap={3}
+														mb={4}
 													>
-														<FormControl>
-															<FormLabel fontSize="xs">
-																{t("settings.subscriptions.adminDomain", "دامنه اختصاصی سابسکریپشن")}
-															</FormLabel>
-															<Input
-																placeholder="https://sub.domain.com"
-																value={admin.subscription_domain ?? ""}
-																onChange={(event) =>
-																	handleAdminFieldChange(
+														<Flex align="center" gap={3}>
+															<Box
+																p={2}
+																borderRadius="lg"
+																borderWidth="1px"
+																borderColor={borderColor}
+																bg={colorMode === "dark" ? "whiteAlpha.100" : "white"}
+															>
+																<PaperAirplaneIcon style={{ width: 22, height: 22 }} />
+															</Box>
+															<Box>
+																<Heading size="xs">
+																	{t("settings.subscriptions.telegramBackupTitle", "بکاپ تلگرام کاربران (Telegram Bot Backup)")}
+																</Heading>
+																<Text fontSize="xs" color="gray.500" mt={0.5}>
+																	{t(
+																		"settings.subscriptions.telegramBackupDesc",
+																		"افزودن ربات تلگرام اختصاصی برای دریافت خودکار و دستی فایل بکاپ کاربران پنل شما.",
+																	)}
+																</Text>
+															</Box>
+														</Flex>
+														<HStack spacing={3}>
+															<Text fontSize="xs" fontWeight="semibold" color="gray.500">
+																{Boolean(settings.telegram_backup_enabled) ? "فعال" : "غیرفعال"}
+															</Text>
+															<Switch
+																colorScheme="primary"
+																isChecked={Boolean(settings.telegram_backup_enabled)}
+																onChange={(e) =>
+																	handleAdminTemplateChange(
 																		admin.id,
-																		"subscription_domain",
-																		event.target.value,
+																		"telegram_backup_enabled" as any,
+																		e.target.checked,
 																	)
 																}
 															/>
-															<FormHelperText fontSize="11px">
-																{t(
-																	"settings.subscriptions.adminDomainHint",
-																	"در صورت تعیین دامنه اختصاصی، تمامی لینک‌های سابسکریپشن کاربران شما با این دامنه ساخته می‌شوند.",
-																)}
-															</FormHelperText>
-														</FormControl>
-													</Box>
-
-													{/* Save Button */}
-													<Flex justify="flex-end" mt={2}>
-														<Button
-															colorScheme="primary"
-															leftIcon={<SaveIcon />}
-															onClick={handleSaveAll}
-															isLoading={adminSelfSaveMutation.isLoading}
-														>
-															{t("settings.save", "Save changes")}
-														</Button>
+														</HStack>
 													</Flex>
-												</VStack>
+
+													<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+														<FormControl>
+															<FormLabel fontSize="xs">توکن ربات تلگرام (Bot Token)</FormLabel>
+															<Input
+																type="password"
+																placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+																value={settings.telegram_bot_token ?? ""}
+																onChange={(e) =>
+																	handleAdminTemplateChange(
+																		admin.id,
+																		"telegram_bot_token" as any,
+																		e.target.value,
+																	)
+																}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel fontSize="xs">شناسه چت یا کاربر (Chat ID)</FormLabel>
+															<Input
+																placeholder="123456789 یا -100..."
+																value={settings.telegram_chat_id ?? ""}
+																onChange={(e) =>
+																	handleAdminTemplateChange(
+																		admin.id,
+																		"telegram_chat_id" as any,
+																		e.target.value,
+																	)
+																}
+															/>
+														</FormControl>
+														<FormControl>
+															<FormLabel fontSize="xs">دوره بکاپ خودکار (Interval)</FormLabel>
+															<Select
+																value={settings.telegram_backup_interval || "daily"}
+																onChange={(e) =>
+																	handleAdminTemplateChange(
+																		admin.id,
+																		"telegram_backup_interval" as any,
+																		e.target.value,
+																	)
+																}
+															>
+																<option value="12h">هر ۱۲ ساعت (12 Hours)</option>
+																<option value="daily">روزانه (Daily)</option>
+																<option value="weekly">هفتگی (Weekly)</option>
+															</Select>
+														</FormControl>
+													</SimpleGrid>
+
+													<Flex
+														justify="space-between"
+														align={{ base: "flex-start", sm: "center" }}
+														flexDirection={{ base: "column", sm: "row" }}
+														gap={3}
+														mt={4}
+														pt={3}
+														borderTopWidth="1px"
+														borderColor={borderColor}
+													>
+														<Box>
+															{settings.telegram_backup_last_sent_at ? (
+																<Text fontSize="xs" color="gray.500">
+																	آخرین ارسال بکاپ:{" "}
+																	{new Date(settings.telegram_backup_last_sent_at).toLocaleString("fa-IR")}
+																</Text>
+															) : (
+																<Text fontSize="xs" color="gray.500">
+																	هنوز بکاپی ارسال نشده است
+																</Text>
+															)}
+														</Box>
+														<HStack spacing={2}>
+															<Button
+																size="sm"
+																variant="outline"
+																isLoading={isTestingResellerBot}
+																onClick={() => handleTestResellerBot(admin.id)}
+															>
+																تست اتصال ربات
+															</Button>
+															<Button
+																size="sm"
+																colorScheme="blue"
+																leftIcon={<ArrowUpTrayIcon style={{ width: 15, height: 15 }} />}
+																isLoading={isBackingUpReseller}
+																onClick={() => handleTriggerResellerBackup(admin.id)}
+															>
+																ارسال بکاپ الان
+															</Button>
+														</HStack>
+													</Flex>
+												</Box>
+											)}
+
+											{/* Save Button for current view */}
+											<Flex justify="flex-end" mt={2}>
+												<Button
+													colorScheme="primary"
+													leftIcon={<SaveIcon />}
+													onClick={handleSaveAll}
+													isLoading={adminSelfSaveMutation.isLoading}
+												>
+													{t("settings.save", "Save changes")}
+												</Button>
+											</Flex>
+										</VStack>
 											);
 										})()}
 									</Box>
