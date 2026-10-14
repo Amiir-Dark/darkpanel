@@ -1,0 +1,98 @@
+import { Input as ChakraInput, chakra, FormControl, FormErrorMessage, FormLabel, InputGroup, InputLeftAddon, InputRightAddon, InputRightElement, NumberDecrementStepper, NumberIncrementStepper, NumberInput, NumberInputField, NumberInputStepper, } from "@chakra-ui/react";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import classNames from "classnames";
+import React from "react";
+const ClearIcon = chakra(XMarkIcon, {
+    baseStyle: {
+        w: 4,
+        h: 4,
+    },
+});
+export const Input = React.forwardRef(({ disabled, step, label, className, startAdornment, endAdornment, type = "text", placeholder, onChange, onBlur, name, value, onClick, error, clearable = false, ...props }, ref) => {
+    const clear = () => {
+        if (onChange)
+            onChange({
+                target: {
+                    value: "",
+                    name,
+                },
+            });
+    };
+    const { size = "md" } = props;
+    const Component = type === "number" ? NumberInputField : ChakraInput;
+    const Wrapper = type === "number" ? NumberInput : React.Fragment;
+    const wrapperProps = type === "number"
+        ? {
+            keepWithinRange: true,
+            precision: 5,
+            format: (value) => {
+                return Number.isNaN(parseFloat(String(value)))
+                    ? value
+                    : Number(parseFloat(String(value)).toFixed(5)) === 0
+                        ? value
+                        : Number(parseFloat(String(value)).toFixed(5));
+            },
+            min: typeof props.min === "number"
+                ? props.min
+                : props.min !== undefined
+                    ? Number(props.min)
+                    : 0,
+            step,
+            name,
+            type,
+            placeholder,
+            defaultValue: typeof props.defaultValue === "string" ||
+                typeof props.defaultValue === "number"
+                ? props.defaultValue
+                : 0,
+            onBlur,
+            onClick,
+            disabled,
+            flexGrow: 1,
+            role: "group",
+            size,
+            onChange: (valueAsString, valueAsNumber) => {
+                if (!onChange)
+                    return;
+                onChange({
+                    target: {
+                        value: valueAsString,
+                        valueAsNumber,
+                        name,
+                    },
+                });
+            },
+        }
+        : {};
+    return (<FormControl isInvalid={!!error}>
+				{label && <FormLabel>{label}</FormLabel>}
+				<InputGroup size={size} w="full" rounded="md" _focusWithin={{
+            outline: "2px solid",
+            outlineColor: "primary.200",
+        }} bg={disabled ? "gray.100" : "transparent"} _dark={{ bg: disabled ? "gray.600" : "transparent" }}>
+					{startAdornment && <InputLeftAddon>{startAdornment}</InputLeftAddon>}
+					<Wrapper {...wrapperProps}>
+						{/* @ts-ignore */}
+						<Component name={name} ref={ref} step={step} className={classNames(className)} type={type} placeholder={placeholder} onChange={type === "number" ? undefined : onChange} onBlur={onBlur} value={type === "number" ? undefined : value} onClick={onClick} disabled={disabled} flexGrow={1} _focusVisible={{
+            outline: "none",
+            borderTopColor: "transparent",
+            borderRightColor: "transparent",
+            borderBottomColor: "transparent",
+        }} _disabled={{
+            cursor: "not-allowed",
+        }} {...props} pr={type === "number" ? props.pr ?? "2rem" : props.pr} roundedLeft={startAdornment ? "0" : "md"} roundedRight={endAdornment ? "0" : "md"}/>
+						{type === "number" && (<NumberInputStepper opacity={0} pointerEvents="none" transition="opacity 0.15s ease" _groupHover={{ opacity: 1, pointerEvents: "auto" }} _groupFocusWithin={{ opacity: 1, pointerEvents: "auto" }}>
+								<NumberIncrementStepper />
+								<NumberDecrementStepper />
+							</NumberInputStepper>)}
+					</Wrapper>
+					{endAdornment && (<InputRightAddon borderLeftRadius={0} borderRightRadius="6px" bg="transparent">
+							{endAdornment}
+						</InputRightAddon>)}
+					{clearable && value && value.length && (<InputRightElement borderLeftRadius={0} borderRightRadius="6px" bg="transparent" onClick={clear} cursor="pointer">
+							<ClearIcon />
+						</InputRightElement>)}
+				</InputGroup>
+				{!!error && <FormErrorMessage>{error}</FormErrorMessage>}
+			</FormControl>);
+});
