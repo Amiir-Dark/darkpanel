@@ -141,9 +141,11 @@ func (r Runner) prepareLegacyBaseline(ctx context.Context, dialect string, _ int
 	}
 	if hasGoose {
 		hasNodes, err := HasTable(ctx, r.DB, dialect, "nodes")
-		if err == nil && !hasNodes {
-			// goose_db_version exists, but core tables like nodes do not exist.
-			// The database was not actually migrated or was cleared while retaining the version table.
+		hasSettings, _ := HasTable(ctx, r.DB, dialect, "settings")
+		hasSubSettings, _ := HasTable(ctx, r.DB, dialect, "subscription_settings")
+		if (err == nil && !hasNodes) || !hasSettings || !hasSubSettings {
+			// goose_db_version exists, but core tables like nodes, settings, or subscription_settings do not exist.
+			// The database was restored from a partial/incompatible backup or cleared while retaining the version table.
 			// Drop goose_db_version so Goose re-initializes and runs the complete migration chain from version 1.
 			if err := DropTableIfExists(ctx, r.DB, dialect, goose.TableName()); err != nil {
 				return err
