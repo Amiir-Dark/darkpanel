@@ -3306,7 +3306,7 @@ get_binary_dev_manifest_metadata() {
     else
         cache_buster_url="${manifest_url}?t=$(date +%s)"
     fi
-    manifest_payload=$(curl -fsSL -H "Cache-Control: no-cache" "$cache_buster_url" 2>/dev/null || curl -fsSL "$manifest_url" 2>/dev/null) || true
+    manifest_payload=$(curl -fsSL -H "User-Agent: curl/7.68.0" -H "Cache-Control: no-cache" "$cache_buster_url" 2>/dev/null || curl -fsSL -H "User-Agent: curl/7.68.0" "$manifest_url" 2>/dev/null) || true
 
     if [ -z "$manifest_payload" ]; then
         return 1
@@ -3362,6 +3362,43 @@ get_binary_dev_manifest_metadata() {
     printf '%s\n' "$selected" | awk -F '\t' '{ printf "%s|%s|%s\n", $1, $2, $3 }'
 }
 
+get_binary_dev_release_tag_metadata() {
+    local binary_arch="$1"
+    local requested_version="${2:-dev}"
+    local target_repo="$REBECCA_RELEASE_REPO"
+    local release_tag="$REBECCA_BINARY_DEV_RELEASE_TAG"
+    local release_api="https://api.github.com/repos/${target_repo}/releases/tags/${release_tag}"
+    local release_payload
+    release_payload=$(curl -fsSL -H "User-Agent: curl/7.68.0" "$release_api" 2>/dev/null) || true
+    if [ -z "$release_payload" ]; then
+        return 1
+    fi
+    local selected
+    selected=$(echo "$release_payload" | jq -r \
+        --arg arch "linux-${binary_arch}" \
+        --arg requested "$requested_version" '
+        [
+            .assets[]?
+            | select((.name | startswith("rebecca-" + $arch + "-dev-")) and (.name | endswith(".tar.gz")))
+            | {
+                name: .name,
+                url: .browser_download_url,
+                created_at: .created_at,
+                tag: (.name | sub("^rebecca-" + $arch + "-"; "") | sub("\\.tar\\.gz$"; ""))
+            }
+            | select($requested == "" or $requested == "dev" or .tag == $requested)
+        ]
+        | sort_by(.created_at) | reverse | .[0]?
+        | select(. != null)
+        | [.tag, .url, .name] | join("|")
+    ' 2>/dev/null)
+    if [ -n "$selected" ]; then
+        printf '%s\n' "$selected"
+        return 0
+    fi
+    return 1
+}
+
 get_binary_dev_artifact_metadata() {
     local binary_arch="$1"
     local requested_version="${2:-dev}"
@@ -3381,6 +3418,10 @@ get_binary_dev_artifact_metadata() {
         return
     fi
 
+    if get_binary_dev_release_tag_metadata "$binary_arch" "$requested_version"; then
+        return
+    fi
+
     if [ "$requested_version" != "dev" ]; then
         colorized_echo red "Dev binary build ${requested_version} was not found in $(get_binary_dev_manifest_url)." >&2
         exit 1
@@ -3392,7 +3433,7 @@ get_binary_dev_artifact_metadata() {
         *) nightly_workflow="${nightly_workflow}.yml" ;;
     esac
     workflow_runs_api="https://api.github.com/repos/${target_repo}/actions/workflows/${nightly_workflow}/runs"
-    workflow_runs_payload=$(curl -fsSLG "$workflow_runs_api" \
+    workflow_runs_payload=$(curl -fsSLG -H "User-Agent: curl/7.68.0" "$workflow_runs_api" \
         --data-urlencode "event=push" \
         --data-urlencode "status=success" \
         --data-urlencode "per_page=100" 2>/dev/null) || true
@@ -3411,7 +3452,7 @@ get_binary_dev_artifact_metadata() {
     head_sha=$(echo "$latest_run_json" | jq -r '.head_sha // empty')
     selected_branch=$(echo "$latest_run_json" | jq -r '.head_branch // "main"')
     artifacts_api="https://api.github.com/repos/${target_repo}/actions/runs/${run_id}/artifacts"
-    artifacts_payload=$(curl -fsSL "$artifacts_api") || {
+    artifacts_payload=$(curl -fsSL -H "User-Agent: curl/7.68.0" "$artifacts_api" 2>/dev/null) || {
         colorized_echo red "Unable to read binary dev workflow artifacts: $artifacts_api" >&2
         exit 1
     }

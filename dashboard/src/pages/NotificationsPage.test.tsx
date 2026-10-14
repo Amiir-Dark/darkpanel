@@ -47,7 +47,7 @@ describe("notifications page", () => {
 		const markup = render(AdminRole.Sudo);
 		expect(markup).toContain("notifications.tabs.send");
 		expect(markup).not.toContain("notifications.tabs.rules");
-		expect(markup).toContain("notifications.tabs.happAnnouncement");
+		expect(markup).not.toContain("notifications.tabs.happAnnouncement");
 	});
 
 	it("shows sending and automatic rules to full access admins", () => {
