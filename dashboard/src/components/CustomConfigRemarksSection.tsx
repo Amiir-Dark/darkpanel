@@ -4,8 +4,6 @@ import {
 	Button,
 	Collapse,
 	Flex,
-	FormControl,
-	FormLabel,
 	Heading,
 	HStack,
 	IconButton,
@@ -34,9 +32,7 @@ import { useQuery } from "react-query";
 import { fetch as apiFetch } from "service/http";
 import type {
 	ServiceDetail,
-	ServiceHost,
 	ServiceListResponse,
-	ServiceSummary,
 } from "types/Service";
 
 export type InboundSummaryItem = {
@@ -59,14 +55,14 @@ export type CustomConfigRemarksSectionProps = {
 };
 
 export const CustomConfigRemarksSection: FC<CustomConfigRemarksSectionProps> = ({
-	adminId,
+	adminId: _adminId,
 	remarks,
 	onChangeRemarks,
 	subscriptionInbounds = [],
 	borderColor,
-	subCardBg,
+	subCardBg: _subCardBg,
 	fieldBg,
-	onRefresh,
+	onRefresh: _onRefresh,
 }) => {
 	const { colorMode } = useColorMode();
 	const toast = useToast();
@@ -195,7 +191,9 @@ export const CustomConfigRemarksSection: FC<CustomConfigRemarksSectionProps> = (
 	const hostIdsInServices = useMemo(() => {
 		const ids = new Set<number>();
 		Object.values(serviceDetails).forEach((detail) => {
-			detail.hosts?.forEach((h) => ids.add(h.id));
+			detail.hosts?.forEach((h) => {
+				ids.add(h.id);
+			});
 		});
 		return ids;
 	}, [serviceDetails]);
