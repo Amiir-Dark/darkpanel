@@ -267,23 +267,23 @@ export const UsersFilterBar: FC<UsersFilterBarProps> = ({
 				}
 			/>
 
-			{/* 2. Mobile Create Button [ + ] - blue rounded box, right after search input */}
+			{/* 2. Mobile Create Button [ + ] - theme accent colored rounded box, right after search input */}
 			{showCreateButton && (
 				<IconButton
 					className="rb-users-create-btn-mobile"
 					display={{ base: "inline-flex", md: "none" }}
 					aria-label={t("createUser")}
 					icon={<PlusIconStyled w={5} h={5} color="white" />}
-					bg="#2563eb"
-					_hover={{ bg: "#1d4ed8" }}
-					_active={{ bg: "#1e40af", transform: "scale(0.96)" }}
+					bg="var(--rb-panel-accent, var(--primary-500))"
+					_hover={{ bg: "var(--rb-panel-accent-hover, var(--primary-600))" }}
+					_active={{ bg: "var(--rb-panel-accent-hover, var(--primary-700))", transform: "scale(0.96)" }}
 					color="white"
 					borderRadius="12px"
 					w="40px"
 					h="40px"
 					minW="40px"
 					flexShrink={0}
-					boxShadow="0 2px 8px rgba(37, 99, 235, 0.35)"
+					boxShadow="0 2px 8px var(--rb-panel-accent-glow, rgba(0, 0, 0, 0.35))"
 					transition="all 0.2s ease"
 					onClick={handleCreate}
 				/>
@@ -323,9 +323,9 @@ export const UsersFilterBar: FC<UsersFilterBarProps> = ({
 								{hasClearableFilters && (
 									<Badge
 										className="rb-users-filter-badge"
-										bg="blue.500"
+										bg="var(--rb-panel-accent, var(--primary-500))"
 										color="white"
-										boxShadow="0 0 10px rgba(37, 99, 235, 0.5)"
+										boxShadow="0 0 10px var(--rb-panel-accent-glow, rgba(0, 0, 0, 0.5))"
 										variant="solid"
 										borderRadius="full"
 										position="absolute"
@@ -464,9 +464,9 @@ export const UsersFilterBar: FC<UsersFilterBarProps> = ({
 					className="rb-users-create-btn"
 					display={{ base: "none", md: "inline-flex" }}
 					leftIcon={<PlusIconStyled w={4} h={4} />}
-					bg="#2563eb"
-					_hover={{ bg: "#1d4ed8" }}
-					_active={{ bg: "#1e40af", transform: "scale(0.98)" }}
+					bg="var(--rb-panel-accent, var(--primary-500))"
+					_hover={{ bg: "var(--rb-panel-accent-hover, var(--primary-600))" }}
+					_active={{ bg: "var(--rb-panel-accent-hover, var(--primary-700))", transform: "scale(0.98)" }}
 					color="white"
 					borderRadius="12px"
 					h="40px"
@@ -475,7 +475,7 @@ export const UsersFilterBar: FC<UsersFilterBarProps> = ({
 					fontWeight="600"
 					whiteSpace="nowrap"
 					flexShrink={0}
-					boxShadow="0 2px 8px rgba(37, 99, 235, 0.35)"
+					boxShadow="0 2px 8px var(--rb-panel-accent-glow, rgba(0, 0, 0, 0.35))"
 					transition="all 0.2s ease"
 					onClick={handleCreate}
 				>
