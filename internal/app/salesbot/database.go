@@ -26,6 +26,7 @@ type User struct {
 	FirstName     string    `json:"first_name"`
 	WalletBalance float64   `json:"wallet_balance"`
 	PanelUsername string    `json:"panel_username"`
+	PanelPassword string    `json:"panel_password"`
 	SubURL        string    `json:"sub_url"`
 	ServiceStatus string    `json:"service_status"`
 	TotalSpent    float64   `json:"total_spent"`
@@ -238,6 +239,7 @@ func GetDB() (*sql.DB, string, error) {
 		"ALTER TABLE users ADD COLUMN first_name TEXT DEFAULT '';",
 		"ALTER TABLE users ADD COLUMN wallet_balance REAL DEFAULT 0;",
 		"ALTER TABLE users ADD COLUMN panel_username TEXT DEFAULT '';",
+		"ALTER TABLE users ADD COLUMN panel_password TEXT DEFAULT '';",
 		"ALTER TABLE users ADD COLUMN sub_url TEXT DEFAULT '';",
 		"ALTER TABLE users ADD COLUMN service_status TEXT DEFAULT 'none';",
 		"ALTER TABLE users ADD COLUMN total_spent REAL DEFAULT 0;",
@@ -430,6 +432,7 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 		uFirstName     sql.NullString
 		uWalletBalance sql.NullFloat64
 		uPanelUsername sql.NullString
+		uPanelPassword sql.NullString
 		uSubURL        sql.NullString
 		uServiceStatus sql.NullString
 		uTotalSpent    sql.NullFloat64
@@ -438,9 +441,9 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 	)
 
 	err = db.QueryRow(`
-		SELECT telegram_id, username, first_name, wallet_balance, panel_username, sub_url, service_status, total_spent, has_used_test, created_at 
+		SELECT telegram_id, username, first_name, wallet_balance, panel_username, panel_password, sub_url, service_status, total_spent, has_used_test, created_at 
 		FROM users WHERE telegram_id = ?`, tgID).Scan(
-		&u.TelegramID, &uUsername, &uFirstName, &uWalletBalance, &uPanelUsername, &uSubURL, &uServiceStatus, &uTotalSpent, &uHasUsedTest, &uCreatedAt,
+		&u.TelegramID, &uUsername, &uFirstName, &uWalletBalance, &uPanelUsername, &uPanelPassword, &uSubURL, &uServiceStatus, &uTotalSpent, &uHasUsedTest, &uCreatedAt,
 	)
 	if err == sql.ErrNoRows {
 		now := time.Now()
@@ -468,6 +471,7 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 	u.FirstName = uFirstName.String
 	u.WalletBalance = uWalletBalance.Float64
 	u.PanelUsername = uPanelUsername.String
+	u.PanelPassword = uPanelPassword.String
 	u.SubURL = uSubURL.String
 	u.ServiceStatus = uServiceStatus.String
 	if u.ServiceStatus == "" {
@@ -495,15 +499,15 @@ func MarkUserUsedTest(tgID int64) error {
 	return err
 }
 
-func ActivateUserPanel(tgID int64, username, subURL string) error {
+func ActivateUserPanel(tgID int64, username, password, subURL string) error {
 	db, _, err := GetDB()
 	if err != nil {
 		return err
 	}
 	_, err = db.Exec(`
 		UPDATE users 
-		SET panel_username = ?, sub_url = ?, service_status = 'active'
-		WHERE telegram_id = ?`, username, subURL, tgID)
+		SET panel_username = ?, panel_password = ?, sub_url = ?, service_status = 'active'
+		WHERE telegram_id = ?`, username, password, subURL, tgID)
 	return err
 }
 

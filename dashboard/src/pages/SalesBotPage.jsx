@@ -1628,6 +1628,21 @@ export const SalesBotPage = () => {
                                             borderRadius="lg"
                                         />
                                     </FormControl>
+
+                                    <FormControl gridColumn={{ md: "span 2" }}>
+                                        <FormLabel fontSize="xs">آدرس ورود به پنل نمایندگان (Domain یا IP با پورت)</FormLabel>
+                                        <Input
+                                            size="sm"
+                                            value={formSettings.panel_url || ""}
+                                            onChange={(e) => handleSettingChange("panel_url", e.target.value)}
+                                            placeholder="https://panel.example.com:8000"
+                                            dir="ltr"
+                                            borderRadius="lg"
+                                        />
+                                        <FormHelperText fontSize="10px">
+                                            آدرس ورود به داشبورد DarkPanel که به کاربر جهت ورود به پنل نمایندگی تست یا پنل‌های من ارسال می‌شود
+                                        </FormHelperText>
+                                    </FormControl>
                                 </SimpleGrid>
                             </Box>
 

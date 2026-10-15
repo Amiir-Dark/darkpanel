@@ -119,7 +119,7 @@ func walletKeyboard() InlineKeyboardMarkup {
 	}
 }
 
-func myPanelsKeyboard(hasPanel bool) InlineKeyboardMarkup {
+func myPanelsKeyboard(hasPanel bool, panelURL string) InlineKeyboardMarkup {
 	if !hasPanel {
 		return InlineKeyboardMarkup{
 			InlineKeyboard: [][]InlineKeyboardButton{
@@ -132,16 +132,32 @@ func myPanelsKeyboard(hasPanel bool) InlineKeyboardMarkup {
 			},
 		}
 	}
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "➕ افزایش موجودی", CallbackData: "deposit"},
-			},
-			{
-				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-			},
-		},
+	var rows [][]InlineKeyboardButton
+	if panelURL != "" && (strings.HasPrefix(panelURL, "http://") || strings.HasPrefix(panelURL, "https://")) {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "🌐 ورود به پنل مدیریت", URL: panelURL},
+		})
 	}
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "➕ افزایش موجودی", CallbackData: "deposit"},
+	})
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+	})
+	return InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func testPanelSuccessKeyboard(panelURL string) InlineKeyboardMarkup {
+	var rows [][]InlineKeyboardButton
+	if panelURL != "" && (strings.HasPrefix(panelURL, "http://") || strings.HasPrefix(panelURL, "https://")) {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "🌐 ورود به پنل مدیریت", URL: panelURL},
+		})
+	}
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+	})
+	return InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
 func depositKeyboard() InlineKeyboardMarkup {
@@ -218,8 +234,16 @@ func getMyPanelsText(u *User) string {
 	if u.PanelUsername == "" || u.ServiceStatus == "none" {
 		return "📦 <b>هنوز اشتراکی نداری.</b>\n\nاز دکمه «خرید اشتراک» می‌تونی اشتراک جدید بگیری."
 	}
-	return fmt.Sprintf("🌐 <b>پنل‌های من</b>\n\n👤 <b>نام کاربری:</b> <code>%s</code>\n⚡ <b>وضعیت:</b> %s\n💰 <b>موجودی کیف پول:</b> <code>%s تومان</code>\n\n🔗 <b>لینک سابسکریپشن:</b>\n<code>%s</code>",
-		u.PanelUsername, u.ServiceStatus, formatCurrency(u.WalletBalance), u.SubURL)
+	passLine := ""
+	if u.PanelPassword != "" {
+		passLine = fmt.Sprintf("🔑 <b>کلمه عبور:</b> <code>%s</code>\n", u.PanelPassword)
+	}
+	urlLine := ""
+	if u.SubURL != "" {
+		urlLine = fmt.Sprintf("🌐 <b>آدرس پنل:</b> <code>%s</code>\n", u.SubURL)
+	}
+	return fmt.Sprintf("🌐 <b>پنل‌های من</b>\n\n👤 <b>نام کاربری:</b> <code>%s</code>\n%s%s⚡ <b>وضعیت:</b> فعال ✅\n💰 <b>موجودی کیف پول:</b> <code>%s تومان</code>",
+		u.PanelUsername, passLine, urlLine, formatCurrency(u.WalletBalance))
 }
 
 // -------------------------------------------------------------
@@ -298,7 +322,7 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 		ClearUserState(userID)
 		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
 		hasPanel := user.PanelUsername != "" && user.ServiceStatus == "active"
-		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, getMyPanelsText(user), myPanelsKeyboard(hasPanel))
+		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, getMyPanelsText(user), myPanelsKeyboard(hasPanel, user.SubURL))
 
 	case text == "💳 ارسال فیش کارت به کارت":
 		ClearUserState(userID)
@@ -403,7 +427,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 			}
 			subURL = fmt.Sprintf("%s/sub/%s", strings.TrimRight(host, "/"), panelUser)
 		}
-		_ = ActivateUserPanel(user.TelegramID, panelUser, subURL)
+		_ = ActivateUserPanel(user.TelegramID, panelUser, "", subURL)
 		user.PanelUsername = panelUser
 		user.SubURL = subURL
 		user.ServiceStatus = "active"
@@ -417,7 +441,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 				"<i>می‌توانید این لینک را در نرم‌افزارهای کلاینت ایمپورت کرده و متصل شوید.</i>",
 			panelUser, formatCurrency(user.WalletBalance), subURL,
 		)
-		s.editOrSend(ctx, chatID, messageID, text, myPanelsKeyboard(true))
+		s.editOrSend(ctx, chatID, messageID, text, myPanelsKeyboard(true, subURL))
 
 	case "wallet":
 		ClearUserState(user.TelegramID)
@@ -426,38 +450,48 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 	case "my_panels":
 		ClearUserState(user.TelegramID)
 		hasPanel := user.PanelUsername != "" && user.ServiceStatus == "active"
-		s.editOrSend(ctx, chatID, messageID, getMyPanelsText(user), myPanelsKeyboard(hasPanel))
+		s.editOrSend(ctx, chatID, messageID, getMyPanelsText(user), myPanelsKeyboard(hasPanel, user.SubURL))
 
 	case "test_panel":
 		ClearUserState(user.TelegramID)
 		if user.HasUsedTest {
-			text := "🔒 <b>تو سقف دریافت نمایندگی تست (1 بار) را پر کرده‌ای.</b>"
+			text := "🔒 <b>تو سقف دریافت نمایندگی تست را پر کرده‌ای.</b>\n\nهر کاربر تنها ۱ بار امکان دریافت پنل نمایندگی تست را دارد.\nدر صورتی که نیاز به پنل جدید دارید می‌توانید از منوی اصلی اقدام به خرید نمایید یا با پشتیبانی در تماس باشید."
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
 
-		// First-time test panel
-		_ = MarkUserUsedTest(user.TelegramID)
-		user.HasUsedTest = true
-
-		panelUser := fmt.Sprintf("test_%d", user.TelegramID)
-		host := GetSetting("sub_domain", "")
-		if host == "" {
-			host = "https://sub.darkpanel.link"
+		adminUser, adminPass, panelURL, err := CreateTestAdmin(ctx, user.TelegramID, user.FirstName)
+		if err != nil {
+			fmt.Printf("[SalesBot] ERROR CreateTestAdmin for tgID %d: %v\n", user.TelegramID, err)
+			text := "❌ <b>خطا در ایجاد پنل نمایندگی تست</b>\n\nمتأسفانه در اتصال به سیستم یا ساخت اکانت خطایی رخ داد. لطفاً چند لحظه بعد مجدداً تلاش فرمایید یا با پشتیبانی در ارتباط باشید."
+			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
+			return
 		}
-		testSubURL := fmt.Sprintf("%s/sub/%s", strings.TrimRight(host, "/"), panelUser)
-		_ = ActivateUserPanel(user.TelegramID, panelUser, testSubURL)
+
+		user.HasUsedTest = true
+		user.PanelUsername = adminUser
+		user.PanelPassword = adminPass
+		user.SubURL = panelURL
+		user.ServiceStatus = "active"
+
+		panelDisplay := panelURL
+		if panelDisplay == "" {
+			panelDisplay = "پنل مدیریت DarkPanel"
+		}
 
 		text := fmt.Sprintf(
-			"🧪 <b>پنل نمایندگی تست شما فعال شد!</b>\n\n"+
+			"🧪 <b>پنل نمایندگی تست شما با موفقیت فعال شد!</b>\n\n"+
+				"📋 <b>مشخصات ورود به پنل مدیریت:</b>\n"+
+				"🌐 <b>آدرس پنل:</b> <code>%s</code>\n"+
 				"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
-				"📦 <b>اعتبار تست:</b> ۱ گیگابایت رایگان\n"+
-				"⏳ <b>مهلت تست:</b> ۲۴ ساعت\n\n"+
-				"🔗 <b>لینک سابسکریپشن:</b>\n<code>%s</code>\n\n"+
-				"<i>این لینک را در نرم‌افزارهای V2rayNG, Happ, v2box کپی و تست نمایید.</i>",
-			panelUser, testSubURL,
+				"🔑 <b>کلمه عبور:</b> <code>%s</code>\n\n"+
+				"📦 <b>میزان ترافیک:</b> ۵ گیگابایت (5 GB)\n"+
+				"⏳ <b>مدت اعتبار:</b> ۱ روز (۲۴ ساعت)\n"+
+				"🛡️ <b>نوع دسترسی:</b> نماینده (Reseller)\n\n"+
+				"💡 <i>راهنما: وارد آدرس پنل شوید و با نام کاربری و کلمه عبور بالا لاگین فرمایید. شما دسترسی ساخت کاربر و تست کانفیگ‌ها را خواهید داشت.</i>",
+			panelDisplay, adminUser, adminPass,
 		)
-		s.editOrSend(ctx, chatID, messageID, text, myPanelsKeyboard(true))
+		s.editOrSend(ctx, chatID, messageID, text, testPanelSuccessKeyboard(panelURL))
 
 	case "deposit":
 		ClearUserState(user.TelegramID)

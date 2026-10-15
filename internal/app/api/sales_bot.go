@@ -57,6 +57,7 @@ func (s *Server) handleSalesBotServiceStart(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	salesbot.SetMainDB(s.db, s.dialect)
 	if err := salesbot.GetService().Start(r.Context()); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -80,6 +81,7 @@ func (s *Server) handleSalesBotServiceRestart(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	salesbot.SetMainDB(s.db, s.dialect)
 	if err := salesbot.GetService().Restart(r.Context()); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -197,6 +199,7 @@ func (s *Server) handleSalesBotSettings(w http.ResponseWriter, r *http.Request) 
 		defaults := map[string]string{
 			"price_per_gb":        "5000",
 			"min_balance_to_start": "5000",
+			"panel_url":            "",
 			"card_number":         "",
 			"card_holder":         "",
 			"bank_name":           "",
@@ -864,6 +867,7 @@ func parseSQLiteTime(s string) time.Time {
 
 func (s *Server) runSalesBot(ctx context.Context) {
 	time.Sleep(3 * time.Second) // wait for server to settle
+	salesbot.SetMainDB(s.db, s.dialect)
 	if salesbot.GetSetting("sales_bot_enabled", "true") == "true" && salesbot.GetSetting("bot_token", "") != "" {
 		_ = salesbot.GetService().Start(ctx)
 	}
