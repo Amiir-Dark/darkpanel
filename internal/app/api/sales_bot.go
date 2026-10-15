@@ -261,6 +261,13 @@ func (s *Server) handleSalesBotSettings(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
+		// Auto-restart or start the salesbot service in background so updated token or settings apply immediately
+		if token := salesbot.GetSetting("bot_token", ""); token != "" {
+			go func() {
+				_ = salesbot.GetService().Restart(context.Background())
+			}()
+		}
+
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "تنظیمات با موفقیت ذخیره شد"})
 		return
 

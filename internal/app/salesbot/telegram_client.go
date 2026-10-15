@@ -222,6 +222,14 @@ func (c *TelegramClient) GetUpdates(ctx context.Context, token string, offset in
 	return updates, nil
 }
 
+func (c *TelegramClient) DeleteWebhook(ctx context.Context, token string) error {
+	payload := map[string]any{
+		"drop_pending_updates": false,
+	}
+	_, err := c.call(ctx, token, "deleteWebhook", payload)
+	return err
+}
+
 func (c *TelegramClient) SendMessage(ctx context.Context, token string, chatID int64, text string, replyMarkup any) error {
 	payload := map[string]any{
 		"chat_id":    chatID,
@@ -232,6 +240,11 @@ func (c *TelegramClient) SendMessage(ctx context.Context, token string, chatID i
 		payload["reply_markup"] = replyMarkup
 	}
 	_, err := c.call(ctx, token, "sendMessage", payload)
+	if err != nil && strings.Contains(err.Error(), "can't parse entities") {
+		// Fallback: send as plain text if HTML tags were rejected by Telegram
+		delete(payload, "parse_mode")
+		_, err = c.call(ctx, token, "sendMessage", payload)
+	}
 	return err
 }
 
@@ -243,3 +256,4 @@ func (c *TelegramClient) AnswerCallbackQuery(ctx context.Context, token string, 
 	_, err := c.call(ctx, token, "answerCallbackQuery", payload)
 	return err
 }
+

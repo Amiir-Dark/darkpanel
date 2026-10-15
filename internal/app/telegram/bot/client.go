@@ -98,6 +98,11 @@ func (c client) answerCallbackQuery(ctx context.Context, settings Settings, call
 	return c.fireAndForget(ctx, settings, "answerCallbackQuery", payload)
 }
 
+func (c client) deleteWebhook(ctx context.Context, settings Settings) error {
+	payload := map[string]any{"drop_pending_updates": false}
+	return c.fireAndForget(ctx, settings, "deleteWebhook", payload)
+}
+
 func (c client) fireAndForget(ctx context.Context, settings Settings, method string, payload map[string]any) error {
 	httpClient, err := httpClientFor(settings.ProxyURL, 15*time.Second)
 	if err != nil {

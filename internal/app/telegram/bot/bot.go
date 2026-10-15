@@ -76,6 +76,9 @@ func (b *Bot) Run(ctx context.Context) {
 				return
 			}
 			b.logf("telegram bot: getUpdates: %v", err)
+			if strings.Contains(err.Error(), "409") || strings.Contains(strings.ToLower(err.Error()), "webhook") {
+				_ = b.client.deleteWebhook(ctx, settings)
+			}
 			if b.sleep(ctx, 5*time.Second) {
 				return
 			}

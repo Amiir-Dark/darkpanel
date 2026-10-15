@@ -17,6 +17,14 @@ const helpText = `🤖 <b>Rebecca admin bot</b>
 func (b *Bot) handleMessage(ctx context.Context, settings Settings, msg *Message) {
 	chatID := msg.Chat.ID
 	if !authorized(settings, chatID) {
+		text := fmt.Sprintf(
+			"⛔ <b>دسترسی غیرمجاز به ربات مدیریت</b>\n\n"+
+				"شناسه کاربری شما در لیست ادمین‌های مجاز پنل ثبت نشده است.\n\n"+
+				"🆔 <b>شناسه عددی شما (Chat ID):</b> <code>%d</code>\n\n"+
+				"جهت فعال‌سازی دسترسی، این عدد را در پنل در بخش <b>تنظیمات ➔ اعلانات / تلگرام ➔ شناسه عددی ادمین</b> وارد نمایید.",
+			chatID,
+		)
+		b.reply(ctx, settings, chatID, text, nil)
 		return
 	}
 	text := strings.TrimSpace(msg.Text)

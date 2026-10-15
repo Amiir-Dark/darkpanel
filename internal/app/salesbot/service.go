@@ -108,6 +108,9 @@ func (s *Service) Start(ctx context.Context) error {
 	s.botUsername = me.Username
 	s.botToken = token
 
+	// Clear any previous webhook to ensure getUpdates (long polling) works without 409 Conflict
+	_ = s.tgClient.DeleteWebhook(testCtx, token)
+
 	subCtx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
@@ -197,6 +200,16 @@ func (s *Service) runTelegramPollingLoop(ctx context.Context, token string) {
 			if ctx.Err() != nil {
 				return
 			}
+			s.mu.Lock()
+			s.lastError = fmt.Sprintf("خطا در دریافت پیام از تلگرام: %v", err)
+			s.mu.Unlock()
+			fmt.Printf("[SalesBot] getUpdates error: %v\n", err)
+
+			if strings.Contains(err.Error(), "409") || strings.Contains(strings.ToLower(err.Error()), "webhook") {
+				delCtx, delCancel := context.WithTimeout(context.Background(), 5*time.Second)
+				_ = s.tgClient.DeleteWebhook(delCtx, token)
+				delCancel()
+			}
 			time.Sleep(3 * time.Second)
 			continue
 		}
@@ -205,7 +218,14 @@ func (s *Service) runTelegramPollingLoop(ctx context.Context, token string) {
 			if u.UpdateID >= offset {
 				offset = u.UpdateID + 1
 			}
-			s.handleUpdate(ctx, u)
+			func(update Update) {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("[SalesBot] Panic recovered in handleUpdate: %v\n", r)
+					}
+				}()
+				s.handleUpdate(ctx, update)
+			}(u)
 		}
 	}
 }

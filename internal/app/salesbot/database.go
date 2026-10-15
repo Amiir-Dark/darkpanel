@@ -213,6 +213,27 @@ func GetDB() (*sql.DB, string, error) {
 		return nil, path, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
+	// Migrate any missing columns in existing SQLite tables
+	colMigrations := []string{
+		"ALTER TABLE users ADD COLUMN username TEXT DEFAULT '';",
+		"ALTER TABLE users ADD COLUMN first_name TEXT DEFAULT '';",
+		"ALTER TABLE users ADD COLUMN wallet_balance REAL DEFAULT 0;",
+		"ALTER TABLE users ADD COLUMN panel_username TEXT DEFAULT '';",
+		"ALTER TABLE users ADD COLUMN sub_url TEXT DEFAULT '';",
+		"ALTER TABLE users ADD COLUMN service_status TEXT DEFAULT 'none';",
+		"ALTER TABLE users ADD COLUMN total_spent REAL DEFAULT 0;",
+		"ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;",
+		"ALTER TABLE orders ADD COLUMN bank_ref TEXT DEFAULT '';",
+		"ALTER TABLE orders ADD COLUMN code TEXT DEFAULT '';",
+		"ALTER TABLE webhook_logs ADD COLUMN order_id INTEGER NULL;",
+		"ALTER TABLE webhook_logs ADD COLUMN user_id INTEGER NULL;",
+		"ALTER TABLE webhook_logs ADD COLUMN status TEXT DEFAULT 'received';",
+		"ALTER TABLE webhook_logs ADD COLUMN message TEXT DEFAULT '';",
+	}
+	for _, m := range colMigrations {
+		_, _ = conn.Exec(m)
+	}
+
 	dbConn = conn
 	dbPath = path
 	return dbConn, dbPath, nil
@@ -384,11 +405,21 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 	}
 
 	var u User
-	var createdAtStr string
+	var (
+		uUsername      sql.NullString
+		uFirstName     sql.NullString
+		uWalletBalance sql.NullFloat64
+		uPanelUsername sql.NullString
+		uSubURL        sql.NullString
+		uServiceStatus sql.NullString
+		uTotalSpent    sql.NullFloat64
+		uCreatedAt     sql.NullString
+	)
+
 	err = db.QueryRow(`
 		SELECT telegram_id, username, first_name, wallet_balance, panel_username, sub_url, service_status, total_spent, created_at 
 		FROM users WHERE telegram_id = ?`, tgID).Scan(
-		&u.TelegramID, &u.Username, &u.FirstName, &u.WalletBalance, &u.PanelUsername, &u.SubURL, &u.ServiceStatus, &u.TotalSpent, &createdAtStr,
+		&u.TelegramID, &uUsername, &uFirstName, &uWalletBalance, &uPanelUsername, &uSubURL, &uServiceStatus, &uTotalSpent, &uCreatedAt,
 	)
 	if err == sql.ErrNoRows {
 		now := time.Now()
@@ -411,13 +442,24 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 		return nil, err
 	}
 
+	u.Username = uUsername.String
+	u.FirstName = uFirstName.String
+	u.WalletBalance = uWalletBalance.Float64
+	u.PanelUsername = uPanelUsername.String
+	u.SubURL = uSubURL.String
+	u.ServiceStatus = uServiceStatus.String
+	if u.ServiceStatus == "" {
+		u.ServiceStatus = "none"
+	}
+	u.TotalSpent = uTotalSpent.Float64
+	u.CreatedAt = parseTimeStr(uCreatedAt.String)
+
 	// Update username/firstName if changed
 	if u.Username != username || u.FirstName != firstName {
 		_, _ = db.Exec(`UPDATE users SET username = ?, first_name = ? WHERE telegram_id = ?`, username, firstName, tgID)
 		u.Username = username
 		u.FirstName = firstName
 	}
-	u.CreatedAt = parseTimeStr(createdAtStr)
 	return &u, nil
 }
 

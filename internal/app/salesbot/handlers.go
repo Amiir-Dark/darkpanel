@@ -93,13 +93,31 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 	}
 
 	msg := u.Message
-	userID := msg.From.ID
-	username := msg.From.Username
-	firstName := msg.From.FirstName
+	var userID int64
+	var username, firstName string
+	if msg.From != nil {
+		userID = msg.From.ID
+		username = msg.From.Username
+		firstName = msg.From.FirstName
+	} else if msg.Chat.ID != 0 {
+		userID = msg.Chat.ID
+		username = msg.Chat.Username
+		firstName = msg.Chat.FirstName
+	} else {
+		return
+	}
 
 	user, err := GetOrCreateUser(userID, username, firstName)
 	if err != nil {
-		return
+		fmt.Printf("[SalesBot] ERROR GetOrCreateUser for tgID %d: %v\n", userID, err)
+		user = &User{
+			TelegramID:    userID,
+			Username:      username,
+			FirstName:     firstName,
+			WalletBalance: 0,
+			ServiceStatus: "none",
+			CreatedAt:     time.Now(),
+		}
 	}
 
 	// Check if user uploaded a receipt photo
@@ -297,6 +315,9 @@ func (s *Service) processReceiptAmount(ctx context.Context, u *User, input strin
 }
 
 func (s *Service) handleReceiptPhoto(ctx context.Context, msg *Message, u *User) {
+	if len(msg.Photo) == 0 {
+		return
+	}
 	state, data := GetUserState(u.TelegramID)
 	if state != "awaiting_receipt_photo" {
 		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "لطفاً ابتدا از منوی اصلی گزینه ارسال فیش را انتخاب کنید.", nil)
