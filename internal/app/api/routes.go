@@ -90,6 +90,7 @@ func (s *Server) Handler() http.Handler {
 		s.registerSubscriptionRoutes(r)
 		s.registerNodeRoutes(r)
 		s.registerNotificationRoutes(r)
+		s.registerSalesBotRoutes(r)
 	})
 
 	r.NotFound(s.handleHomeOrSubscriptionPath)

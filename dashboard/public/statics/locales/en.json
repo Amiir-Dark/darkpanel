@@ -1,4 +1,6 @@
 {
+	"salesBot.menu": "Sales Bot",
+	"salesBot.title": "Sales Bot & Auto Billing",
 	"services.searchServices": "Search services",
 	"notifications.menu": "Notifications",
 	"notifications.description": "Messages from administrators and automatic alerts about your account and the panel.",

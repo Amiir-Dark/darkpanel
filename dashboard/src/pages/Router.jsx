@@ -39,6 +39,9 @@ const UsagePage = lazy(() => import("./UsagePage"));
 const XrayLogsPage = lazy(() => import("./XrayLogsPage"));
 const ErrorsPage = lazy(() => import("./ErrorsPage"));
 const NotificationsPage = lazy(() => import("./NotificationsPage"));
+const SalesBotPage = lazy(async () => ({
+    default: (await import("./SalesBotPage")).SalesBotPage,
+}));
 const PageLoading = () => <PageLoadingSkeleton />;
 const LazyPage = ({ Page }) => (<Suspense fallback={<PageLoading />}>
 		<Page />
@@ -92,6 +95,7 @@ const routeSegments = new Set([
     "phpmyadmin",
     "recent-actions",
     "placeholders",
+    "sales-bot",
 ]);
 const trimTrailingSlash = (value) => {
     if (value.length <= 1)
@@ -255,6 +259,10 @@ export const router = createBrowserRouter([
             {
                 path: "external-apps",
                 element: <Navigate to="/settings" replace/>,
+            },
+            {
+                path: "sales-bot",
+                element: <LazyPage Page={SalesBotPage}/>,
             },
         ],
     },

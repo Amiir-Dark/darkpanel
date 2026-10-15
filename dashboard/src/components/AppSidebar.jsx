@@ -1,5 +1,5 @@
 import { Box, chakra, Flex, HStack, Image, Text, Tooltip, useColorModeValue, VStack, } from "@chakra-ui/react";
-import { ArrowsRightLeftIcon, BellAlertIcon, BoltIcon, BookOpenIcon, BriefcaseIcon, ChartBarIcon, CircleStackIcon, ClockIcon, CodeBracketSquareIcon, Cog6ToothIcon, Cog8ToothIcon, CommandLineIcon, DocumentDuplicateIcon, BellIcon, DocumentTextIcon, EyeIcon, HomeIcon, LinkIcon, ServerStackIcon, Squares2X2Icon, UserCircleIcon, UserGroupIcon, WrenchScrewdriverIcon, } from "@heroicons/react/24/outline";
+import { ArrowsRightLeftIcon, BellAlertIcon, BoltIcon, BookOpenIcon, BriefcaseIcon, ChartBarIcon, CircleStackIcon, ClockIcon, CodeBracketSquareIcon, Cog6ToothIcon, Cog8ToothIcon, CommandLineIcon, DocumentDuplicateIcon, BellIcon, DocumentTextIcon, EyeIcon, HomeIcon, LinkIcon, ServerStackIcon, ShoppingBagIcon, Squares2X2Icon, UserCircleIcon, UserGroupIcon, WrenchScrewdriverIcon, } from "@heroicons/react/24/outline";
 import logoUrl from "assets/logo.svg";
 import useGetUser from "hooks/useGetUser";
 import { useCallback, useEffect, useState, } from "react";
@@ -15,6 +15,7 @@ const iconProps = {
 };
 const HomeIconStyled = chakra(HomeIcon, iconProps);
 const UsersIconStyled = chakra(UserGroupIcon, iconProps);
+const SalesBotIconStyled = chakra(ShoppingBagIcon, iconProps);
 const BulkActionsIconStyled = chakra(BoltIcon, iconProps);
 const RecentActionsIconStyled = chakra(ClockIcon, iconProps);
 const SettingsIconStyled = chakra(Cog6ToothIcon, iconProps);
@@ -237,6 +238,7 @@ export const AppSidebar = ({ collapsed, inDrawer = false, onRequestExpand, }) =>
     const mainItems = [
         { title: t("dashboard"), url: "/", icon: HomeIconStyled },
         { title: t("users"), url: "/users", icon: UsersIconStyled },
+        { title: t("salesBot.menu", "ربات فروش"), url: "/sales-bot", icon: SalesBotIconStyled },
     ];
     if (canViewUsage) {
         mainItems.push({
