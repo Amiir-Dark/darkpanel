@@ -62,6 +62,31 @@ func resolveDBPath() string {
 	if p := strings.TrimSpace(os.Getenv("BOT_DATABASE_PATH")); p != "" {
 		return p
 	}
+
+	// 1. Check existing files in all common candidate locations first so we never split databases
+	candidates := []string{
+		"/opt/darkpanel/bot/bot.db",
+		"/opt/rebecca/bot/bot.db",
+		"/var/lib/darkpanel/bot/bot.db",
+		"/var/lib/rebecca/bot/bot.db",
+		"/opt/rebecca/data/bot.db",
+		"bot/bot.db",
+		"bot.db",
+	}
+	if dataDir := strings.TrimSpace(os.Getenv("REBECCA_DATA_DIR")); dataDir != "" {
+		candidates = append([]string{filepath.Join(dataDir, "bot", "bot.db")}, candidates...)
+	}
+	if appDir := strings.TrimSpace(os.Getenv("REBECCA_APP_DIR")); appDir != "" {
+		candidates = append([]string{filepath.Join(appDir, "bot", "bot.db")}, candidates...)
+	}
+
+	for _, c := range candidates {
+		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
+			return c
+		}
+	}
+
+	// 2. If no existing file found, prefer standard data directory
 	if dataDir := strings.TrimSpace(os.Getenv("REBECCA_DATA_DIR")); dataDir != "" {
 		_ = os.MkdirAll(filepath.Join(dataDir, "bot"), 0755)
 		return filepath.Join(dataDir, "bot", "bot.db")
@@ -70,25 +95,13 @@ func resolveDBPath() string {
 		_ = os.MkdirAll(filepath.Join(appDir, "bot"), 0755)
 		return filepath.Join(appDir, "bot", "bot.db")
 	}
-	candidates := []string{
-		"/opt/rebecca/bot/bot.db",
-		"/opt/rebecca/data/bot.db",
-		"/opt/darkpanel/bot/bot.db",
-		"bot/bot.db",
-		"bot.db",
-	}
-	for _, c := range candidates {
-		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
-			return c
-		}
+	if _, err := os.Stat("/opt/darkpanel"); err == nil {
+		_ = os.MkdirAll("/opt/darkpanel/bot", 0755)
+		return "/opt/darkpanel/bot/bot.db"
 	}
 	if _, err := os.Stat("/opt/rebecca"); err == nil {
 		_ = os.MkdirAll("/opt/rebecca/bot", 0755)
 		return "/opt/rebecca/bot/bot.db"
-	}
-	if _, err := os.Stat("/opt/darkpanel"); err == nil {
-		_ = os.MkdirAll("/opt/darkpanel/bot", 0755)
-		return "/opt/darkpanel/bot/bot.db"
 	}
 	_ = os.MkdirAll("bot", 0755)
 	return "bot/bot.db"
@@ -176,6 +189,24 @@ func GetDB() (*sql.DB, string, error) {
 
 	CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, expires_at);
 	CREATE INDEX IF NOT EXISTS idx_orders_exact ON orders(amount_exact);
+
+	CREATE TABLE IF NOT EXISTS webhook_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		sender TEXT DEFAULT '',
+		bank TEXT DEFAULT '',
+		raw_payload TEXT DEFAULT '',
+		sms_text TEXT DEFAULT '',
+		extracted_amount REAL DEFAULT 0,
+		bank_ref TEXT DEFAULT '',
+		matched INTEGER DEFAULT 0,
+		order_id INTEGER NULL,
+		user_id INTEGER NULL,
+		status TEXT DEFAULT 'received',
+		message TEXT DEFAULT ''
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_webhook_logs_date ON webhook_logs(received_at DESC);
 	`
 	if _, err := conn.Exec(schema); err != nil {
 		_ = conn.Close()
@@ -185,6 +216,87 @@ func GetDB() (*sql.DB, string, error) {
 	dbConn = conn
 	dbPath = path
 	return dbConn, dbPath, nil
+}
+
+// WebhookLog represents a single received SMS webhook entry
+type WebhookLog struct {
+	ID              int64   `json:"id"`
+	ReceivedAt      string  `json:"received_at"`
+	Sender          string  `json:"sender"`
+	Bank            string  `json:"bank"`
+	RawPayload      string  `json:"raw_payload"`
+	SMSText         string  `json:"sms_text"`
+	ExtractedAmount float64 `json:"extracted_amount"`
+	BankRef         string  `json:"bank_ref"`
+	Matched         bool    `json:"matched"`
+	OrderID         *int64  `json:"order_id"`
+	UserID          *int64  `json:"user_id"`
+	Status          string  `json:"status"` // success, unmatched, test, no_amount, empty, error, ready
+	Message         string  `json:"message"`
+}
+
+func RecordWebhookLog(log WebhookLog) error {
+	db, _, err := GetDB()
+	if err != nil {
+		return err
+	}
+	matchedInt := 0
+	if log.Matched {
+		matchedInt = 1
+	}
+	_, err = db.Exec(`
+		INSERT INTO webhook_logs (
+			sender, bank, raw_payload, sms_text, extracted_amount, bank_ref, matched, order_id, user_id, status, message
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		log.Sender, log.Bank, log.RawPayload, log.SMSText, log.ExtractedAmount, log.BankRef, matchedInt, log.OrderID, log.UserID, log.Status, log.Message,
+	)
+	return err
+}
+
+func GetWebhookLogs(limit int) ([]WebhookLog, error) {
+	db, _, err := GetDB()
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := db.Query(`
+		SELECT id, datetime(received_at, 'localtime') as rec_time, sender, bank, raw_payload, sms_text, extracted_amount, bank_ref, matched, order_id, user_id, status, message
+		FROM webhook_logs
+		ORDER BY id DESC
+		LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []WebhookLog
+	for rows.Next() {
+		var item WebhookLog
+		var matchedInt int
+		if err := rows.Scan(
+			&item.ID, &item.ReceivedAt, &item.Sender, &item.Bank, &item.RawPayload,
+			&item.SMSText, &item.ExtractedAmount, &item.BankRef, &matchedInt,
+			&item.OrderID, &item.UserID, &item.Status, &item.Message,
+		); err == nil {
+			item.Matched = matchedInt == 1
+			list = append(list, item)
+		}
+	}
+	if list == nil {
+		list = []WebhookLog{}
+	}
+	return list, nil
+}
+
+func ClearWebhookLogs() error {
+	db, _, err := GetDB()
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`DELETE FROM webhook_logs`)
+	return err
 }
 
 // Settings helpers

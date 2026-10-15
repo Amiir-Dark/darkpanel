@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	tomanRegex = regexp.MustCompile(`(?i)([\d,]+)\s*(?:تومان|تمن)`)
-	rialRegex  = regexp.MustCompile(`(?i)([\d,]+)\s*(?:ریال)`)
-	varizRegex = regexp.MustCompile(`(?i)واریز[:\s]*([\d,]+)`)
-	refRegex   = regexp.MustCompile(`(?i)(?:پیگیری|رهگیری|مرجع|ارجاع)[:\s]*([0-9a-zA-Z]+)`)
+	tomanRegex = regexp.MustCompile(`(?i)(?:واریز|مبلغ|انتقال)?[:\s]*([\d,]+)\s*(?:تومان|تمن)`)
+	rialRegex  = regexp.MustCompile(`(?i)(?:واریز|مبلغ|انتقال)?[:\s]*([\d,]+)\s*(?:ریال)`)
+	varizRegex = regexp.MustCompile(`(?i)(?:واریز|مبلغ|انتقال)[:\s]*([\d,]+)`)
+	plusRegex  = regexp.MustCompile(`(?:\+|واریز\s*)\s*([\d,]{4,})\s*(?:ریال|تومان)?`)
+	refRegex   = regexp.MustCompile(`(?i)(?:پیگیری|رهگیری|مرجع|ارجاع|کد\s*پیگیری)[:\s]*([0-9a-zA-Z]+)`)
 )
 
 type ForAppPayload struct {
@@ -32,6 +33,11 @@ type ForAppPayload struct {
 func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 	// Support GET for testing connectivity
 	if r.Method == http.MethodGet {
+		_ = RecordWebhookLog(WebhookLog{
+			Sender:  r.RemoteAddr,
+			Status:  "ready",
+			Message: "بررسی اتصال وب‌هوک (GET) - سرور وب‌هوک فعال و آماده دریافت پیامک است",
+		})
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"ok":      true,
@@ -46,6 +52,17 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		_ = RecordWebhookLog(WebhookLog{
+			Sender:  r.RemoteAddr,
+			Status:  "error",
+			Message: "خطا در خواندن بدنه درخواست (Read Body Error)",
+		})
+		http.Error(w, `{"error":"failed to read body"}`, http.StatusBadRequest)
+		return
+	}
+
 	secret := GetSetting("forapp_secret", "")
 	if secret != "" {
 		incomingSecret := r.Header.Get("X-Webhook-Secret")
@@ -54,15 +71,15 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 			incomingSecret = strings.TrimPrefix(authHeader, "Bearer ")
 		}
 		if incomingSecret != secret {
+			_ = RecordWebhookLog(WebhookLog{
+				Sender:     r.RemoteAddr,
+				RawPayload: string(bodyBytes),
+				Status:     "unauthorized",
+				Message:    "کلید امنیتی وب‌هوک (Secret) نامعتبر بود و درخواست رد شد",
+			})
 			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 			return
 		}
-	}
-
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, `{"error":"failed to read body"}`, http.StatusBadRequest)
-		return
 	}
 
 	var rawMap map[string]any
@@ -80,7 +97,23 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 	var payload ForAppPayload
 	_ = json.Unmarshal(bodyBytes, &payload)
 
+	content := payload.Message
+	if content == "" {
+		content = payload.Body
+	}
+	if content == "" {
+		content = payload.Text
+	}
+
 	if isTest || payload.Test {
+		_ = RecordWebhookLog(WebhookLog{
+			Sender:     payload.Sender,
+			Bank:       payload.Bank,
+			RawPayload: string(bodyBytes),
+			SMSText:    content,
+			Status:     "test",
+			Message:    "پیامک تستی فوراپ با موفقیت دریافت شد (تست اتصال سبز است)",
+		})
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"ok":      true,
@@ -91,15 +124,14 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content := payload.Message
-	if content == "" {
-		content = payload.Body
-	}
-	if content == "" {
-		content = payload.Text
-	}
-
 	if strings.TrimSpace(content) == "" {
+		_ = RecordWebhookLog(WebhookLog{
+			Sender:     payload.Sender,
+			Bank:       payload.Bank,
+			RawPayload: string(bodyBytes),
+			Status:     "empty",
+			Message:    "پیامک از فوراپ دریافت شد ولی متن آن خالی بود",
+		})
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"ok":      true,
@@ -111,6 +143,15 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 	exactAmountToman, bankRef := extractPaymentDetails(content)
 	if exactAmountToman <= 0 {
+		_ = RecordWebhookLog(WebhookLog{
+			Sender:     payload.Sender,
+			Bank:       payload.Bank,
+			RawPayload: string(bodyBytes),
+			SMSText:    content,
+			BankRef:    bankRef,
+			Status:     "no_amount",
+			Message:    "پیامک دریافت شد ولی هیچ مبلغ واریزی قابل تطبیقی در آن یافت نشد",
+		})
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"ok":      true,
@@ -122,6 +163,16 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 	db, _, err := GetDB()
 	if err != nil {
+		_ = RecordWebhookLog(WebhookLog{
+			Sender:          payload.Sender,
+			Bank:            payload.Bank,
+			RawPayload:      string(bodyBytes),
+			SMSText:         content,
+			ExtractedAmount: exactAmountToman,
+			BankRef:         bankRef,
+			Status:          "error",
+			Message:         "خطا در دسترسی به پایگاه داده ربات",
+		})
 		http.Error(w, `{"error":"database unavailable"}`, http.StatusInternalServerError)
 		return
 	}
@@ -143,6 +194,16 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		// No matching order found
+		_ = RecordWebhookLog(WebhookLog{
+			Sender:          payload.Sender,
+			Bank:            payload.Bank,
+			RawPayload:      string(bodyBytes),
+			SMSText:         content,
+			ExtractedAmount: exactAmountToman,
+			BankRef:         bankRef,
+			Status:          "unmatched",
+			Message:         fmt.Sprintf("مبلغ %s تومان شناسایی شد، اما سفارش ۵ دقیقه‌ای فعالی با این مبلغ وجود ندارد", formatCurrency(exactAmountToman)),
+		})
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"ok":           true,
@@ -176,6 +237,20 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to commit transaction"}`, http.StatusInternalServerError)
 		return
 	}
+
+	_ = RecordWebhookLog(WebhookLog{
+		Sender:          payload.Sender,
+		Bank:            payload.Bank,
+		RawPayload:      string(bodyBytes),
+		SMSText:         content,
+		ExtractedAmount: exactAmountToman,
+		BankRef:         bankRef,
+		Matched:         true,
+		OrderID:         &orderID,
+		UserID:          &userID,
+		Status:          "success",
+		Message:         fmt.Sprintf("شارژ خودکار انجام شد! سفارش #%d کاربر %d با مبلغ %s تومان تایید و کیف پول شارژ گردید", orderID, userID, formatCurrency(exactAmountToman)),
+	})
 
 	// Send instant notification to the user via Telegram
 	go func() {
@@ -211,15 +286,7 @@ func extractPaymentDetails(sms string) (float64, string) {
 		bankRef = m[1]
 	}
 
-	// Check for Tomans
-	if m := tomanRegex.FindStringSubmatch(normalized); len(m) > 1 {
-		val := cleanAndParse(m[1])
-		if val > 0 {
-			return val, bankRef
-		}
-	}
-
-	// Check for Rials
+	// 1. Check for "... ریال"
 	if m := rialRegex.FindStringSubmatch(normalized); len(m) > 1 {
 		val := cleanAndParse(m[1])
 		if val > 0 {
@@ -227,12 +294,31 @@ func extractPaymentDetails(sms string) (float64, string) {
 		}
 	}
 
-	// Check for "واریز: 100,427"
+	// 2. Check for "... تومان" or "... تمن"
+	if m := tomanRegex.FindStringSubmatch(normalized); len(m) > 1 {
+		val := cleanAndParse(m[1])
+		if val > 0 {
+			return val, bankRef
+		}
+	}
+
+	// 3. Check for "واریز: 100,427" or "مبلغ: 100,427"
 	if m := varizRegex.FindStringSubmatch(normalized); len(m) > 1 {
 		val := cleanAndParse(m[1])
 		if val > 0 {
 			// If ends in 0 and looks like Rials (> 100000), check
 			if val >= 100000 && int64(val)%10 == 0 {
+				return val / 10, bankRef
+			}
+			return val, bankRef
+		}
+	}
+
+	// 4. Check for "+100,427"
+	if m := plusRegex.FindStringSubmatch(normalized); len(m) > 1 {
+		val := cleanAndParse(m[1])
+		if val > 0 {
+			if strings.Contains(m[0], "ریال") || (val >= 100000 && int64(val)%10 == 0) {
 				return val / 10, bankRef
 			}
 			return val, bankRef

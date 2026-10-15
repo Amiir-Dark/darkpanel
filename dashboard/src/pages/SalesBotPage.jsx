@@ -34,6 +34,8 @@ import {
     Select,
     SimpleGrid,
     Spinner,
+    Switch,
+    Textarea,
     Stack,
     Tab,
     Table,
@@ -74,6 +76,9 @@ import {
     StopIcon,
     UserGroupIcon,
     XCircleIcon,
+    ChatBubbleBottomCenterTextIcon,
+    TrashIcon,
+    ExclamationTriangleIcon,
     XMarkIcon,
 } from "@heroicons/react/24/outline";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -94,6 +99,9 @@ import {
     stopSalesBotService,
     testSalesBotWebhook,
     updateSalesBotSettings,
+    getSalesBotWebhookLogs,
+    clearSalesBotWebhookLogs,
+    simulateSalesBotWebhook,
 } from "service/salesBot";
 
 const formatToman = (val) => {
@@ -244,6 +252,66 @@ export const SalesBotPage = () => {
             refetchOnWindowFocus: false,
         }
     );
+
+    // Webhook logs state
+    const [autoRefreshLogs, setAutoRefreshLogs] = useState(true);
+    const [selectedLogModal, setSelectedLogModal] = useState(null);
+    const [isSimulateOpen, setIsSimulateOpen] = useState(false);
+    const [simulateContent, setSimulateContent] = useState("");
+    const [simulateSender, setSimulateSender] = useState("Bank");
+    const [simulateBank, setSimulateBank] = useState("Mellat");
+
+    const webhookLogsQuery = useQuery(
+        ["sales-bot-webhook-logs"],
+        () => getSalesBotWebhookLogs({ limit: 100 }),
+        {
+            refetchInterval: autoRefreshLogs ? 4000 : false,
+            refetchOnWindowFocus: true,
+        }
+    );
+
+    const clearLogsMutation = useMutation(clearSalesBotWebhookLogs, {
+        onSuccess: (res) => {
+            toast({
+                title: "موفق",
+                description: res?.message || "تاریخچه لاگ‌ها پاک شد",
+                status: "success",
+            });
+            queryClient.invalidateQueries("sales-bot-webhook-logs");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا در پاک کردن لاگ‌ها",
+                description: err?.message || String(err),
+                status: "error",
+            });
+        },
+    });
+
+    const simulateMutation = useMutation(simulateSalesBotWebhook, {
+        onSuccess: (res) => {
+            toast({
+                title: res?.matched ? "سفارش ۵ دقیقه‌ای تطبیق یافت و شارژ شد!" : "پیامک به وب‌هوک ارسال شد",
+                description: res?.message,
+                status: res?.matched ? "success" : "info",
+                duration: 6000,
+                isClosable: true,
+            });
+            setIsSimulateOpen(false);
+            setSimulateContent("");
+            queryClient.invalidateQueries("sales-bot-webhook-logs");
+            queryClient.invalidateQueries("sales-bot-overview");
+            queryClient.invalidateQueries("sales-bot-orders");
+            queryClient.invalidateQueries("sales-bot-users");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا در ارسال به وب‌هوک",
+                description: err?.message || String(err),
+                status: "error",
+            });
+        },
+    });
 
     // Settings form state
     const [formSettings, setFormSettings] = useState({});
@@ -620,6 +688,14 @@ export const SalesBotPage = () => {
                     </Tab>
                     <Tab fontWeight="medium" fontSize="sm">
                         ⚙️ تنظیمات نرخ و درگاه‌ها
+                    </Tab>
+                    <Tab fontWeight="medium" fontSize="sm">
+                        📜 لاگ‌های پیامک و وب‌هوک
+                        {webhookLogsQuery.data?.length > 0 && (
+                            <Badge ml={2} colorScheme="purple" borderRadius="full">
+                                {webhookLogsQuery.data.length}
+                            </Badge>
+                        )}
                     </Tab>
                 </TabList>
 
@@ -1569,8 +1645,393 @@ export const SalesBotPage = () => {
                             </Flex>
                         </VStack>
                     </TabPanel>
+
+                    {/* TAB 6: WEBHOOK & SMS LOGS */}
+                    <TabPanel p={0}>
+                        <VStack spacing={6} align="stretch">
+                            {/* Stat Cards */}
+                            <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4}>
+                                <Box p={4} bg={bgCard} borderRadius="xl" border="1px solid" borderColor={borderColor}>
+                                    <Text fontSize="xs" color={textSecondary} fontWeight="medium">
+                                        کل پیامک‌های دریافتی
+                                    </Text>
+                                    <Heading size="lg" mt={1}>
+                                        {webhookLogsQuery.data?.length ?? 0}
+                                    </Heading>
+                                    <Text fontSize="10px" color={textSecondary} mt={1}>
+                                        درخواست‌های ارسالی از ForApp
+                                    </Text>
+                                </Box>
+
+                                <Box p={4} bg={bgCard} borderRadius="xl" border="1px solid" borderColor={borderColor}>
+                                    <Text fontSize="xs" color={textSecondary} fontWeight="medium">
+                                        شارژهای خودکار موفق
+                                    </Text>
+                                    <Heading size="lg" mt={1} color="green.400">
+                                        {webhookLogsQuery.data?.filter((l) => l.status === "success").length ?? 0}
+                                    </Heading>
+                                    <Text fontSize="10px" color="green.400" mt={1}>
+                                        سفارش تطبیق‌یافته و کیف پول شارژ شده
+                                    </Text>
+                                </Box>
+
+                                <Box p={4} bg={bgCard} borderRadius="xl" border="1px solid" borderColor={borderColor}>
+                                    <Text fontSize="xs" color={textSecondary} fontWeight="medium">
+                                        واریزی‌های بدون تطبیق
+                                    </Text>
+                                    <Heading size="lg" mt={1} color="orange.400">
+                                        {webhookLogsQuery.data?.filter((l) => l.status === "unmatched").length ?? 0}
+                                    </Heading>
+                                    <Text fontSize="10px" color="orange.400" mt={1}>
+                                        مبلغ خوانده شد ولی سفارش ۵ دقیقه‌ای ثبت نشده بود
+                                    </Text>
+                                </Box>
+
+                                <Box p={4} bg={bgCard} borderRadius="xl" border="1px solid" borderColor={borderColor}>
+                                    <Text fontSize="xs" color={textSecondary} fontWeight="medium">
+                                        تست‌ها و اتصال‌های وب‌هوک
+                                    </Text>
+                                    <Heading size="lg" mt={1} color="blue.400">
+                                        {webhookLogsQuery.data?.filter((l) => l.status === "test" || l.status === "ready").length ?? 0}
+                                    </Heading>
+                                    <Text fontSize="10px" color="blue.400" mt={1}>
+                                        تست اتصال ForApp و پینگ وب‌هوک
+                                    </Text>
+                                </Box>
+                            </SimpleGrid>
+
+                            {/* Toolbar */}
+                            <Flex justify="space-between" align="center" flexWrap="wrap" gap={3}>
+                                <HStack spacing={4}>
+                                    <HStack spacing={2}>
+                                        <Switch
+                                            colorScheme="purple"
+                                            size="sm"
+                                            isChecked={autoRefreshLogs}
+                                            onChange={(e) => setAutoRefreshLogs(e.target.checked)}
+                                        />
+                                        <Text fontSize="xs" color={textSecondary}>
+                                            بروزرسانی زنده (هر ۴ ثانیه)
+                                        </Text>
+                                    </HStack>
+                                    <Button
+                                        size="sm"
+                                        leftIcon={<ArrowPathIcon width={14} height={14} />}
+                                        isLoading={webhookLogsQuery.isFetching}
+                                        onClick={() => webhookLogsQuery.refetch()}
+                                    >
+                                        تازه‌سازی لاگ‌ها
+                                    </Button>
+                                </HStack>
+
+                                <HStack spacing={2}>
+                                    <Button
+                                        size="sm"
+                                        colorScheme="purple"
+                                        variant="outline"
+                                        leftIcon={<CommandLineIcon width={14} height={14} />}
+                                        onClick={() => setIsSimulateOpen(true)}
+                                    >
+                                        🧪 شبیه‌سازی و تست ارسال پیامک
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        colorScheme="red"
+                                        variant="ghost"
+                                        leftIcon={<TrashIcon width={14} height={14} />}
+                                        isLoading={clearLogsMutation.isLoading}
+                                        onClick={() => {
+                                            if (window.confirm("آیا از پاک کردن کامل تاریخچه لاگ‌های وب‌هوک اطمینان دارید؟")) {
+                                                clearLogsMutation.mutate();
+                                            }
+                                        }}
+                                        isDisabled={(webhookLogsQuery.data?.length ?? 0) === 0}
+                                    >
+                                        پاک کردن لاگ‌ها
+                                    </Button>
+                                </HStack>
+                            </Flex>
+
+                            {/* Logs Table */}
+                            <Box
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                                overflowX="auto"
+                            >
+                                <Table size="sm" variant="simple">
+                                    <Thead bg={bgElevated}>
+                                        <Tr>
+                                            <Th>زمان</Th>
+                                            <Th>وضعیت</Th>
+                                            <Th>فرستنده / بانک</Th>
+                                            <Th>مبلغ استخراج‌شده</Th>
+                                            <Th>سفارش / کاربر</Th>
+                                            <Th>نتیجه و توضیحات سیستم</Th>
+                                            <Th>متن پیامک</Th>
+                                            <Th textAlign="center">عملیات</Th>
+                                        </Tr>
+                                    </Thead>
+                                    <Tbody>
+                                        {webhookLogsQuery.isLoading ? (
+                                            <Tr>
+                                                <Td colSpan={8} textAlign="center" py={8}>
+                                                    <Spinner size="sm" color="purple.500" />
+                                                </Td>
+                                            </Tr>
+                                        ) : (webhookLogsQuery.data?.length ?? 0) === 0 ? (
+                                            <Tr>
+                                                <Td colSpan={8} textAlign="center" py={12} color={textSecondary}>
+                                                    <VStack spacing={2}>
+                                                        <InboxArrowDownIcon width={32} height={32} />
+                                                        <Text fontWeight="medium">هنوز هیچ پیامکی به وب‌هوک ارسال نشده است.</Text>
+                                                        <Text fontSize="xs">
+                                                            برای بررسی می‌توانید از دکمه «شبیه‌سازی و تست ارسال پیامک» استفاده کنید.
+                                                        </Text>
+                                                    </VStack>
+                                                </Td>
+                                            </Tr>
+                                        ) : (
+                                            webhookLogsQuery.data.map((log) => {
+                                                let badgeColor = "gray";
+                                                let statusLabel = "نامشخص";
+                                                if (log.status === "success") {
+                                                    badgeColor = "green";
+                                                    statusLabel = "✅ شارژ موفق";
+                                                } else if (log.status === "unmatched") {
+                                                    badgeColor = "orange";
+                                                    statusLabel = "⚠️ بدون سفارش فعال";
+                                                } else if (log.status === "test") {
+                                                    badgeColor = "blue";
+                                                    statusLabel = "🧪 پیامک تستی";
+                                                } else if (log.status === "ready") {
+                                                    badgeColor = "teal";
+                                                    statusLabel = "🌐 تست وب‌هوک (GET)";
+                                                } else if (log.status === "no_amount") {
+                                                    badgeColor = "yellow";
+                                                    statusLabel = "بدون مبلغ";
+                                                } else if (log.status === "empty") {
+                                                    badgeColor = "red";
+                                                    statusLabel = "متن خالی";
+                                                } else if (log.status === "error" || log.status === "unauthorized") {
+                                                    badgeColor = "red";
+                                                    statusLabel = "❌ خطا / رد شده";
+                                                }
+
+                                                return (
+                                                    <Tr key={log.id} _hover={{ bg: bgElevated }}>
+                                                        <Td fontSize="11px" fontFamily="mono" whiteSpace="nowrap">
+                                                            {log.received_at}
+                                                        </Td>
+                                                        <Td>
+                                                            <Badge colorScheme={badgeColor} borderRadius="full" px={2} py={0.5} fontSize="10px">
+                                                                {statusLabel}
+                                                            </Badge>
+                                                        </Td>
+                                                        <Td fontSize="xs">
+                                                            <Text fontWeight="medium">{log.bank || log.sender || "-"}</Text>
+                                                            {log.bank_ref && (
+                                                                <Text fontSize="10px" color={textSecondary} fontFamily="mono">
+                                                                    پیگیری: {log.bank_ref}
+                                                                </Text>
+                                                            )}
+                                                        </Td>
+                                                        <Td fontWeight="bold" color={log.extracted_amount > 0 ? "green.400" : textSecondary}>
+                                                            {log.extracted_amount > 0 ? `${formatToman(log.extracted_amount)} تومان` : "-"}
+                                                        </Td>
+                                                        <Td fontSize="xs">
+                                                            {log.order_id ? (
+                                                                <HStack spacing={1}>
+                                                                    <Badge colorScheme="purple">سفارش #{log.order_id}</Badge>
+                                                                    <Text fontSize="10px" color={textSecondary}>کاربر: {log.user_id}</Text>
+                                                                </HStack>
+                                                            ) : log.user_id ? (
+                                                                <Text fontSize="xs">کاربر: {log.user_id}</Text>
+                                                            ) : (
+                                                                <Text color={textSecondary}>-</Text>
+                                                            )}
+                                                        </Td>
+                                                        <Td fontSize="xs" maxW="240px">
+                                                            <Text noOfLines={2} title={log.message}>
+                                                                {log.message || "-"}
+                                                            </Text>
+                                                        </Td>
+                                                        <Td fontSize="xs" maxW="200px">
+                                                            <Text noOfLines={1} fontFamily="mono" fontSize="11px" color={textSecondary} dir="ltr">
+                                                                {log.sms_text || log.raw_payload || "-"}
+                                                            </Text>
+                                                        </Td>
+                                                        <Td textAlign="center">
+                                                            <Button
+                                                                size="xs"
+                                                                variant="ghost"
+                                                                colorScheme="purple"
+                                                                onClick={() => setSelectedLogModal(log)}
+                                                            >
+                                                                جزئیات
+                                                            </Button>
+                                                        </Td>
+                                                    </Tr>
+                                                );
+                                            })
+                                        )}
+                                    </Tbody>
+                                </Table>
+                            </Box>
+                        </VStack>
+                    </TabPanel>
                 </TabPanels>
             </Tabs>
+
+
+            {/* Webhook Log Details Modal */}
+            <Modal isOpen={Boolean(selectedLogModal)} onClose={() => setSelectedLogModal(null)} size="lg" isCentered dir="rtl">
+                <ModalOverlay />
+                <ModalContent bg={bgCard} border="1px solid" borderColor={borderColor}>
+                    <ModalHeader fontSize="md" fontWeight="bold">
+                        📋 جزئیات لاگ وب‌هوک #{selectedLogModal?.id}
+                    </ModalHeader>
+                    <ModalCloseButton left={3} right="auto" />
+                    <ModalBody>
+                        <VStack spacing={4} align="stretch">
+                            <Box p={3} bg={bgElevated} borderRadius="lg">
+                                <HStack justify="space-between" mb={2}>
+                                    <Text fontSize="xs" color={textSecondary}>زمان دریافت:</Text>
+                                    <Text fontSize="xs" fontFamily="mono">{selectedLogModal?.received_at}</Text>
+                                </HStack>
+                                <HStack justify="space-between" mb={2}>
+                                    <Text fontSize="xs" color={textSecondary}>بانک / فرستنده:</Text>
+                                    <Text fontSize="xs" fontWeight="bold">{selectedLogModal?.bank || selectedLogModal?.sender || "-"}</Text>
+                                </HStack>
+                                <HStack justify="space-between" mb={2}>
+                                    <Text fontSize="xs" color={textSecondary}>مبلغ شناسایی‌شده:</Text>
+                                    <Text fontSize="xs" fontWeight="bold" color="green.400">
+                                        {selectedLogModal?.extracted_amount > 0 ? `${formatToman(selectedLogModal.extracted_amount)} تومان` : "مبلغی شناسایی نشد"}
+                                    </Text>
+                                </HStack>
+                                {selectedLogModal?.bank_ref && (
+                                    <HStack justify="space-between">
+                                        <Text fontSize="xs" color={textSecondary}>شماره پیگیری / ارجاع:</Text>
+                                        <Text fontSize="xs" fontFamily="mono">{selectedLogModal?.bank_ref}</Text>
+                                    </HStack>
+                                )}
+                            </Box>
+
+                            <Box>
+                                <Text fontSize="xs" fontWeight="bold" mb={1} color={textSecondary}>پیام و تحلیل سیستم:</Text>
+                                <Box p={3} bg={bgElevated} borderRadius="lg" fontSize="xs">
+                                    {selectedLogModal?.message || "-"}
+                                </Box>
+                            </Box>
+
+                            <Box>
+                                <Text fontSize="xs" fontWeight="bold" mb={1} color={textSecondary}>متن پیامک دریافتی:</Text>
+                                <Box p={3} bg={bgElevated} borderRadius="lg" fontSize="xs" fontFamily="mono" dir="ltr" whiteSpace="pre-wrap">
+                                    {selectedLogModal?.sms_text || "-"}
+                                </Box>
+                            </Box>
+
+                            <Box>
+                                <Text fontSize="xs" fontWeight="bold" mb={1} color={textSecondary}>داده خام ارسالی به وب‌هوک (Raw JSON):</Text>
+                                <Box p={3} bg={bgElevated} borderRadius="lg" fontSize="10px" fontFamily="mono" dir="ltr" maxH="120px" overflowY="auto" whiteSpace="pre-wrap">
+                                    {selectedLogModal?.raw_payload || "-"}
+                                </Box>
+                            </Box>
+                        </VStack>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button size="sm" onClick={() => setSelectedLogModal(null)}>بستن</Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Simulate SMS Modal */}
+            <Modal isOpen={isSimulateOpen} onClose={() => setIsSimulateOpen(false)} size="md" isCentered dir="rtl">
+                <ModalOverlay />
+                <ModalContent bg={bgCard} border="1px solid" borderColor={borderColor}>
+                    <ModalHeader fontSize="md" fontWeight="bold">
+                        🧪 شبیه‌سازی و تست ارسال پیامک به وب‌هوک
+                    </ModalHeader>
+                    <ModalCloseButton left={3} right="auto" />
+                    <ModalBody>
+                        <VStack spacing={4} align="stretch">
+                            <Text fontSize="xs" color={textSecondary}>
+                                می‌توانید یک پیامک نمونه را مستقیماً به پردازشگر وب‌هوک ارسال کنید تا ببینید مبلغ چگونه استخراج و با سفارش‌های کاربر تطبیق داده می‌شود.
+                            </Text>
+
+                            <FormControl>
+                                <FormLabel fontSize="xs">بانک فرستنده:</FormLabel>
+                                <Select size="sm" value={simulateBank} onChange={(e) => setSimulateBank(e.target.value)} borderRadius="lg">
+                                    <option value="بانک ملت">بانک ملت</option>
+                                    <option value="بانک ملی">بانک ملی</option>
+                                    <option value="بانک سامان">بانک سامان</option>
+                                    <option value="بانک پاسارگاد">بانک پاسارگاد</option>
+                                    <option value="بلو بانک (Blu)">بلو بانک (Blu)</option>
+                                    <option value="بانک رسالت">بانک رسالت</option>
+                                    <option value="بانک تجارت">بانک تجارت</option>
+                                </Select>
+                            </FormControl>
+
+                            <FormControl isRequired>
+                                <FormLabel fontSize="xs">متن پیامک واریز:</FormLabel>
+                                <Textarea
+                                    rows={4}
+                                    size="sm"
+                                    placeholder="مثال: واریز به حساب: 100,427 تومان - بانک ملت - پیگیری: 893452"
+                                    value={simulateContent}
+                                    onChange={(e) => setSimulateContent(e.target.value)}
+                                    borderRadius="lg"
+                                />
+                            </FormControl>
+
+                            <HStack spacing={2} wrap="wrap">
+                                <Text fontSize="10px" color={textSecondary}>نمونه‌های سریع:</Text>
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => setSimulateContent("واریز به حساب: 100,427 تومان - بانک ملت - پیگیری: 789456")}
+                                >
+                                    ۱۰۰,۴۲۷ تومان
+                                </Button>
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => setSimulateContent("واریز مبلغ 1,004,270 ریال به حساب شما. پیگیری: 456123")}
+                                >
+                                    ۱,۰۰۴,۲۷۰ ریال
+                                </Button>
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => setSimulateContent("انتقال 50,000 تومان انجام شد.")}
+                                >
+                                    ۵۰,۰۰۰ تومان
+                                </Button>
+                            </HStack>
+                        </VStack>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="ghost" mr={3} onClick={() => setIsSimulateOpen(false)}>
+                            انصراف
+                        </Button>
+                        <Button
+                            colorScheme="purple"
+                            isLoading={simulateMutation.isLoading}
+                            isDisabled={!simulateContent.trim()}
+                            onClick={() => {
+                                simulateMutation.mutate({
+                                    message: simulateContent,
+                                    bank: simulateBank,
+                                    sender: simulateBank,
+                                });
+                            }}
+                        >
+                            ارسال به وب‌هوک
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
 
             {/* Wallet Adjustment Modal */}
             <Modal isOpen={isWalletOpen} onClose={onWalletClose} isCentered dir="rtl">

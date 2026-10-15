@@ -6,10 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -17,138 +15,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-var (
-	botDBOnce sync.Once
-	botDB     *sql.DB
-	botDBPath string
-	botDBMu   sync.Mutex
-)
-
-// resolveBotDBPath locates the SQLite database for the sales bot
-func resolveBotDBPath() string {
-	if p := strings.TrimSpace(os.Getenv("BOT_DATABASE_PATH")); p != "" {
-		return p
-	}
-
-	candidates := []string{
-		"/opt/darkpanel/bot/bot.db",
-		"/opt/rebecca/bot/bot.db",
-		"bot/bot.db",
-		"../bot/bot.db",
-		"bot.db",
-	}
-
-	for _, c := range candidates {
-		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
-			return c
-		}
-	}
-
-	// If not found, use standard default based on environment
-	if _, err := os.Stat("/opt/darkpanel"); err == nil {
-		_ = os.MkdirAll("/opt/darkpanel/bot", 0755)
-		return "/opt/darkpanel/bot/bot.db"
-	}
-	if _, err := os.Stat("/opt/rebecca"); err == nil {
-		_ = os.MkdirAll("/opt/rebecca/bot", 0755)
-		return "/opt/rebecca/bot/bot.db"
-	}
-
-	_ = os.MkdirAll("bot", 0755)
-	return "bot/bot.db"
-}
-
-// getBotDB returns a singleton sql.DB connection to bot.db with WAL enabled
+// getBotDB returns the unified sql.DB connection to bot.db
 func getBotDB() (*sql.DB, string, error) {
-	botDBMu.Lock()
-	defer botDBMu.Unlock()
-
-	if botDB != nil {
-		if err := botDB.Ping(); err == nil {
-			return botDB, botDBPath, nil
-		}
-		_ = botDB.Close()
-		botDB = nil
-	}
-
-	path := resolveBotDBPath()
-	conn, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, path, fmt.Errorf("failed to open bot sqlite: %w", err)
-	}
-
-	conn.SetMaxOpenConns(4)
-	conn.SetMaxIdleConns(2)
-	conn.SetConnMaxLifetime(time.Hour)
-
-	_, _ = conn.Exec("PRAGMA journal_mode = WAL;")
-	_, _ = conn.Exec("PRAGMA busy_timeout = 10000;")
-	_, _ = conn.Exec("PRAGMA synchronous = NORMAL;")
-
-	schema := `
-	CREATE TABLE IF NOT EXISTS users (
-		telegram_id INTEGER PRIMARY KEY,
-		username TEXT DEFAULT '',
-		first_name TEXT DEFAULT '',
-		wallet_balance REAL DEFAULT 0,
-		panel_username TEXT DEFAULT '',
-		sub_url TEXT DEFAULT '',
-		service_status TEXT DEFAULT 'none',
-		total_spent REAL DEFAULT 0,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE IF NOT EXISTS receipts (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		user_id INTEGER NOT NULL,
-		amount REAL NOT NULL,
-		file_id TEXT NOT NULL,
-		status TEXT DEFAULT 'pending',
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE IF NOT EXISTS usage_tracking (
-		user_id INTEGER PRIMARY KEY,
-		panel_username TEXT NOT NULL,
-		last_synced_bytes INTEGER DEFAULT 0,
-		total_billed_bytes INTEGER DEFAULT 0,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE IF NOT EXISTS settings (
-		key TEXT PRIMARY KEY,
-		value TEXT NOT NULL
-	);
-
-	CREATE TABLE IF NOT EXISTS user_states (
-		user_id INTEGER PRIMARY KEY,
-		state TEXT DEFAULT '',
-		data TEXT DEFAULT ''
-	);
-
-	CREATE TABLE IF NOT EXISTS orders (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		user_id INTEGER NOT NULL,
-		amount_base REAL NOT NULL,
-		amount_exact REAL NOT NULL,
-		code TEXT NOT NULL,
-		status TEXT DEFAULT 'pending',
-		bank_ref TEXT DEFAULT '',
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		expires_at DATETIME NOT NULL
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, expires_at);
-	CREATE INDEX IF NOT EXISTS idx_orders_exact ON orders(amount_exact);
-	`
-	if _, err := conn.Exec(schema); err != nil {
-		_ = conn.Close()
-		return nil, path, fmt.Errorf("failed to init bot schema: %w", err)
-	}
-
-	botDB = conn
-	botDBPath = path
-	return botDB, botDBPath, nil
+	return salesbot.GetDB()
 }
 
 func (s *Server) registerSalesBotRoutes(r chi.Router) {
@@ -165,6 +34,9 @@ func (s *Server) registerSalesBotRoutes(r chi.Router) {
 	r.HandleFunc("/sales-bot/users/*", s.requireAdmin(s.handleSalesBotUserAction))
 	r.HandleFunc("/sales-bot/users", s.requireAdmin(s.handleSalesBotUsers))
 	r.HandleFunc("/sales-bot/webhook/test", s.requireAdmin(s.handleSalesBotWebhookTest))
+	r.HandleFunc("/sales-bot/webhook/logs/clear", s.requireAdmin(s.handleSalesBotWebhookLogsClear))
+	r.HandleFunc("/sales-bot/webhook/logs", s.requireAdmin(s.handleSalesBotWebhookLogs))
+	r.HandleFunc("/sales-bot/webhook/simulate", s.requireAdmin(s.handleSalesBotWebhookSimulate))
 	r.HandleFunc("/sales-bot/webhook/forapp", s.handlePublicForAppWebhook)
 }
 
@@ -991,6 +863,45 @@ func (s *Server) runSalesBot(ctx context.Context) {
 }
 
 func (s *Server) handlePublicForAppWebhook(w http.ResponseWriter, r *http.Request) {
+	salesbot.GetService().HandleForAppWebhook(w, r)
+}
+
+func (s *Server) handleSalesBotWebhookLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	limit := 100
+	if lStr := r.URL.Query().Get("limit"); lStr != "" {
+		if l, err := strconv.Atoi(lStr); err == nil && l > 0 && l <= 500 {
+			limit = l
+		}
+	}
+	logs, err := salesbot.GetWebhookLogs(limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, logs)
+}
+
+func (s *Server) handleSalesBotWebhookLogsClear(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if err := salesbot.ClearWebhookLogs(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "تاریخچه لاگ‌های وب‌هوک با موفقیت پاک شد"})
+}
+
+func (s *Server) handleSalesBotWebhookSimulate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 	salesbot.GetService().HandleForAppWebhook(w, r)
 }
 

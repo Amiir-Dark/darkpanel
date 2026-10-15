@@ -92,3 +92,24 @@ export const testSalesBotWebhook = async () => {
         body: JSON.stringify({}),
     });
 };
+
+export const getSalesBotWebhookLogs = async (params = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    const qs = searchParams.toString();
+    return apiFetch(`/sales-bot/webhook/logs${qs ? `?${qs}` : ""}`);
+};
+
+export const clearSalesBotWebhookLogs = async () => {
+    return apiFetch("/sales-bot/webhook/logs/clear", {
+        method: "POST",
+        body: JSON.stringify({}),
+    });
+};
+
+export const simulateSalesBotWebhook = async (payload) => {
+    return apiFetch("/sales-bot/webhook/simulate", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+};
