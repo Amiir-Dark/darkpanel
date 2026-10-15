@@ -843,7 +843,13 @@ get_installed_rebecca_channel() {
 
     if [ -f "$CHANNEL_FILE" ]; then
         channel=$(tr -d '[:space:]' < "$CHANNEL_FILE")
-        if [ -n "$channel" ]; then
+        if [[ "$channel" == main-* || "$channel" == "main" ]]; then
+            echo "main"
+            return
+        elif [[ "$channel" == dev-* || "$channel" == "dev" ]]; then
+            echo "dev"
+            return
+        elif [ -n "$channel" ]; then
             echo "$channel"
             return
         fi
@@ -3348,7 +3354,7 @@ get_binary_dev_manifest_metadata() {
             ([.builds[]? | select(type == "object")] + [legacy_build]);
         . as $root
         | builds as $builds
-        | (if ($requested != "" and $requested != "dev") then
+        | (if ($requested != "" and $requested != "dev" and $requested != "main") then
               ($builds[]? | select(.tag == $requested))
            else
               (if ($root.latest | type) == "string" then $root.latest else "" end) as $latest_tag
@@ -3428,7 +3434,7 @@ get_binary_dev_artifact_metadata() {
         return
     fi
 
-    if [ "$requested_version" != "dev" ]; then
+    if [ "$requested_version" != "dev" ] && [ "$requested_version" != "main" ]; then
         colorized_echo red "Dev binary build ${requested_version} was not found in $(get_binary_dev_manifest_url)." >&2
         exit 1
     fi
@@ -3592,7 +3598,7 @@ install_binary_rebecca() {
         ui_spinner_run "Installing DarkPanel custom CLI binary" install -m 755 "$REBECCA_BINARY_CLI_OVERRIDE" "$tmp_dir/rebecca-cli"
         resolved_version="${REBECCA_BINARY_OVERRIDE_VERSION:-custom}"
         artifact_url="local-override"
-    elif [[ "$rebecca_version" = "dev" || "$rebecca_version" == dev-* ]]; then
+    elif [[ "$rebecca_version" = "dev" || "$rebecca_version" == dev-* || "$rebecca_version" = "main" || "$rebecca_version" == main-* ]]; then
         IFS='|' read -r resolved_version artifact_url artifact_name < <(get_binary_dev_artifact_metadata "$binary_arch" "$rebecca_version")
         artifact_name="${artifact_name:-rebecca-binaries.zip}"
         package_path="$tmp_dir/$artifact_name"
@@ -4052,7 +4058,7 @@ install_command() {
     check_version_exists() {
         local version=$1
         repo_url="https://api.github.com/repos/${REBECCA_RELEASE_REPO}/releases"
-        if [ "$version" == "latest" ] || [ "$version" == "dev" ]; then
+        if [ "$version" == "latest" ] || [ "$version" == "dev" ] || [ "$version" == "main" ]; then
             return 0
         fi
         if [[ "$version" =~ ^(dev|main)-[0-9a-fA-F]{7,40}$ ]]; then
@@ -4071,7 +4077,7 @@ install_command() {
         fi
     }
     # Check if the version is valid and exists
-    if [[ "$rebecca_version" == "latest" || "$rebecca_version" == "dev" || "$rebecca_version" =~ ^(dev|main)-[0-9a-fA-F]{7,40}$ || "$rebecca_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    if [[ "$rebecca_version" == "latest" || "$rebecca_version" == "dev" || "$rebecca_version" == "main" || "$rebecca_version" =~ ^(dev|main)-[0-9a-fA-F]{7,40}$ || "$rebecca_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         if check_version_exists "$rebecca_version"; then
             if [ "$install_mode" = "binary" ]; then
                 install_binary_rebecca "$rebecca_version" "$database_type"
@@ -4086,7 +4092,13 @@ install_command() {
                 install_rebecca "$rebecca_version" "$database_type"
                 echo "docker" > "$INSTALL_MODE_FILE"
             fi
-            write_rebecca_channel "$rebecca_version"
+            if [[ "$rebecca_version" == main-* || "$rebecca_version" == "main" ]]; then
+        write_rebecca_channel "main"
+    elif [[ "$rebecca_version" == dev-* || "$rebecca_version" == "dev" ]]; then
+        write_rebecca_channel "dev"
+    else
+        write_rebecca_channel "$rebecca_version"
+    fi
             echo "Installing $rebecca_version version"
         else
             echo "Version $rebecca_version does not exist. Please enter a valid version (e.g. v0.5.2)"
@@ -4589,7 +4601,13 @@ update_command() {
     if is_binary_install && [ -d /usr/share/phpmyadmin ]; then
         configure_phpmyadmin_upload_limits
     fi
-    write_rebecca_channel "$rebecca_version"
+    if [[ "$rebecca_version" == main-* || "$rebecca_version" == "main" ]]; then
+        write_rebecca_channel "main"
+    elif [[ "$rebecca_version" == dev-* || "$rebecca_version" == "dev" ]]; then
+        write_rebecca_channel "dev"
+    else
+        write_rebecca_channel "$rebecca_version"
+    fi
     
     colorized_echo blue "Restarting DarkPanel services"
     down_rebecca
@@ -4841,7 +4859,13 @@ migrate_docker_to_binary_command() {
     colorized_echo blue "Importing database backup into binary installation"
     import_binary_database_backup "$database_type" "$backup_dir"
 
-    write_rebecca_channel "$rebecca_version"
+    if [[ "$rebecca_version" == main-* || "$rebecca_version" == "main" ]]; then
+        write_rebecca_channel "main"
+    elif [[ "$rebecca_version" == dev-* || "$rebecca_version" == "dev" ]]; then
+        write_rebecca_channel "dev"
+    else
+        write_rebecca_channel "$rebecca_version"
+    fi
     echo "binary" > "$INSTALL_MODE_FILE"
     up_rebecca
     colorized_echo green "Migration to binary mode completed. Backup kept at $backup_dir"
