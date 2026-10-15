@@ -722,12 +722,9 @@ func (c *GitHubUpdateChecker) Builds(ctx context.Context, repo string) (BuildCat
 	c.mu.Unlock()
 
 	floor := floorForRepo(repo)
-	stable, err := c.buildStableVersions(ctx, repo, floor)
-	if err != nil {
-		return c.staleBuildCatalog(repo, now, err)
-	}
+	stable, _ := c.buildStableVersions(ctx, repo, floor)
 	dev, err := c.buildDevVersions(ctx, repo, devSchemaFloor)
-	if err != nil {
+	if err != nil && len(stable) == 0 {
 		return c.staleBuildCatalog(repo, now, err)
 	}
 	catalog := BuildCatalog{Floor: floor, Stable: stable, Dev: dev}
@@ -757,16 +754,21 @@ func (c *GitHubUpdateChecker) statusUncached(ctx context.Context, repo string, c
 		Available: false,
 		CheckedAt: checkedAt,
 	}
-	latestRelease, err := c.latestRelease(ctx, repo)
-	if err != nil {
-		status.Error = err.Error()
-		return status
+	latestRelease, relErr := c.latestRelease(ctx, repo)
+	latestDev, devErr := c.latestDev(ctx, repo)
+
+	if currentChannel == "dev" || currentChannel == "main" {
+		if devErr != nil && latestRelease == nil {
+			status.Error = devErr.Error()
+			return status
+		}
+	} else {
+		if relErr != nil && latestDev == nil {
+			status.Error = relErr.Error()
+			return status
+		}
 	}
-	latestDev, err := c.latestDev(ctx, repo)
-	if err != nil {
-		status.Error = err.Error()
-		return status
-	}
+
 	status.LatestRelease = latestRelease
 	status.LatestDev = latestDev
 	target := latestRelease
@@ -868,7 +870,7 @@ func cloneReleaseInfo(info ReleaseInfo) ReleaseInfo {
 func (c *GitHubUpdateChecker) latestRelease(ctx context.Context, repo string) (*ReleaseInfo, error) {
 	var data map[string]any
 	if err := c.getJSON(ctx, strings.TrimRight(c.APIBase, "/")+"/repos/"+repo+"/releases/latest", &data); err != nil {
-		if strings.Contains(err.Error(), "404") {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "403") {
 			return nil, nil
 		}
 		return nil, err
@@ -913,7 +915,7 @@ func (c *GitHubUpdateChecker) buildStableVersions(ctx context.Context, repo stri
 	var data []map[string]any
 	url := strings.TrimRight(c.APIBase, "/") + "/repos/" + repo + "/releases?per_page=100"
 	if err := c.getJSON(ctx, url, &data); err != nil {
-		if strings.Contains(err.Error(), "404") {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "403") {
 			return []BuildVersion{}, nil
 		}
 		return nil, err
