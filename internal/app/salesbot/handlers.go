@@ -119,18 +119,111 @@ func walletKeyboard() InlineKeyboardMarkup {
 	}
 }
 
+func emptyPanelsKeyboard() InlineKeyboardMarkup {
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"},
+				{Text: "🧪 دریافت پنل تست", CallbackData: "test_panel"},
+			},
+			{
+				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+			},
+		},
+	}
+}
+
+func panelDetailKeyboard(panel UserPanel, canCreateMore bool) InlineKeyboardMarkup {
+	var rows [][]InlineKeyboardButton
+	if panel.PanelURL != "" && (strings.HasPrefix(panel.PanelURL, "http://") || strings.HasPrefix(panel.PanelURL, "https://")) {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "🌐 ورود به درگاه پنل", URL: panel.PanelURL},
+		})
+	}
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "🔑 تغییر رمز عبور", CallbackData: fmt.Sprintf("chpass:%d", panel.ID)},
+		{Text: "🗑️ حذف پنل", CallbackData: fmt.Sprintf("delpanel:%d", panel.ID)},
+	})
+	if canCreateMore {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "➕ ساخت پنل جدید", CallbackData: "buy_panel"},
+		})
+	}
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "🔙 لیست پنل‌ها", CallbackData: "my_panels"},
+		{Text: "🏠 منوی اصلی", CallbackData: "main_menu"},
+	})
+	return InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func panelsListKeyboard(panels []UserPanel, canCreateMore bool) InlineKeyboardMarkup {
+	var rows [][]InlineKeyboardButton
+	for _, p := range panels {
+		st := "فعال ✅"
+		if p.Status == "disabled" {
+			st = "غیرفعال ⚠️"
+		}
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: fmt.Sprintf("🔹 %s (%s)", p.PanelUsername, st), CallbackData: fmt.Sprintf("view_panel:%d", p.ID)},
+		})
+	}
+	if canCreateMore {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "➕ ساخت پنل جدید", CallbackData: "buy_panel"},
+		})
+	}
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+	})
+	return InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func changePassKeyboard(panelID int64) InlineKeyboardMarkup {
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "🎲 ساخت رمز عبور تصادفی", CallbackData: fmt.Sprintf("gen_pass:%d", panelID)},
+			},
+			{
+				{Text: "✏️ تایپ رمز دلخواه", CallbackData: fmt.Sprintf("input_pass:%d", panelID)},
+			},
+			{
+				{Text: "🔙 بازگشت به پنل", CallbackData: fmt.Sprintf("view_panel:%d", panelID)},
+			},
+		},
+	}
+}
+
+func passChangedKeyboard(panel UserPanel) InlineKeyboardMarkup {
+	var rows [][]InlineKeyboardButton
+	if panel.PanelURL != "" && (strings.HasPrefix(panel.PanelURL, "http://") || strings.HasPrefix(panel.PanelURL, "https://")) {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "🌐 ورود به درگاه پنل", URL: panel.PanelURL},
+		})
+	}
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "🔙 بازگشت به پنل", CallbackData: fmt.Sprintf("view_panel:%d", panel.ID)},
+		{Text: "🌐 پنل‌های من", CallbackData: "my_panels"},
+	})
+	return InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func confirmDeleteKeyboard(panelID int64) InlineKeyboardMarkup {
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "🗑️ بله، پنل را حذف کن", CallbackData: fmt.Sprintf("confirm_del:%d", panelID)},
+			},
+			{
+				{Text: "🔙 انصراف و بازگشت", CallbackData: fmt.Sprintf("view_panel:%d", panelID)},
+			},
+		},
+	}
+}
+
 func myPanelsKeyboard(hasPanel bool, panelURL string) InlineKeyboardMarkup {
 	if !hasPanel {
-		return InlineKeyboardMarkup{
-			InlineKeyboard: [][]InlineKeyboardButton{
-				{
-					{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"},
-				},
-				{
-					{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-				},
-			},
-		}
+		return emptyPanelsKeyboard()
 	}
 	var rows [][]InlineKeyboardButton
 	if panelURL != "" && (strings.HasPrefix(panelURL, "http://") || strings.HasPrefix(panelURL, "https://")) {
@@ -155,6 +248,7 @@ func testPanelSuccessKeyboard(panelURL string) InlineKeyboardMarkup {
 		})
 	}
 	rows = append(rows, []InlineKeyboardButton{
+		{Text: "🌐 پنل‌های من", CallbackData: "my_panels"},
 		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
 	})
 	return InlineKeyboardMarkup{InlineKeyboard: rows}
@@ -243,6 +337,57 @@ func getWalletText(u *User) string {
 	return fmt.Sprintf("💰 <b>کیف پول شما</b>\n\n💵 <b>موجودی فعلی:</b> %s تومان", formatCurrency(u.WalletBalance))
 }
 
+func formatPanelDetail(user *User, panel *UserPanel) string {
+	passLine := ""
+	if panel.PanelPassword != "" {
+		passLine = fmt.Sprintf("🔑 <b>کلمه عبور:</b> <code>%s</code>\n", panel.PanelPassword)
+	}
+	urlLine := ""
+	if panel.PanelURL != "" {
+		urlLine = fmt.Sprintf("🌐 <b>درگاه ورود به پنل:</b> <code>%s</code>\n", panel.PanelURL)
+	}
+	typeDesc := "نمایندگی Pay-As-You-Go ⭐"
+	if panel.PanelType == "test" {
+		typeDesc = "نمایندگی تست موقت 🧪"
+	}
+	statusDesc := "فعال ✅"
+	if panel.Status == "disabled" {
+		statusDesc = "غیرفعال (اتمام موجودی) ⚠️"
+	}
+	return fmt.Sprintf(
+		"🌐 <b>مدیریت پنل: <code>%s</code></b>\n\n"+
+			"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
+			"%s%s"+
+			"🏷️ <b>نوع دسترسی:</b> %s\n"+
+			"⚡ <b>وضعیت:</b> %s\n"+
+			"💰 <b>موجودی کیف پول:</b> <code>%s تومان</code>\n\n"+
+			"<i>💡 جهت ورود، تغییر رمز یا حذف این پنل از دکمه‌های زیر استفاده فرمایید:</i>",
+		panel.PanelUsername, panel.PanelUsername,
+		passLine, urlLine, typeDesc, statusDesc,
+		formatCurrency(user.WalletBalance),
+	)
+}
+
+func formatPanelsList(user *User, panels []UserPanel) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("🌐 <b>پنل‌های من (%d پنل)</b>\n\n", len(panels)))
+	sb.WriteString("📋 <b>لیست پنل‌های نمایندگی شما:</b>\n\n")
+	for i, p := range panels {
+		st := "فعال ✅"
+		if p.Status == "disabled" {
+			st = "غیرفعال ⚠️"
+		}
+		tDesc := "Pay-As-You-Go"
+		if p.PanelType == "test" {
+			tDesc = "تست"
+		}
+		sb.WriteString(fmt.Sprintf("%d. 👤 <code>%s</code> | %s (%s)\n", i+1, p.PanelUsername, st, tDesc))
+	}
+	sb.WriteString(fmt.Sprintf("\n💰 <b>موجودی کل کیف پول:</b> <code>%s تومان</code>\n\n", formatCurrency(user.WalletBalance)))
+	sb.WriteString("👇 <b>جهت مشاهده مشخصات، تغییر رمز، ورود به درگاه یا حذف، روی پنل مورد نظر کلیک فرمایید:</b>")
+	return sb.String()
+}
+
 func getMyPanelsText(u *User) string {
 	if u.PanelUsername == "" || u.ServiceStatus == "none" {
 		return "📦 <b>هنوز اشتراکی نداری.</b>\n\nاز دکمه «خرید اشتراک» می‌تونی اشتراک جدید بگیری."
@@ -321,7 +466,7 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 		return
 	}
 
-	state, _ := GetUserState(userID)
+	state, stateData := GetUserState(userID)
 
 	switch {
 	case strings.HasPrefix(text, "/start") || text == "منوی اصلی" || text == "منو" || text == "شروع":
@@ -338,8 +483,20 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 	case text == "📊 وضعیت اشتراک و اعتبار":
 		ClearUserState(userID)
 		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
-		hasPanel := user.PanelUsername != "" && user.ServiceStatus == "active"
-		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, getMyPanelsText(user), myPanelsKeyboard(hasPanel, user.SubURL))
+		panels, _ := GetUserPanels(user.TelegramID)
+		if len(panels) == 0 {
+			_ = s.tgClient.SendMessage(ctx, s.botToken, userID,
+				"🌐 <b>پنل‌های من</b>\n\n📦 <b>شما هنوز هیچ پنلی ثبت نکرده‌اید.</b>\n\nاز گزینه‌های زیر می‌توانید جهت دریافت پنل تست یا خرید پنل نمایندگی اقدام فرمایید.",
+				emptyPanelsKeyboard())
+		} else if len(panels) == 1 {
+			maxPanels := GetMaxPanelsPerUser()
+			canCreate := maxPanels == 0 || len(panels) < maxPanels
+			_ = s.tgClient.SendMessage(ctx, s.botToken, userID, formatPanelDetail(user, &panels[0]), panelDetailKeyboard(panels[0], canCreate))
+		} else {
+			maxPanels := GetMaxPanelsPerUser()
+			canCreate := maxPanels == 0 || len(panels) < maxPanels
+			_ = s.tgClient.SendMessage(ctx, s.botToken, userID, formatPanelsList(user, panels), panelsListKeyboard(panels, canCreate))
+		}
 
 	case text == "💳 ارسال فیش کارت به کارت":
 		ClearUserState(userID)
@@ -371,6 +528,9 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 
 	case state == "awaiting_gift_code":
 		s.processGiftCode(ctx, user, text)
+
+	case state == "awaiting_new_password":
+		s.processNewPassword(ctx, user, stateData, text)
 
 	default:
 		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
@@ -417,6 +577,24 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 	case "confirm_buy_panel":
 		ClearUserState(user.TelegramID)
+		maxPanels := GetMaxPanelsPerUser()
+		activeCount := GetUserActivePanelCount(user.TelegramID)
+		if maxPanels > 0 && activeCount >= maxPanels {
+			text := fmt.Sprintf(
+				"🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n"+
+					"شما در حال حاضر %d پنل فعال دارید و به حداکثر تعداد مجاز (%d عدد) رسیده‌اید.\n\n"+
+					"در صورتی که نیاز به ساخت پنل جدید دارید، ابتدا یکی از پنل‌های قبلی خود را در بخش «🌐 پنل‌های من» حذف فرمایید یا با پشتیبانی در ارتباط باشید.",
+				activeCount, maxPanels,
+			)
+			s.editOrSend(ctx, chatID, messageID, text, InlineKeyboardMarkup{
+				InlineKeyboard: [][]InlineKeyboardButton{
+					{{Text: "🌐 پنل‌های من", CallbackData: "my_panels"}},
+					{{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"}},
+				},
+			})
+			return
+		}
+
 		minBalance := GetSettingFloat("min_balance_to_start", 5000)
 		if minBalance <= 0 {
 			minBalance = 5000
@@ -436,6 +614,16 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 		adminUser, adminPass, panelURL, isUpgrade, err := CreatePurchasedAdmin(ctx, user.TelegramID, user.FirstName)
 		if err != nil {
+			if err.Error() == "MAX_LIMIT_REACHED" {
+				text := fmt.Sprintf(
+					"🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n"+
+						"شما در حال حاضر به حداکثر تعداد مجاز پنل (%d عدد) رسیده‌اید.\n\n"+
+						"جهت ساخت پنل جدید، یکی از پنل‌های خود را در «🌐 پنل‌های من» حذف نمایید.",
+					maxPanels,
+				)
+				s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
+				return
+			}
 			fmt.Printf("[SalesBot] ERROR CreatePurchasedAdmin for tgID %d: %v\n", user.TelegramID, err)
 			text := "❌ <b>خطا در راه‌اندازی پنل نمایندگی</b>\n\nمتأسفانه در اتصال به سیستم یا ساخت اکانت خطایی رخ داد. لطفاً چند لحظه بعد مجدداً تلاش فرمایید یا با پشتیبانی در ارتباط باشید."
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
@@ -469,17 +657,28 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		text := fmt.Sprintf(
 			"%s\n\n"+
 				"📋 <b>مشخصات ورود به پنل مدیریت:</b>\n"+
-				"🌐 <b>آدرس پنل:</b> <code>%s</code>\n"+
+				"🌐 <b>درگاه ورود به پنل:</b> <code>%s</code>\n"+
 				"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
 				"%s\n"+
 				"💰 <b>موجودی فعلی کیف پول:</b> <code>%s تومان</code>\n"+
 				"⚡ <b>مدل تعرفه:</b> پرداخت به اندازه مصرف (Pay As You Go)\n"+
 				"💵 <b>هزینه هر گیگابایت:</b> %s تومان\n\n"+
-				"💡 <i>راهنما: ترافیک مصرفی کاربران شما به‌صورت خودکار و دقیق محاسبه شده و متناسب با مصرف از کیف پول کسر می‌شود.</i>",
+				"💡 <i>راهنما: ترافیک مصرفی کاربران شما به‌صورت خودکار محاسبه شده و از کیف پول کسر می‌شود.</i>",
 			title, panelDisplay, adminUser, passLine,
 			formatCurrency(user.WalletBalance), formatCurrency(pricePerGB),
 		)
-		s.editOrSend(ctx, chatID, messageID, text, myPanelsKeyboard(true, panelURL))
+
+		var successButtons [][]InlineKeyboardButton
+		if panelURL != "" && (strings.HasPrefix(panelURL, "http://") || strings.HasPrefix(panelURL, "https://")) {
+			successButtons = append(successButtons, []InlineKeyboardButton{
+				{Text: "🌐 ورود به درگاه پنل", URL: panelURL},
+			})
+		}
+		successButtons = append(successButtons, []InlineKeyboardButton{
+			{Text: "🌐 پنل‌های من", CallbackData: "my_panels"},
+			{Text: "🏠 منوی اصلی", CallbackData: "main_menu"},
+		})
+		s.editOrSend(ctx, chatID, messageID, text, InlineKeyboardMarkup{InlineKeyboard: successButtons})
 
 	case "wallet":
 		ClearUserState(user.TelegramID)
@@ -487,11 +686,40 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 	case "my_panels":
 		ClearUserState(user.TelegramID)
-		hasPanel := user.PanelUsername != "" && user.ServiceStatus == "active"
-		s.editOrSend(ctx, chatID, messageID, getMyPanelsText(user), myPanelsKeyboard(hasPanel, user.SubURL))
+		panels, err := GetUserPanels(user.TelegramID)
+		if err != nil || len(panels) == 0 {
+			text := "🌐 <b>پنل‌های من</b>\n\n" +
+				"📦 <b>شما هنوز هیچ پنلی ثبت نکرده‌اید.</b>\n\n" +
+				"از دکمه‌های زیر می‌توانید جهت دریافت پنل تست رایگان یا خرید پنل نمایندگی جدید اقدام فرمایید."
+			s.editOrSend(ctx, chatID, messageID, text, emptyPanelsKeyboard())
+			return
+		}
+
+		maxPanels := GetMaxPanelsPerUser()
+		canCreateMore := maxPanels == 0 || len(panels) < maxPanels
+
+		if len(panels) == 1 {
+			s.editOrSend(ctx, chatID, messageID, formatPanelDetail(user, &panels[0]), panelDetailKeyboard(panels[0], canCreateMore))
+			return
+		}
+
+		s.editOrSend(ctx, chatID, messageID, formatPanelsList(user, panels), panelsListKeyboard(panels, canCreateMore))
 
 	case "test_panel":
 		ClearUserState(user.TelegramID)
+		maxPanels := GetMaxPanelsPerUser()
+		activeCount := GetUserActivePanelCount(user.TelegramID)
+		if maxPanels > 0 && activeCount >= maxPanels {
+			text := fmt.Sprintf(
+				"🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n"+
+					"شما در حال حاضر %d پنل فعال دارید و به حداکثر تعداد مجاز (%d عدد) رسیده‌اید.\n\n"+
+					"جهت دریافت پنل جدید، ابتدا یکی از پنل‌های قبلی خود را در بخش «🌐 پنل‌های من» حذف فرمایید یا با پشتیبانی در ارتباط باشید.",
+				activeCount, maxPanels,
+			)
+			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
+			return
+		}
+
 		maxTests := GetSettingInt("test_limit_per_user", 1)
 		if maxTests <= 0 {
 			maxTests = 1
@@ -510,6 +738,15 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 		adminUser, adminPass, panelURL, err := CreateTestAdmin(ctx, user.TelegramID, user.FirstName)
 		if err != nil {
+			if err.Error() == "MAX_LIMIT_REACHED" {
+				text := fmt.Sprintf(
+					"🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n"+
+						"شما در حال حاضر به حداکثر تعداد مجاز پنل (%d عدد) رسیده‌اید.",
+					maxPanels,
+				)
+				s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
+				return
+			}
 			fmt.Printf("[SalesBot] ERROR CreateTestAdmin for tgID %d: %v\n", user.TelegramID, err)
 			text := "❌ <b>خطا در ایجاد پنل نمایندگی تست</b>\n\nمتأسفانه در اتصال به سیستم یا ساخت اکانت خطایی رخ داد. لطفاً چند لحظه بعد مجدداً تلاش فرمایید یا با پشتیبانی در ارتباط باشید."
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
@@ -545,13 +782,13 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		text := fmt.Sprintf(
 			"🧪 <b>پنل نمایندگی تست شما با موفقیت فعال شد!</b>\n\n"+
 				"📋 <b>مشخصات ورود به پنل مدیریت:</b>\n"+
-				"🌐 <b>آدرس پنل:</b> <code>%s</code>\n"+
+				"🌐 <b>درگاه ورود به پنل:</b> <code>%s</code>\n"+
 				"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
 				"🔑 <b>کلمه عبور:</b> <code>%s</code>\n\n"+
 				"📦 <b>میزان ترافیک:</b> %s گیگابایت\n"+
 				"⏳ <b>مدت اعتبار:</b> %s\n"+
 				"🛡️ <b>نوع دسترسی:</b> نماینده (Reseller)\n\n"+
-				"💡 <i>راهنما: وارد آدرس پنل شوید و با نام کاربری و کلمه عبور بالا لاگین فرمایید. شما دسترسی ساخت کاربر و تست کانفیگ‌ها را خواهید داشت.</i>",
+				"💡 <i>راهنما: وارد آدرس پنل شوید و با مشخصات بالا لاگین فرمایید.</i>",
 			panelDisplay, adminUser, adminPass,
 			strconv.FormatFloat(testGB, 'f', -1, 64), durationStr,
 		)
@@ -592,7 +829,176 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 			text += fmt.Sprintf("📢 <b>کانال اطلاع‌رسانی:</b>\n👉 <b>%s</b>\n", channelUser)
 		}
 		s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
+
+	default:
+		switch {
+		case strings.HasPrefix(data, "view_panel:"):
+			parts := strings.Split(data, ":")
+			if len(parts) == 2 {
+				panelID, _ := strconv.ParseInt(parts[1], 10, 64)
+				panel, err := GetUserPanelByID(user.TelegramID, panelID)
+				if err != nil || panel == nil {
+					s.editOrSend(ctx, chatID, messageID, "❌ پنل مورد نظر یافت نشد.", backKeyboard())
+					return
+				}
+				maxPanels := GetMaxPanelsPerUser()
+				count := GetUserActivePanelCount(user.TelegramID)
+				canCreateMore := maxPanels == 0 || count < maxPanels
+				s.editOrSend(ctx, chatID, messageID, formatPanelDetail(user, panel), panelDetailKeyboard(*panel, canCreateMore))
+			}
+
+		case strings.HasPrefix(data, "chpass:"):
+			parts := strings.Split(data, ":")
+			if len(parts) == 2 {
+				panelID, _ := strconv.ParseInt(parts[1], 10, 64)
+				panel, err := GetUserPanelByID(user.TelegramID, panelID)
+				if err != nil || panel == nil {
+					s.editOrSend(ctx, chatID, messageID, "❌ پنل مورد نظر یافت نشد.", backKeyboard())
+					return
+				}
+				text := fmt.Sprintf(
+					"🔑 <b>تغییر کلمه عبور پنل <code>%s</code></b>\n\n"+
+						"لطفاً روش تغییر رمز را انتخاب فرمایید:\n\n"+
+						"🎲 <b>ساخت رمز عبور تصادفی:</b> یک رمز قدرتمند جدید بلافاصله تولید و ثبت می‌شود.\n"+
+						"✏️ <b>تایپ رمز دلخواه:</b> می‌توانید کلمه عبور دلخواه خود را در ربات ارسال فرمایید.",
+					panel.PanelUsername,
+				)
+				s.editOrSend(ctx, chatID, messageID, text, changePassKeyboard(panelID))
+			}
+
+		case strings.HasPrefix(data, "gen_pass:"):
+			parts := strings.Split(data, ":")
+			if len(parts) == 2 {
+				panelID, _ := strconv.ParseInt(parts[1], 10, 64)
+				newPass := generateRandomPassword(10)
+				panel, err := ChangeAdminPassword(ctx, user.TelegramID, panelID, newPass)
+				if err != nil {
+					s.editOrSend(ctx, chatID, messageID, "❌ خطا در تغییر کلمه عبور: "+err.Error(), backKeyboard())
+					return
+				}
+				panelDisplay := panel.PanelURL
+				if panelDisplay == "" {
+					panelDisplay = "پنل مدیریت DarkPanel"
+				}
+				text := fmt.Sprintf(
+					"✅ <b>کلمه عبور با موفقیت تغییر کرد!</b>\n\n"+
+						"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
+						"🔑 <b>کلمه عبور جدید:</b> <code>%s</code>\n"+
+						"🌐 <b>درگاه ورود به پنل:</b> <code>%s</code>\n\n"+
+						"<i>اکنون می‌توانید با کلمه عبور جدید وارد درگاه پنل شوید.</i>",
+					panel.PanelUsername, newPass, panelDisplay,
+				)
+				s.editOrSend(ctx, chatID, messageID, text, passChangedKeyboard(*panel))
+			}
+
+		case strings.HasPrefix(data, "input_pass:"):
+			parts := strings.Split(data, ":")
+			if len(parts) == 2 {
+				panelID, _ := strconv.ParseInt(parts[1], 10, 64)
+				panel, err := GetUserPanelByID(user.TelegramID, panelID)
+				if err != nil || panel == nil {
+					s.editOrSend(ctx, chatID, messageID, "❌ پنل مورد نظر یافت نشد.", backKeyboard())
+					return
+				}
+				SetUserState(user.TelegramID, "awaiting_new_password", fmt.Sprintf("%d", panelID))
+				text := fmt.Sprintf(
+					"✏️ <b>ارسال کلمه عبور دلخواه برای پنل <code>%s</code></b>\n\n"+
+						"لطفاً کلمه عبور جدید مورد نظر خود را تایپ و ارسال فرمایید:\n"+
+						"(حداقل ۶ کاراکتر)",
+					panel.PanelUsername,
+				)
+				s.editOrSend(ctx, chatID, messageID, text, InlineKeyboardMarkup{
+					InlineKeyboard: [][]InlineKeyboardButton{
+						{{Text: "🔙 انصراف و بازگشت", CallbackData: fmt.Sprintf("view_panel:%d", panelID)}},
+					},
+				})
+			}
+
+		case strings.HasPrefix(data, "delpanel:"):
+			parts := strings.Split(data, ":")
+			if len(parts) == 2 {
+				panelID, _ := strconv.ParseInt(parts[1], 10, 64)
+				panel, err := GetUserPanelByID(user.TelegramID, panelID)
+				if err != nil || panel == nil {
+					s.editOrSend(ctx, chatID, messageID, "❌ پنل مورد نظر یافت نشد.", backKeyboard())
+					return
+				}
+				typeDesc := "نمایندگی Pay-As-You-Go ⭐"
+				if panel.PanelType == "test" {
+					typeDesc = "نمایندگی تست موقت 🧪"
+				}
+				text := fmt.Sprintf(
+					"⚠️ <b>تأیید نهایی حذف پنل نمایندگی</b>\n\n"+
+						"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
+						"🏷️ <b>نوع پنل:</b> %s\n\n"+
+						"🚨 <b>هشدار جدی:</b> با حذف این پنل، اکانت نماینده و تمامی کاربران ساخته شده در آن برای همیشه حذف خواهند شد و این عملیات <b>غیرقابل بازگشت</b> است.\n\n"+
+						"آیا از حذف این پنل اطمینان دارید؟",
+					panel.PanelUsername, typeDesc,
+				)
+				s.editOrSend(ctx, chatID, messageID, text, confirmDeleteKeyboard(panelID))
+			}
+
+		case strings.HasPrefix(data, "confirm_del:"):
+			parts := strings.Split(data, ":")
+			if len(parts) == 2 {
+				panelID, _ := strconv.ParseInt(parts[1], 10, 64)
+				delUsername, err := DeleteAdminPanel(ctx, user.TelegramID, panelID)
+				if err != nil {
+					s.editOrSend(ctx, chatID, messageID, "❌ خطا در حذف پنل: "+err.Error(), backKeyboard())
+					return
+				}
+				text := fmt.Sprintf(
+					"✅ <b>پنل <code>%s</code> با موفقیت حذف گردید.</b>\n\n"+
+						"کلیه کانفیگ‌ها و دسترسی‌های این پنل پاک شدند.",
+					delUsername,
+				)
+				s.editOrSend(ctx, chatID, messageID, text, InlineKeyboardMarkup{
+					InlineKeyboard: [][]InlineKeyboardButton{
+						{{Text: "🌐 پنل‌های من", CallbackData: "my_panels"}},
+						{{Text: "🏠 منوی اصلی", CallbackData: "main_menu"}},
+					},
+				})
+			}
+		}
 	}
+}
+
+func (s *Service) processNewPassword(ctx context.Context, u *User, panelIDStr, newPassInput string) {
+	panelID, _ := strconv.ParseInt(strings.TrimSpace(panelIDStr), 10, 64)
+	newPass := strings.TrimSpace(newPassInput)
+	if len(newPass) < 6 {
+		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID,
+			"⚠️ <b>کلمه عبور باید حداقل ۶ کاراکتر باشد.</b>\n\nلطفاً کلمه عبور دیگری ارسال فرمایید:",
+			InlineKeyboardMarkup{
+				InlineKeyboard: [][]InlineKeyboardButton{
+					{{Text: "🔙 انصراف و بازگشت", CallbackData: fmt.Sprintf("view_panel:%d", panelID)}},
+				},
+			})
+		return
+	}
+
+	ClearUserState(u.TelegramID)
+	panel, err := ChangeAdminPassword(ctx, u.TelegramID, panelID, newPass)
+	if err != nil {
+		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID,
+			"❌ <b>خطا در تغییر کلمه عبور:</b> "+err.Error(),
+			backKeyboard())
+		return
+	}
+
+	panelDisplay := panel.PanelURL
+	if panelDisplay == "" {
+		panelDisplay = "پنل مدیریت DarkPanel"
+	}
+	successText := fmt.Sprintf(
+		"✅ <b>کلمه عبور با موفقیت تغییر کرد!</b>\n\n"+
+			"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
+			"🔑 <b>کلمه عبور جدید:</b> <code>%s</code>\n"+
+			"🌐 <b>درگاه ورود به پنل:</b> <code>%s</code>\n\n"+
+			"<i>اکنون می‌توانید با کلمه عبور جدید وارد درگاه پنل شوید.</i>",
+		panel.PanelUsername, newPass, panelDisplay,
+	)
+	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, successText, passChangedKeyboard(*panel))
 }
 
 func (s *Service) sendWelcome(ctx context.Context, u *User) {

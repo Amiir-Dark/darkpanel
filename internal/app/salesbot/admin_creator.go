@@ -223,6 +223,14 @@ func normalizeDashboardURL(raw string) string {
 
 // CreateTestAdmin creates a 1-day, 5 GB reseller admin account with random credentials
 func CreateTestAdmin(ctx context.Context, tgID int64, firstName string) (username, password, panelURL string, err error) {
+	maxPanels := GetMaxPanelsPerUser()
+	if maxPanels > 0 {
+		activeCount := GetUserActivePanelCount(tgID)
+		if activeCount >= maxPanels {
+			return "", "", "", fmt.Errorf("MAX_LIMIT_REACHED")
+		}
+	}
+
 	mainDB, _, err := GetMainDB()
 	if err != nil {
 		return "", "", "", fmt.Errorf("database connection error: %w", err)
@@ -310,13 +318,21 @@ func CreateTestAdmin(ctx context.Context, tgID int64, firstName string) (usernam
 
 	// 8. Record in sales bot SQLite database
 	_ = MarkUserUsedTest(tgID)
-	_ = ActivateUserPanel(tgID, chosenUser, rawPassword, panelURL)
+	_ = ActivateUserPanel(tgID, chosenUser, rawPassword, panelURL, "test")
 
 	return chosenUser, rawPassword, panelURL, nil
 }
 
 // CreatePurchasedAdmin creates a Pay-As-You-Go reseller admin account, or upgrades an existing test panel
 func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (username, password, panelURL string, isUpgrade bool, err error) {
+	maxPanels := GetMaxPanelsPerUser()
+	if maxPanels > 0 {
+		activeCount := GetUserActivePanelCount(tgID)
+		if activeCount >= maxPanels {
+			return "", "", "", false, fmt.Errorf("MAX_LIMIT_REACHED")
+		}
+	}
+
 	mainDB, _, err := GetMainDB()
 	if err != nil {
 		return "", "", "", false, fmt.Errorf("database connection error: %w", err)
@@ -339,8 +355,8 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 
 	panelURL = resolvePanelURL(mainDB)
 
-	// If user already has an admin account (e.g. from test panel), upgrade it to Pay-As-You-Go!
-	if existingUser.PanelUsername != "" {
+	// If user currently has an existing test panel (and no other panel), upgrade it to Pay-As-You-Go!
+	if existingUser.PanelUsername != "" && strings.HasPrefix(existingUser.PanelUsername, "test_") {
 		var adminExists int
 		_ = mainDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins WHERE LOWER(username) = LOWER(?)`, existingUser.PanelUsername).Scan(&adminExists)
 		if adminExists > 0 {
@@ -371,7 +387,7 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 				ON CONFLICT(user_id) DO UPDATE SET panel_username = excluded.panel_username
 			`, tgID, existingUser.PanelUsername, currentBytes)
 
-			_ = ActivateUserPanel(tgID, existingUser.PanelUsername, existingUser.PanelPassword, panelURL)
+			_ = ActivateUserPanel(tgID, existingUser.PanelUsername, existingUser.PanelPassword, panelURL, "payg")
 			return existingUser.PanelUsername, existingUser.PanelPassword, panelURL, true, nil
 		}
 	}
@@ -443,7 +459,7 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 		ON CONFLICT(user_id) DO UPDATE SET panel_username = excluded.panel_username, last_synced_bytes = 0
 	`, tgID, chosenUser)
 
-	_ = ActivateUserPanel(tgID, chosenUser, rawPassword, panelURL)
+	_ = ActivateUserPanel(tgID, chosenUser, rawPassword, panelURL, "payg")
 
 	return chosenUser, rawPassword, panelURL, false, nil
 }
@@ -743,3 +759,69 @@ func assignConfiguredServicesToAdmin(ctx context.Context, db *sql.DB, adminID in
 		`, adminID, sID)
 	}
 }
+
+// ChangeAdminPassword updates the password in both DarkPanel and SQLite
+func ChangeAdminPassword(ctx context.Context, tgID int64, panelID int64, newRawPassword string) (*UserPanel, error) {
+	newRawPassword = strings.TrimSpace(newRawPassword)
+	if len(newRawPassword) < 6 {
+		return nil, fmt.Errorf("کلمه عبور باید حداقل ۶ کاراکتر باشد")
+	}
+
+	panel, err := GetUserPanelByID(tgID, panelID)
+	if err != nil || panel == nil {
+		return nil, fmt.Errorf("پنل مورد نظر یافت نشد")
+	}
+
+	mainDB, _, err := GetMainDB()
+	if err != nil {
+		return nil, fmt.Errorf("خطا در برقراری ارتباط با دیتابیس پنل: %w", err)
+	}
+
+	hash, err := admin.HashPassword(newRawPassword)
+	if err != nil {
+		return nil, fmt.Errorf("خطا در پردازش کلمه عبور: %w", err)
+	}
+
+	_, err = mainDB.ExecContext(ctx, `
+		UPDATE admins
+		SET hashed_password = ?
+		WHERE LOWER(username) = LOWER(?)
+	`, hash, panel.PanelUsername)
+	if err != nil {
+		return nil, fmt.Errorf("خطا در بروزرسانی رمز عبور در سرور: %w", err)
+	}
+
+	_ = UpdateUserPanelPassword(tgID, panelID, newRawPassword)
+	panel.PanelPassword = newRawPassword
+	return panel, nil
+}
+
+// DeleteAdminPanel soft-deletes the admin account, its created users, and removes from bot database
+func DeleteAdminPanel(ctx context.Context, tgID int64, panelID int64) (string, error) {
+	panel, err := GetUserPanelByID(tgID, panelID)
+	if err != nil || panel == nil {
+		return "", fmt.Errorf("پنل مورد نظر یافت نشد")
+	}
+
+	mainDB, _, err := GetMainDB()
+	if err == nil && mainDB != nil {
+		var adminID int64
+		_ = mainDB.QueryRowContext(ctx, `SELECT id FROM admins WHERE LOWER(username) = LOWER(?)`, panel.PanelUsername).Scan(&adminID)
+		if adminID > 0 {
+			// Soft-delete users belonging to this admin
+			_, _ = mainDB.ExecContext(ctx, `UPDATE users SET status = 'deleted' WHERE admin_id = ?`, adminID)
+			// Soft-delete admin
+			_, _ = mainDB.ExecContext(ctx, `UPDATE admins SET status = 'deleted' WHERE id = ?`, adminID)
+		}
+	}
+
+	// Remove usage tracking
+	sqliteDB, _, err := GetDB()
+	if err == nil && sqliteDB != nil {
+		_, _ = sqliteDB.ExecContext(ctx, `DELETE FROM usage_tracking WHERE LOWER(panel_username) = LOWER(?)`, panel.PanelUsername)
+	}
+
+	_, _ = DeleteUserPanel(tgID, panelID)
+	return panel.PanelUsername, nil
+}
+

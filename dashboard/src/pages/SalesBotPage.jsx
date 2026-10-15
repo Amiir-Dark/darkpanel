@@ -1434,22 +1434,39 @@ export const SalesBotPage = () => {
                                 borderColor={borderColor}
                             >
                                 <Heading size="sm" mb={4} color="purple.400">
-                                    🌐 آدرس ورود به پنل نمایندگان (Panel URL)
+                                    🌐 تنظیمات پنل نمایندگان (Panel Settings)
                                 </Heading>
-                                <FormControl>
-                                    <FormLabel fontSize="xs">آدرس یا دامنه پنل دارک‌پنل جهت ورود نمایندگان</FormLabel>
-                                    <Input
-                                        size="sm"
-                                        value={formSettings.panel_url || ""}
-                                        onChange={(e) => handleSettingChange("panel_url", e.target.value)}
-                                        placeholder="https://panel.example.com یا http://1.2.3.4:8000"
-                                        dir="ltr"
-                                        borderRadius="lg"
-                                    />
-                                    <FormHelperText fontSize="10px">
-                                        این آدرس در دکمه شیشه‌ای «ورود به پنل مدیریت» در تلگرام قرار می‌گیرد. در صورت خالی بودن، از آدرس هاست یا دامنه پیش‌فرض سرور استفاده می‌شود.
-                                    </FormHelperText>
-                                </FormControl>
+                                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">آدرس یا دامنه پنل دارک‌پنل جهت ورود نمایندگان</FormLabel>
+                                        <Input
+                                            size="sm"
+                                            value={formSettings.panel_url || ""}
+                                            onChange={(e) => handleSettingChange("panel_url", e.target.value)}
+                                            placeholder="https://panel.example.com یا http://1.2.3.4:8000"
+                                            dir="ltr"
+                                            borderRadius="lg"
+                                        />
+                                        <FormHelperText fontSize="10px">
+                                            این آدرس در دکمه شیشه‌ای «ورود به درگاه پنل» قرار می‌گیرد. در صورت خالی بودن، از آدرس پیش‌فرض سرور استفاده می‌شود.
+                                        </FormHelperText>
+                                    </FormControl>
+
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">سقف تعداد پنل مجاز برای هر کاربر</FormLabel>
+                                        <Input
+                                            type="number"
+                                            size="sm"
+                                            value={formSettings.max_panels_per_user || ""}
+                                            onChange={(e) => handleSettingChange("max_panels_per_user", e.target.value)}
+                                            placeholder="1"
+                                            borderRadius="lg"
+                                        />
+                                        <FormHelperText fontSize="10px">
+                                            حداکثر تعداد پنل نمایندگی فعال برای هر کاربر (پیش‌فرض: ۱، عدد ۰ = بدون محدودیت)
+                                        </FormHelperText>
+                                    </FormControl>
+                                </SimpleGrid>
                             </Box>
 
                             {/* Test Panel Section */}

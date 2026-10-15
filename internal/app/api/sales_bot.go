@@ -204,6 +204,7 @@ func (s *Server) handleSalesBotSettings(w http.ResponseWriter, r *http.Request) 
 			"test_traffic_gb":       "5",
 			"test_duration_hours":   "24",
 			"test_limit_per_user":   "1",
+			"max_panels_per_user":   "1",
 			"card_number":          "",
 			"card_holder":          "",
 			"bank_name":            "",

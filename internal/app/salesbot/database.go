@@ -35,6 +35,17 @@ type User struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+type UserPanel struct {
+	ID            int64     `json:"id"`
+	UserID        int64     `json:"user_id"`
+	PanelUsername string    `json:"panel_username"`
+	PanelPassword string    `json:"panel_password"`
+	PanelURL      string    `json:"panel_url"`
+	PanelType     string    `json:"panel_type"` // payg, test
+	Status        string    `json:"status"`     // active, disabled, deleted
+	CreatedAt     time.Time `json:"created_at"`
+}
+
 type Order struct {
 	ID          int64     `json:"id"`
 	UserID      int64     `json:"user_id"`
@@ -228,6 +239,21 @@ func GetDB() (*sql.DB, string, error) {
 		redeemed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(user_id, code)
 	);
+
+	CREATE TABLE IF NOT EXISTS user_panels (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		panel_username TEXT NOT NULL,
+		panel_password TEXT DEFAULT '',
+		panel_url TEXT DEFAULT '',
+		panel_type TEXT DEFAULT 'payg',
+		status TEXT DEFAULT 'active',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(user_id, panel_username)
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_user_panels_user ON user_panels(user_id);
+	CREATE INDEX IF NOT EXISTS idx_user_panels_username ON user_panels(panel_username);
 	`
 	if _, err := conn.Exec(schema); err != nil {
 		_ = conn.Close()
@@ -253,10 +279,21 @@ func GetDB() (*sql.DB, string, error) {
 		"ALTER TABLE webhook_logs ADD COLUMN user_id INTEGER NULL;",
 		"ALTER TABLE webhook_logs ADD COLUMN status TEXT DEFAULT 'received';",
 		"ALTER TABLE webhook_logs ADD COLUMN message TEXT DEFAULT '';",
+		"ALTER TABLE usage_tracking ADD COLUMN panel_username TEXT DEFAULT '';",
 	}
 	for _, m := range colMigrations {
 		_, _ = conn.Exec(m)
 	}
+
+	// Populate user_panels from existing users table if any panel is not already recorded
+	_, _ = conn.Exec(`
+		INSERT OR IGNORE INTO user_panels (user_id, panel_username, panel_password, panel_url, panel_type, status)
+		SELECT telegram_id, panel_username, panel_password, sub_url,
+		       CASE WHEN has_used_test = 1 AND panel_username LIKE 'test_%' THEN 'test' ELSE 'payg' END,
+		       CASE WHEN service_status = 'disabled' THEN 'disabled' ELSE 'active' END
+		FROM users
+		WHERE panel_username != '' AND panel_username IS NOT NULL;
+	`)
 
 	dbConn = conn
 	dbPath = path
@@ -506,16 +543,200 @@ func MarkUserUsedTest(tgID int64) error {
 	return err
 }
 
-func ActivateUserPanel(tgID int64, username, password, subURL string) error {
+func ActivateUserPanel(tgID int64, username, password, subURL string, panelType ...string) error {
+	pType := "payg"
+	if len(panelType) > 0 && strings.TrimSpace(panelType[0]) != "" {
+		pType = strings.TrimSpace(panelType[0])
+	}
 	db, _, err := GetDB()
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(`
+	// 1. Update users table fallback
+	_, _ = db.Exec(`
 		UPDATE users 
 		SET panel_username = ?, panel_password = ?, sub_url = ?, service_status = 'active'
 		WHERE telegram_id = ?`, username, password, subURL, tgID)
+
+	// 2. Insert or update user_panels table
+	_, err = db.Exec(`
+		INSERT INTO user_panels (user_id, panel_username, panel_password, panel_url, panel_type, status)
+		VALUES (?, ?, ?, ?, ?, 'active')
+		ON CONFLICT(user_id, panel_username) DO UPDATE SET
+			panel_password = excluded.panel_password,
+			panel_url = excluded.panel_url,
+			panel_type = excluded.panel_type,
+			status = 'active'
+	`, tgID, username, password, subURL, pType)
+
 	return err
+}
+
+// GetUserPanels returns all non-deleted panels for a telegram user
+func GetUserPanels(userID int64) ([]UserPanel, error) {
+	db, _, err := GetDB()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.Query(`
+		SELECT id, user_id, panel_username, panel_password, panel_url, panel_type, status, created_at
+		FROM user_panels
+		WHERE user_id = ? AND status != 'deleted'
+		ORDER BY id ASC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var panels []UserPanel
+	for rows.Next() {
+		var p UserPanel
+		var uPass, uURL, pType, pStatus sql.NullString
+		var crAt sql.NullTime
+		if err := rows.Scan(&p.ID, &p.UserID, &p.PanelUsername, &uPass, &uURL, &pType, &pStatus, &crAt); err == nil {
+			p.PanelPassword = uPass.String
+			p.PanelURL = uURL.String
+			p.PanelType = pType.String
+			p.Status = pStatus.String
+			if crAt.Valid {
+				p.CreatedAt = crAt.Time
+			}
+			panels = append(panels, p)
+		}
+	}
+
+	// If empty, check if users table has legacy panel and auto-migrate it
+	if len(panels) == 0 {
+		var uPanelUser, uPanelPass, uSubURL, uStatus sql.NullString
+		var hasTest sql.NullInt64
+		err := db.QueryRow(`
+			SELECT panel_username, panel_password, sub_url, service_status, has_used_test
+			FROM users WHERE telegram_id = ?
+		`, userID).Scan(&uPanelUser, &uPanelPass, &uSubURL, &uStatus, &hasTest)
+		if err == nil && uPanelUser.Valid && strings.TrimSpace(uPanelUser.String) != "" {
+			pType := "payg"
+			if hasTest.Int64 == 1 && strings.HasPrefix(uPanelUser.String, "test_") {
+				pType = "test"
+			}
+			_ = ActivateUserPanel(userID, uPanelUser.String, uPanelPass.String, uSubURL.String, pType)
+			if uStatus.String == "disabled" {
+				_, _ = db.Exec(`UPDATE user_panels SET status = 'disabled' WHERE user_id = ? AND panel_username = ?`, userID, uPanelUser.String)
+			}
+			return GetUserPanels(userID)
+		}
+	}
+
+	return panels, nil
+}
+
+// GetUserPanelByID returns a single panel owned by the telegram user
+func GetUserPanelByID(userID int64, panelID int64) (*UserPanel, error) {
+	db, _, err := GetDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var p UserPanel
+	var uPass, uURL, pType, pStatus sql.NullString
+	var crAt sql.NullTime
+	err = db.QueryRow(`
+		SELECT id, user_id, panel_username, panel_password, panel_url, panel_type, status, created_at
+		FROM user_panels
+		WHERE id = ? AND user_id = ? AND status != 'deleted'
+	`, panelID, userID).Scan(&p.ID, &p.UserID, &p.PanelUsername, &uPass, &uURL, &pType, &pStatus, &crAt)
+	if err != nil {
+		return nil, err
+	}
+	p.PanelPassword = uPass.String
+	p.PanelURL = uURL.String
+	p.PanelType = pType.String
+	p.Status = pStatus.String
+	if crAt.Valid {
+		p.CreatedAt = crAt.Time
+	}
+	return &p, nil
+}
+
+// GetUserActivePanelCount returns the count of active (non-deleted) panels for this user
+func GetUserActivePanelCount(userID int64) int {
+	db, _, err := GetDB()
+	if err != nil {
+		return 0
+	}
+	var count int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM user_panels WHERE user_id = ? AND status != 'deleted'`, userID).Scan(&count)
+	return count
+}
+
+// GetMaxPanelsPerUser returns the configured max panels per user limit (0 = unlimited)
+func GetMaxPanelsPerUser() int {
+	return GetSettingInt("max_panels_per_user", 1)
+}
+
+// UpdateUserPanelPassword updates the plain password in SQLite
+func UpdateUserPanelPassword(userID int64, panelID int64, newPass string) error {
+	db, _, err := GetDB()
+	if err != nil {
+		return err
+	}
+	var panelUsername string
+	err = db.QueryRow(`SELECT panel_username FROM user_panels WHERE id = ? AND user_id = ?`, panelID, userID).Scan(&panelUsername)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`UPDATE user_panels SET panel_password = ? WHERE id = ? AND user_id = ?`, newPass, panelID, userID)
+	if err != nil {
+		return err
+	}
+	_, _ = db.Exec(`UPDATE users SET panel_password = ? WHERE telegram_id = ? AND LOWER(panel_username) = LOWER(?)`, newPass, userID, panelUsername)
+	return nil
+}
+
+// DeleteUserPanel marks a panel as deleted in SQLite and updates users table primary fallback
+func DeleteUserPanel(userID int64, panelID int64) (*UserPanel, error) {
+	p, err := GetUserPanelByID(userID, panelID)
+	if err != nil {
+		return nil, err
+	}
+	db, _, err := GetDB()
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.Exec(`UPDATE user_panels SET status = 'deleted' WHERE id = ? AND user_id = ?`, panelID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Re-evaluate users table primary panel
+	var nextUser, nextPass, nextURL, nextStatus string
+	err = db.QueryRow(`
+		SELECT panel_username, panel_password, panel_url, status
+		FROM user_panels
+		WHERE user_id = ? AND status != 'deleted'
+		ORDER BY id DESC LIMIT 1
+	`, userID).Scan(&nextUser, &nextPass, &nextURL, &nextStatus)
+	if err == nil && nextUser != "" {
+		st := "active"
+		if nextStatus == "disabled" {
+			st = "disabled"
+		}
+		_, _ = db.Exec(`
+			UPDATE users
+			SET panel_username = ?, panel_password = ?, sub_url = ?, service_status = ?
+			WHERE telegram_id = ?
+		`, nextUser, nextPass, nextURL, st, userID)
+	} else {
+		_, _ = db.Exec(`
+			UPDATE users
+			SET panel_username = '', panel_password = '', sub_url = '', service_status = 'none'
+			WHERE telegram_id = ?
+		`, userID)
+	}
+
+	return p, nil
 }
 
 func RedeemGiftCode(userID int64, rawCode string) (float64, error) {
