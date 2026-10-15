@@ -1,9 +1,57 @@
 {
   "schema_version": 1,
   "project": "Rebecca",
-  "latest": "main-00b3c75",
-  "updated_at": "2026-10-15T05:22:30Z",
+  "latest": "main-4f249b2",
+  "updated_at": "2026-10-15T05:43:36Z",
   "builds": [
+    {
+      "tag": "main-4f249b2",
+      "sha": "4f249b2ce9b3aa7830652460d49a23eb0c7cc503",
+      "branch": "main",
+      "workflow": "Binary Build",
+      "run_id": "38687969203",
+      "run_number": "135",
+      "created_at": "2026-10-15T05:43:36Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-dev-4f249b2.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-4f249b2.tar.gz"
+        },
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-dev-4f249b2.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-dev-4f249b2.tar.gz"
+        },
+        "windows-amd64": {
+          "name": "rebecca-windows-amd64-main-4f249b2.zip",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-windows-amd64-main-4f249b2.zip"
+        }
+      }
+    },
+    {
+      "tag": "dev-4f249b2",
+      "sha": "4f249b2ce9b3aa7830652460d49a23eb0c7cc503",
+      "branch": "main",
+      "workflow": "Binary Build",
+      "run_id": "38687969203",
+      "run_number": "135",
+      "created_at": "2026-10-15T05:43:36Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-dev-4f249b2.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-4f249b2.tar.gz"
+        },
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-dev-4f249b2.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-dev-4f249b2.tar.gz"
+        },
+        "windows-amd64": {
+          "name": "rebecca-windows-amd64-main-4f249b2.zip",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-windows-amd64-main-4f249b2.zip"
+        }
+      }
+    },
     {
       "tag": "main-00b3c75",
       "sha": "00b3c75097fae7c59ed76c9fd4ac991322533c30",
