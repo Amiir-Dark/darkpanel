@@ -11,6 +11,65 @@ import (
 //go:embed assets/*/shell.html
 var embeddedFS embed.FS
 
+// AllTemplateIDs maps all 17 supported Row-Template IDs.
+var AllTemplateIDs = map[string]bool{
+	"row":          true,
+	"arcade":       true,
+	"arcadenova":   true,
+	"brutal":       true,
+	"canvas":       true,
+	"editorial":    true,
+	"meter":        true,
+	"notebook":     true,
+	"prism":        true,
+	"prismnova":    true,
+	"pulse":        true,
+	"pulsenova":    true,
+	"saffron":      true,
+	"signature":    true,
+	"sketch":       true,
+	"terminal":     true,
+	"terminalnova": true,
+}
+
+// ExtractTemplateID parses a template string or path and returns the Row-Template ID if matched.
+func ExtractTemplateID(pathOrName string) (string, bool) {
+	trimmed := strings.ToLower(strings.TrimSpace(pathOrName))
+	trimmed = strings.ReplaceAll(trimmed, "\\", "/")
+	trimmed = strings.TrimPrefix(trimmed, "/")
+	trimmed = strings.TrimSuffix(trimmed, "/shell.html")
+
+	if AllTemplateIDs[trimmed] {
+		return trimmed, true
+	}
+
+	parts := strings.Split(trimmed, "/")
+	for i, part := range parts {
+		if part == "row-template" && i+1 < len(parts) {
+			candidate := parts[i+1]
+			if AllTemplateIDs[candidate] {
+				return candidate, true
+			}
+		}
+	}
+
+	return "", false
+}
+
+// MatchRowTemplate checks if pathOrName corresponds to a Row-Template,
+// and if so returns its rendered raw bytes.
+func MatchRowTemplate(pathOrName string) ([]byte, bool) {
+	id, ok := ExtractTemplateID(pathOrName)
+	if !ok {
+		return nil, false
+	}
+	content, err := ReadTemplate(id)
+	if err != nil {
+		return nil, false
+	}
+	return content, true
+}
+
 // ReadTemplate returns the raw HTML bytes for the given template name.
 // It first attempts to read from disk (allowing admin overrides), and falls
 // back to the embedded template compiled directly into the binary.

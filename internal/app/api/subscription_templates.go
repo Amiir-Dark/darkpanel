@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -162,7 +163,13 @@ var availableRowTemplates = []SubscriptionTemplateInfo{
 	},
 }
 
-func getActiveRowTemplateName() string {
+func (s *Server) getActiveRowTemplateName(ctx context.Context) string {
+	settings, err := s.settingsRepo.SubscriptionSettings(ctx)
+	if err == nil && settings.SubscriptionPageTemplate != "" {
+		if id, ok := rowtemplates.ExtractTemplateID(settings.SubscriptionPageTemplate); ok {
+			return id
+		}
+	}
 	stateFile := filepath.Join("templates", "subscription", "row-template", ".active")
 	if data, err := os.ReadFile(stateFile); err == nil {
 		t := strings.TrimSpace(string(data))
@@ -184,7 +191,7 @@ func (s *Server) handleSubscriptionTemplatesRoot(w http.ResponseWriter, r *http.
 		return
 	}
 
-	activeTemplate := getActiveRowTemplateName()
+	activeTemplate := s.getActiveRowTemplateName(r.Context())
 	list := make([]SubscriptionTemplateInfo, len(availableRowTemplates))
 	copy(list, availableRowTemplates)
 
@@ -279,29 +286,38 @@ func (s *Server) handleSubscriptionTemplateActivate(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// 1. Write to target index.html
 	targetIndex := rowtemplates.ResolveSubscriptionTargetPath()
 	_ = os.MkdirAll(filepath.Dir(targetIndex), 0755)
 	backupIndex := filepath.Join(filepath.Dir(targetIndex), "index.html.original")
 
-	// Backup original index.html if backup does not exist yet
 	if _, err := os.Stat(backupIndex); os.IsNotExist(err) {
 		if origBytes, err := os.ReadFile(targetIndex); err == nil && len(origBytes) > 0 {
 			_ = os.WriteFile(backupIndex, origBytes, 0644)
 		}
 	}
+	_ = os.WriteFile(targetIndex, shellBytes, 0644)
 
-	// Copy selected template to index.html
-	if err := os.WriteFile(targetIndex, shellBytes, 0644); err != nil {
-		writeError(w, http.StatusInternalServerError, "خطا در ذخیره قالب: "+err.Error())
-		return
+	// Also write to standard default templates/subscription/index.html if different
+	standardPath := filepath.Join("templates", "subscription", "index.html")
+	if standardPath != targetIndex {
+		_ = os.MkdirAll(filepath.Dir(standardPath), 0755)
+		_ = os.WriteFile(standardPath, shellBytes, 0644)
 	}
 
-	// Update database settings so subscription_page_template is configured
+	// 2. Update database settings so subscription_page_template is configured to the row template
 	templatePathInDB := "subscription/row-template/" + templateName + "/shell.html"
 	rawSettings := map[string]json.RawMessage{
 		"subscription_page_template": json.RawMessage(`"` + templatePathInDB + `"`),
 	}
-	_, _ = s.settingsRepo.UpdateSubscriptionSettings(r.Context(), rawSettings)
+	if _, err := s.settingsRepo.UpdateSubscriptionSettings(r.Context(), rawSettings); err != nil {
+		writeError(w, http.StatusInternalServerError, "خطا در بروزرسانی تنظیمات: "+err.Error())
+		return
+	}
+
+	// 3. Clear any admin-level subscription_page_template overrides in admins table
+	// so ALL users across the entire panel will use this template
+	s.clearAllAdminSubscriptionTemplateOverrides(r.Context())
 
 	// Persist active template name
 	setActiveRowTemplateName(templateName)
@@ -332,6 +348,7 @@ func (s *Server) handleSubscriptionTemplateReset(w http.ResponseWriter, r *http.
 	}
 	_, _ = s.settingsRepo.UpdateSubscriptionSettings(r.Context(), rawSettings)
 
+	s.clearAllAdminSubscriptionTemplateOverrides(r.Context())
 	setActiveRowTemplateName("")
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -339,4 +356,34 @@ func (s *Server) handleSubscriptionTemplateReset(w http.ResponseWriter, r *http.
 		"message":         "قالب پیش‌فرض ربکا با موفقیت فعال شد.",
 		"active_template": "",
 	})
+}
+
+func (s *Server) clearAllAdminSubscriptionTemplateOverrides(ctx context.Context) {
+	rows, err := s.db.QueryContext(ctx, "SELECT id, subscription_settings FROM admins WHERE subscription_settings IS NOT NULL AND subscription_settings != ''")
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	type adminRow struct {
+		id       int64
+		settings string
+	}
+	var toUpdate []adminRow
+	for rows.Next() {
+		var r adminRow
+		if err := rows.Scan(&r.id, &r.settings); err == nil {
+			var parsed map[string]any
+			if err := json.Unmarshal([]byte(r.settings), &parsed); err == nil {
+				if _, has := parsed["subscription_page_template"]; has {
+					delete(parsed, "subscription_page_template")
+					newJSON, _ := json.Marshal(parsed)
+					toUpdate = append(toUpdate, adminRow{id: r.id, settings: string(newJSON)})
+				}
+			}
+		}
+	}
+	for _, item := range toUpdate {
+		_, _ = s.db.ExecContext(ctx, "UPDATE admins SET subscription_settings = ? WHERE id = ?", item.settings, item.id)
+	}
 }

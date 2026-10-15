@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/rebeccapanel/rebecca/internal/app/rowtemplates"
 )
 
 const (
@@ -859,6 +861,20 @@ func (r Repository) ReadTemplateContent(ctx context.Context, templateKey string,
 }
 
 func (r Repository) readTemplateSelection(templateKey string, adminID *int64, selection templateSelection, customOnly bool) (TemplateContent, bool, error) {
+	if templateKey == "subscription_page_template" {
+		if tplBytes, ok := rowtemplates.MatchRowTemplate(selection.TemplateName); ok {
+			resolved := selection.TemplateName
+			return TemplateContent{
+				TemplateKey:     templateKey,
+				TemplateName:    selection.TemplateName,
+				CustomDirectory: selection.CustomDirectory,
+				ResolvedPath:    &resolved,
+				AdminID:         adminID,
+				Content:         string(tplBytes),
+			}, true, nil
+		}
+	}
+
 	var path string
 	var err error
 	if customOnly {
@@ -868,6 +884,19 @@ func (r Repository) readTemplateSelection(templateKey string, adminID *int64, se
 	}
 	if err != nil {
 		if errors.Is(err, ErrTemplateNotFound) {
+			if templateKey == "subscription_page_template" {
+				if tplBytes, ok := rowtemplates.MatchRowTemplate(selection.TemplateName); ok {
+					resolved := selection.TemplateName
+					return TemplateContent{
+						TemplateKey:     templateKey,
+						TemplateName:    selection.TemplateName,
+						CustomDirectory: selection.CustomDirectory,
+						ResolvedPath:    &resolved,
+						AdminID:         adminID,
+						Content:         string(tplBytes),
+					}, true, nil
+				}
+			}
 			return TemplateContent{}, false, nil
 		}
 		return TemplateContent{}, false, err
