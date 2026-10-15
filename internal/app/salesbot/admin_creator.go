@@ -1039,12 +1039,12 @@ func DeleteAdminPanel(ctx context.Context, tgID int64, panelID int64) (string, e
 		}
 	}
 
-	// Remove usage tracking & reset test panel access so user can test again
+	// Remove usage tracking for this panel. The test-panel history is preserved
+	// so a user cannot take another free test after deleting their test panel.
 	sqliteDB, _, err := GetDB()
 	if err == nil && sqliteDB != nil {
 		_, _ = sqliteDB.ExecContext(ctx, `DELETE FROM panel_usage_tracking WHERE LOWER(panel_username) = LOWER(?)`, panel.PanelUsername)
 		_, _ = sqliteDB.ExecContext(ctx, `DELETE FROM usage_tracking WHERE LOWER(panel_username) = LOWER(?)`, panel.PanelUsername)
-		_, _ = sqliteDB.ExecContext(ctx, `UPDATE users SET has_used_test = 0 WHERE telegram_id = ?`, tgID)
 	}
 
 	_, _ = DeleteUserPanel(tgID, panelID)
