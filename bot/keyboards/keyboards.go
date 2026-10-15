@@ -91,6 +91,10 @@ func AdminMenuInline() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("📢 ارسال پیام همگانی", "adm_broadcast"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📡 وب‌هوک پیامک (ForApp)", "adm_forapp"),
+			tgbotapi.NewInlineKeyboardButtonData("📋 سفارشات پرداخت", "adm_orders"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📊 آمار و خلاصه کلی", "adm_stats"),
 			tgbotapi.NewInlineKeyboardButtonData("👥 لیست کاربران", "adm_users"),
 		),

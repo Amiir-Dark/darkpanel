@@ -12,6 +12,7 @@ import (
 	"darkpanel-bot/config"
 	"darkpanel-bot/database"
 	"darkpanel-bot/handlers"
+	"darkpanel-bot/webhook"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -52,7 +53,15 @@ func main() {
 	paygEngine := billing.NewPAYGEngine(db, panelClient, cfg, bot)
 	go paygEngine.Start(ctx)
 
-	// 5. Initialize Telegram Update Handlers
+	// 5. Start 5-Minute Order Expiration Worker
+	orderExpiryWorker := billing.NewOrderExpiryWorker(db, bot)
+	go orderExpiryWorker.Start(ctx)
+
+	// 6. Start ForApp SMS Webhook HTTP Server
+	webhookServer := webhook.NewServer(cfg, db, panelClient, bot)
+	go webhookServer.Start(ctx)
+
+	// 7. Initialize Telegram Update Handlers
 	handler := handlers.NewBotHandler(bot, db, panelClient, cfg)
 
 	u := tgbotapi.NewUpdate(0)

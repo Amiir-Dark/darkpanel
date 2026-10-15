@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"darkpanel-bot/database"
 	"darkpanel-bot/keyboards"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -60,6 +61,12 @@ func (h *BotHandler) handleAdminCallback(query *tgbotapi.CallbackQuery) {
 
 	case "adm_pending_receipts":
 		h.handleAdminPendingReceipts(query)
+
+	case "adm_forapp":
+		h.handleAdminForApp(query)
+
+	case "adm_orders":
+		h.handleAdminOrders(query)
 
 	case "adm_set_price":
 		h.db.SetUserState(tgID, "adm_waiting_price", "")
@@ -399,4 +406,82 @@ func (h *BotHandler) handleAdminInbounds(query *tgbotapi.CallbackQuery) {
 	m.ParseMode = tgbotapi.ModeMarkdown
 	_, _ = h.bot.Send(m)
 }
+
+func (h *BotHandler) handleAdminForApp(query *tgbotapi.CallbackQuery) {
+	tgID := query.From.ID
+
+	ip := h.cfg.ServerIP
+	if ip == "" {
+		ip = "آی‌پی_سرور_شما"
+	}
+
+	webhookURL := fmt.Sprintf("http://%s:%d%s", ip, h.cfg.WebhookPort, h.cfg.WebhookPath)
+
+	keyStatus := "بدون رمز (پیش‌فرض)"
+	if h.cfg.WebhookSecret != "" {
+		keyStatus = fmt.Sprintf("`%s`", h.cfg.WebhookSecret)
+	}
+
+	text := fmt.Sprintf(
+		"📡 *تنظیمات وب‌هوک پیامک واریز خودکار (ForApp)*\n\n"+
+			"🟢 *وضعیت وب‌هوک سرور:* در حال گوش دادن روی پورت `%d`\n\n"+
+			"🔗 *آدرس وب‌هوک جهت ثبت در ForApp:*\n`%s`\n"+
+			"*(روی آدرس ضربه بزنید تا کپی شود)*\n\n"+
+			"🔑 *کلید امنیتی (X-API-Key):* %s\n\n"+
+			"📱 *آموزش اتصال نرم‌افزار ForApp (گوشی اندروید):*\n"+
+			"۱. اپلیکیشن ForApp را از لینک زیر دانلود و روی گوشی خود نصب کنید:\n"+
+			"   👉 [دانلود ForApp از گیت‌هاب](https://github.com/erfjab/forapp/releases/latest)\n"+
+			"۲. مجوز دریافت پیامک (SMS) و فعالیت در پس‌زمینه را به برنامه بدهید.\n"+
+			"۳. در بخش **مقصدها (Destinations)** یک مقصد جدید بسازید:\n"+
+			"   • نام: `DarkPanel Bot`\n"+
+			"   • آدرس: لینک وب‌هوک بالا\n"+
+			"   • متد: `POST` و نوع: `JSON`\n"+
+			"۴. دکمه **«ارسال آزمایشی»** را در برنامه بزنید تا اتصال تست شود.\n\n"+
+			"⚡️ از این پس به محض دریافت پیامک واریز از هر بانکی، سیستم به طور آنی پرداخت کاربر را شناسایی و تایید می‌کند!",
+		h.cfg.WebhookPort,
+		webhookURL,
+		keyStatus,
+	)
+
+	m := tgbotapi.NewMessage(tgID, text)
+	m.ParseMode = tgbotapi.ModeMarkdown
+	m.DisableWebPagePreview = true
+	_, _ = h.bot.Send(m)
+}
+
+func (h *BotHandler) handleAdminOrders(query *tgbotapi.CallbackQuery) {
+	tgID := query.From.ID
+	orders, err := h.db.GetRecentOrders(15)
+	if err != nil {
+		log.Printf("Error getting recent orders: %v", err)
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString("📋 *لیست آخرین ۱۵ سفارش پرداخت آنلاین (تایید ۵ دقیقه‌ای):*\n\n")
+
+	if len(orders) == 0 {
+		sb.WriteString("هنوز سفارشی ثبت نشده است.\n")
+	} else {
+		for _, o := range orders {
+			icon := "⏳"
+			switch o.Status {
+			case "paid":
+				icon = "✅"
+			case "expired":
+				icon = "⏰"
+			case "cancelled":
+				icon = "❌"
+			}
+			timeStr := o.CreatedAt.Format("01/02 15:04")
+			sb.WriteString(fmt.Sprintf("%s `#%d` | کاربر: `%d` | مبلغ: `%s` ت | کد: `%s` | وضعیت: %s | %s\n",
+				icon, o.ID, o.UserID, database.FormatMoney(o.AmountExact), o.Code, o.Status, timeStr))
+		}
+	}
+
+	m := tgbotapi.NewMessage(tgID, sb.String())
+	m.ParseMode = tgbotapi.ModeMarkdown
+	_, _ = h.bot.Send(m)
+}
+
 

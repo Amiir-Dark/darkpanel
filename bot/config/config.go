@@ -20,6 +20,10 @@ type Config struct {
 	SyncIntervalSeconds int
 	SupportUsername     string
 	ChannelUsername     string
+	WebhookPort         int
+	WebhookPath         string
+	WebhookSecret       string
+	ServerIP            string
 }
 
 func LoadConfig() *Config {
@@ -37,6 +41,10 @@ func LoadConfig() *Config {
 		SyncIntervalSeconds: getEnvInt("SYNC_INTERVAL_SECONDS", 120),
 		SupportUsername:     getEnv("SUPPORT_USERNAME", "@AdminSupport"),
 		ChannelUsername:     getEnv("CHANNEL_USERNAME", ""),
+		WebhookPort:         getEnvInt("WEBHOOK_PORT", 8085),
+		WebhookPath:         getEnv("WEBHOOK_PATH", "/webhook/forapp"),
+		WebhookSecret:       getEnv("WEBHOOK_SECRET", ""),
+		ServerIP:            getEnv("SERVER_IP", ""),
 	}
 
 	rawAdmins := getEnv("ADMIN_IDS", "")

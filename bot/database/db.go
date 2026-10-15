@@ -61,6 +61,21 @@ func InitDB(dbPath string) (*DB, error) {
 		state TEXT DEFAULT '',
 		data TEXT DEFAULT ''
 	);
+
+	CREATE TABLE IF NOT EXISTS orders (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		amount_base REAL NOT NULL,
+		amount_exact REAL NOT NULL,
+		code TEXT NOT NULL,
+		status TEXT DEFAULT 'pending',
+		bank_ref TEXT DEFAULT '',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		expires_at DATETIME NOT NULL
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, expires_at);
+	CREATE INDEX IF NOT EXISTS idx_orders_exact ON orders(amount_exact);
 	`
 
 	if _, err := conn.Exec(schema); err != nil {
