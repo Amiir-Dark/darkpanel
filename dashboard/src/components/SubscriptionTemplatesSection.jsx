@@ -3,6 +3,7 @@ import {
     Badge,
     Box,
     Button,
+    chakra,
     Flex,
     Grid,
     Heading,
@@ -13,6 +14,7 @@ import {
     InputGroup,
     InputLeftElement,
     InputRightElement,
+    Link,
     Progress,
     SimpleGrid,
     Spinner,
@@ -209,16 +211,15 @@ export const SubscriptionTemplatesSection = () => {
                         </Heading>
                         <Text fontSize="sm" color={mutedText} lineHeight="tall">
                             مجموعه ۱۷ قالب شیک، واکنش‌گرا و فوق‌العاده زیبا از مخزن معتبر{" "}
-                            <chakra.a
+                            <Link
                                 href="https://github.com/iitzSeriZdev/Row-Template"
-                                target="_blank"
-                                rel="noreferrer"
+                                isExternal
                                 color="primary.500"
                                 fontWeight="semibold"
                                 textDecoration="underline"
                             >
                                 Row-Template
-                            </chakra.a>
+                            </Link>
                             . می‌توانید هر قالب را با داده‌های تستی واقعی (حجم مصرفی، روزهای باقیمانده، پرچم کشورها، لینک‌های هوشمند و بارکد QR) در تب جدید پیش‌نمایش کنید و در صورت پسند با یک کلیک روی تمام کاربران اعمال نمایید.
                         </Text>
                     </Box>
