@@ -66,6 +66,7 @@
 	"dashboard.maintenance.updateAvailable": "Доступно обновление",
 	"dashboard.maintenance.updateChannel": "Канал обновления",
 	"dashboard.maintenance.updateChannelCurrent": "Текущий установленный канал",
+	"dashboard.maintenance.updateChannelMain": "Основная ветка (Main)",
 	"dashboard.maintenance.updateChannelLatest": "Последний стабильный релиз",
 	"dashboard.maintenance.updateChannelDev": "Сборка разработки (Dev)",
 	"dashboard.maintenance.updateAction": "Обновить панель",

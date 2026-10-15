@@ -243,3 +243,22 @@ func TestGitHubUpdateCheckerCachesErrors(t *testing.T) {
 		t.Fatalf("expected one failed request to be cached, got %d", got)
 	}
 }
+
+func TestMainChannelSupport(t *testing.T) {
+	tag := "main-c1a6eec"
+	if ch := InferUpdateChannel(&tag); ch != "main" {
+		t.Fatalf("expected main, got %q", ch)
+	}
+	devTag := "dev-45c14d0"
+	if ch := InferUpdateChannel(&devTag); ch != "dev" {
+		t.Fatalf("expected dev, got %q", ch)
+	}
+	args, err := BuildRebeccaUpdateArgs("main", "")
+	if err != nil || len(args) != 2 || args[1] != "--main" {
+		t.Fatalf("expected [--main], got %#v, err=%v", args, err)
+	}
+	args, err = BuildRebeccaUpdateArgs("", "main-c1a6eec")
+	if err != nil || len(args) != 3 || args[2] != "main-c1a6eec" {
+		t.Fatalf("expected [update --version main-c1a6eec], got %#v, err=%v", args, err)
+	}
+}

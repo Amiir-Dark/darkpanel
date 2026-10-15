@@ -146,6 +146,7 @@
 	"dashboard.maintenance.updateAvailable": "به‌روزرسانی موجود",
 	"dashboard.maintenance.updateChannel": "نسخه به‌روزرسانی",
 	"dashboard.maintenance.updateChannelCurrent": "نسخه نصب‌شده فعلی",
+	"dashboard.maintenance.updateChannelMain": "نسخه اصلی گیت‌هاب (Main)",
 	"dashboard.maintenance.updateChannelLatest": "آخرین نسخه پایدار (Release)",
 	"dashboard.maintenance.updateChannelDev": "نسخه تحت توسعه (Dev)",
 	"dashboard.maintenance.buildVersion": "نسخه بیلد",

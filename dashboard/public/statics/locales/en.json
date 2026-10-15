@@ -146,6 +146,7 @@
 	"dashboard.maintenance.updateAvailable": "Update available",
 	"dashboard.maintenance.updateChannel": "Update channel",
 	"dashboard.maintenance.updateChannelCurrent": "Current installed channel",
+	"dashboard.maintenance.updateChannelMain": "Main branch build",
 	"dashboard.maintenance.updateChannelLatest": "Latest release",
 	"dashboard.maintenance.updateChannelDev": "Dev build",
 	"dashboard.maintenance.buildVersion": "Build version",

@@ -295,7 +295,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          build_tag="dev-${GITHUB_SHA::7}"
+          branch_name="${GITHUB_REF_NAME:-main}"
+          build_tag="${branch_name}-${GITHUB_SHA::7}"
           mkdir -p dev-upload-assets
           shopt -s nullglob
           for asset in dev-release-assets/rebecca-*; do
@@ -304,10 +305,16 @@ jobs:
               rebecca-linux-*.tar.gz)
                 base="${name%.tar.gz}"
                 cp "$asset" "dev-upload-assets/${base}-${build_tag}.tar.gz"
+                if [ "${branch_name}" = "main" ]; then
+                  cp "$asset" "dev-upload-assets/${base}-dev-${GITHUB_SHA::7}.tar.gz"
+                fi
                 ;;
               rebecca-windows-*.zip)
                 base="${name%.zip}"
                 cp "$asset" "dev-upload-assets/${base}-${build_tag}.zip"
+                if [ "${branch_name}" = "main" ]; then
+                  cp "$asset" "dev-upload-assets/${base}-dev-${GITHUB_SHA::7}.zip"
+                fi
                 ;;
             esac
           done
@@ -370,8 +377,8 @@ jobs:
               def build_assets($names):
                 reduce $names[]? as $name
                   ({};
-                    if ($name | test("^rebecca-(?<platform>(linux|windows)-[A-Za-z0-9_]+)-dev-[0-9a-fA-F]+(\\.tar\\.gz|\\.zip)$")) then
-                      ($name | capture("^rebecca-(?<platform>(linux|windows)-[A-Za-z0-9_]+)-dev-[0-9a-fA-F]+(\\.tar\\.gz|\\.zip)$")) as $match
+                    if ($name | test("^rebecca-(?<platform>(linux|windows)-[A-Za-z0-9_]+)-(dev|main)-[0-9a-fA-F]+(\\.tar\\.gz|\\.zip)$")) then
+                      ($name | capture("^rebecca-(?<platform>(linux|windows)-[A-Za-z0-9_]+)-(dev|main)-[0-9a-fA-F]+(\\.tar\\.gz|\\.zip)$")) as $match
                       | .[$match.platform] = {name: $name, url: ($download_base + "/" + $name)}
                     else
                       .

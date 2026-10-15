@@ -22,7 +22,7 @@ const hostOperationDisabledDetail = "This host-level action is available only on
 
 var (
 	releaseVersionPattern = regexp.MustCompile(`^v?\d+(?:\.\d+){1,3}(?:[-+._A-Za-z0-9]*)?$`)
-	devVersionPattern     = regexp.MustCompile(`^dev-[0-9a-fA-F]{7,40}$`)
+	devVersionPattern     = regexp.MustCompile(`^(dev|main)-[0-9a-fA-F]{7,40}$`)
 )
 
 var (
@@ -196,7 +196,7 @@ func UpdateFollowsCurrentChannel(channel string, version string) bool {
 		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(channel)) {
-	case "dev", "latest", "stable", "release":
+	case "dev", "main", "latest", "stable", "release":
 		return false
 	}
 	return true
@@ -229,7 +229,7 @@ func ResolveUpdateVersion(ctx context.Context, checker UpdateChecker, repo strin
 			return catalog.Dev[0].Version, nil
 		}
 	}
-	if target == "dev" {
+	if target == "dev" || target == "main" {
 		if len(catalog.Dev) > 0 {
 			return catalog.Dev[0].Version, nil
 		}
@@ -248,6 +248,8 @@ func resolveUpdateTarget(ctx context.Context, checker UpdateChecker, repo string
 		switch strings.ToLower(strings.TrimSpace(channel)) {
 		case "dev":
 			target = "dev"
+		case "main":
+			target = "main"
 		case "latest", "stable", "release":
 			target = "latest"
 		}
@@ -256,6 +258,8 @@ func resolveUpdateTarget(ctx context.Context, checker UpdateChecker, repo string
 		switch strings.ToLower(strings.TrimSpace(currentChannel)) {
 		case "dev":
 			target = "dev"
+		case "main":
+			target = "main"
 		case "latest", "stable", "release":
 			target = "latest"
 		default:
@@ -263,19 +267,19 @@ func resolveUpdateTarget(ctx context.Context, checker UpdateChecker, repo string
 		}
 	}
 	switch {
-	case target == "dev":
+	case target == "dev" || target == "main":
 		if len(catalog.Dev) == 0 {
 			return "", BuildCatalog{}, refuse
 		}
 	case target == "latest":
 		if len(catalog.Stable) == 0 {
 			if len(catalog.Dev) > 0 {
-				target = "dev"
+				target = "main"
 			} else {
 				return "", BuildCatalog{}, refuse
 			}
 		}
-	case strings.HasPrefix(target, "dev-"):
+	case strings.HasPrefix(target, "dev-") || strings.HasPrefix(target, "main-"):
 		if !hasDevBuild(catalog.Dev, target) {
 			return "", BuildCatalog{}, refuse
 		}
@@ -412,6 +416,8 @@ func BuildRebeccaUpdateArgs(channel string, version string) ([]string, error) {
 		return args, nil
 	case "dev":
 		return append(args, "--dev"), nil
+	case "main":
+		return append(args, "--main"), nil
 	case "latest", "stable", "release":
 		return append(args, "--version", "latest"), nil
 	default:
@@ -764,12 +770,12 @@ func (c *GitHubUpdateChecker) statusUncached(ctx context.Context, repo string, c
 	status.LatestRelease = latestRelease
 	status.LatestDev = latestDev
 	target := latestRelease
-	if currentChannel == "dev" || target == nil {
+	if currentChannel == "dev" || currentChannel == "main" || target == nil {
 		target = latestDev
 	}
 	if target != nil {
 		if tag := strings.TrimSpace(stringFromAny((*target)["tag"])); tag != "" {
-			if currentChannel != "dev" && latestRelease != nil && !versionAtLeast(tag, floorForRepo(repo)) {
+			if currentChannel != "dev" && currentChannel != "main" && latestRelease != nil && !versionAtLeast(tag, floorForRepo(repo)) {
 				tag = c.newestListedStable(ctx, repo)
 			}
 			if tag != "" {
@@ -960,9 +966,13 @@ func (c *GitHubUpdateChecker) buildDevVersions(ctx context.Context, repo string,
 				url = "https://github.com/" + repo + "/actions/runs/" + runID
 			}
 		}
+		channel := "dev"
+		if strings.HasPrefix(version, "main-") {
+			channel = "main"
+		}
 		versions = append(versions, BuildVersion{
 			Version:   version,
-			Channel:   "dev",
+			Channel:   channel,
 			Commit:    sha,
 			Published: published,
 			URL:       url,
@@ -1259,7 +1269,10 @@ func InferUpdateChannel(tag *string) string {
 	if tag != nil {
 		normalized = strings.ToLower(strings.TrimSpace(*tag))
 	}
-	if strings.HasPrefix(normalized, "dev-") {
+	if strings.HasPrefix(normalized, "main-") || normalized == "main" {
+		return "main"
+	}
+	if strings.HasPrefix(normalized, "dev-") || normalized == "dev" {
 		return "dev"
 	}
 	if normalized != "" {

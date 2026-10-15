@@ -66,6 +66,7 @@
 	"dashboard.maintenance.updateAvailable": "有可用更新",
 	"dashboard.maintenance.updateChannel": "更新通道",
 	"dashboard.maintenance.updateChannelCurrent": "当前安装通道",
+	"dashboard.maintenance.updateChannelMain": "主分支版本 (Main)",
 	"dashboard.maintenance.updateChannelLatest": "最新稳定版本 (Release)",
 	"dashboard.maintenance.updateChannelDev": "开发版本 (Dev)",
 	"dashboard.maintenance.updateAction": "更新面板",

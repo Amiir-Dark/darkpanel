@@ -68,13 +68,13 @@ export const DashboardMaintenanceControls = ({ channel, version, }) => {
     const fallbackVersion = channel?.toLowerCase() === "dev" ? "dev" : version;
     const currentVersion = panel?.tag || update?.current || fallbackVersion || "-";
     const selectedTarget = selectedVersion ||
-        (selectedChannel === "dev"
-            ? update?.latest_dev?.tag
+        ((selectedChannel === "dev" || selectedChannel === "main")
+            ? (update?.latest_dev?.tag || update?.target)
             : selectedChannel === "latest"
                 ? update?.latest_release?.tag
                 : update?.target);
     useEffect(() => {
-        if (panel?.channel === "dev" || panel?.channel === "latest") {
+        if (panel?.channel === "dev" || panel?.channel === "latest" || panel?.channel === "main") {
             setSelectedChannel(panel.channel);
         }
     }, [panel?.channel]);
@@ -84,7 +84,7 @@ export const DashboardMaintenanceControls = ({ channel, version, }) => {
             return;
         const build = [...(builds.data?.stable ?? []), ...(builds.data?.dev ?? [])].find((item) => item.version === value);
         if (build)
-            setSelectedChannel(build.channel === "dev" ? "dev" : "latest");
+            setSelectedChannel(build.channel === "main" ? "main" : build.channel === "dev" ? "dev" : "latest");
     };
     const clearPanelReturnPolling = useCallback(() => {
         if (panelReturnPollRef.current !== null) {
@@ -293,6 +293,9 @@ export const DashboardMaintenanceControls = ({ channel, version, }) => {
             }}>
 									<option value="current">
 										{t("dashboard.maintenance.updateChannelCurrent")}
+									</option>
+									<option value="main">
+										{t("dashboard.maintenance.updateChannelMain", "Main build")}
 									</option>
 									<option value="latest">
 										{t("dashboard.maintenance.updateChannelLatest")}

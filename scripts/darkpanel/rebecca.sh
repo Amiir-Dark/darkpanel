@@ -418,7 +418,10 @@ get_summary_compose() {
 
 get_current_rebecca_version() {
     local version=""
-    if [ -f "$CHANNEL_FILE" ]; then
+    if [ -f "$BINARY_METADATA_FILE" ]; then
+        version=$(sed -nE 's/.*"tag"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$BINARY_METADATA_FILE" | head -n 1)
+    fi
+    if [ -z "$version" ] && [ -f "$CHANNEL_FILE" ]; then
         version=$(tr -d '[:space:]' < "$CHANNEL_FILE")
     fi
     if [ -z "$version" ] && [ -f "$COMPOSE_FILE" ]; then
@@ -514,10 +517,10 @@ set_rebecca_source_ref() {
 
 set_rebecca_source_for_version() {
     case "${1:-latest}" in
-        dev)
+        dev|main)
             set_rebecca_source_ref "$REBECCA_BINARY_DEV_BRANCH"
             ;;
-        dev-*)
+        dev-*|main-*)
             set_rebecca_source_ref "$REBECCA_BINARY_DEV_BRANCH"
             ;;
         v[0-9]*)
@@ -848,7 +851,10 @@ get_installed_rebecca_channel() {
 
     if [ -f "$BINARY_METADATA_FILE" ]; then
         metadata_tag=$(sed -nE 's/.*"tag"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$BINARY_METADATA_FILE" | head -n 1)
-        if [[ "$metadata_tag" == dev-* ]]; then
+        if [[ "$metadata_tag" == main-* ]]; then
+            echo "main"
+            return
+        elif [[ "$metadata_tag" == dev-* ]]; then
             echo "dev"
             return
         elif [ -n "$metadata_tag" ] && [ "$metadata_tag" != "latest" ]; then
@@ -4049,7 +4055,7 @@ install_command() {
         if [ "$version" == "latest" ] || [ "$version" == "dev" ]; then
             return 0
         fi
-        if [[ "$version" =~ ^dev-[0-9a-fA-F]{7,40}$ ]]; then
+        if [[ "$version" =~ ^(dev|main)-[0-9a-fA-F]{7,40}$ ]]; then
             [ "$install_mode" = "binary" ]
             return
         fi
@@ -4065,7 +4071,7 @@ install_command() {
         fi
     }
     # Check if the version is valid and exists
-    if [[ "$rebecca_version" == "latest" || "$rebecca_version" == "dev" || "$rebecca_version" =~ ^dev-[0-9a-fA-F]{7,40}$ || "$rebecca_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    if [[ "$rebecca_version" == "latest" || "$rebecca_version" == "dev" || "$rebecca_version" =~ ^(dev|main)-[0-9a-fA-F]{7,40}$ || "$rebecca_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         if check_version_exists "$rebecca_version"; then
             if [ "$install_mode" = "binary" ]; then
                 install_binary_rebecca "$rebecca_version" "$database_type"
@@ -4568,7 +4574,7 @@ update_command() {
     set_rebecca_source_for_version "$rebecca_version"
 
     if ! is_binary_install; then
-        if [[ "$rebecca_version" =~ ^dev-[0-9a-fA-F]{7,40}$ ]]; then
+        if [[ "$rebecca_version" =~ ^(dev|main)-[0-9a-fA-F]{7,40}$ ]]; then
             colorized_echo red "Specific dev binary versions are available only for binary installations."
             exit 1
         fi
