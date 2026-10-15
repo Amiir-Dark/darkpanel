@@ -4,6 +4,7 @@ export const integrationTabKeys = [
     "subscriptions",
     "ssl",
     "placeholders",
+    "templates",
 ];
 export const parseSettingsHash = (value) => {
     const [tabWithQuery = ""] = value.replace(/^#/, "").split("#").filter(Boolean);

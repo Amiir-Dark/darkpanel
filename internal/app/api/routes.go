@@ -197,6 +197,8 @@ func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings/subscriptions/reseller/telegram/backup", s.requireAdmin(s.handleResellerTelegramBackup))
 	r.HandleFunc("/settings/subscriptions/admins/*", s.requireAdmin(s.handleAdminSubscriptionSettingsPath))
 	r.HandleFunc("/settings/subscriptions", s.requireAdmin(s.handleSubscriptionSettings))
+	r.HandleFunc("/settings/subscription-templates/*", s.handleSubscriptionTemplatesPath)
+	r.HandleFunc("/settings/subscription-templates", s.requireAdmin(s.handleSubscriptionTemplatesRoot))
 }
 
 func (s *Server) registerServiceRoutes(r chi.Router) {

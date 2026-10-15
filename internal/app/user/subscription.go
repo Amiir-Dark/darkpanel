@@ -4917,3 +4917,45 @@ func htmlEscape(value string) string {
 	replacer := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&#34;")
 	return replacer.Replace(value)
 }
+
+// RenderSubscriptionPreview renders a subscription template with realistic preview data.
+func RenderSubscriptionPreview(content string) (string, error) {
+	limit := int64(50 * 1024 * 1024 * 1024)      // 50 GB
+	expire := time.Now().AddDate(0, 1, 0).Unix() // 30 days
+	createdAt := time.Now().AddDate(0, 0, -10).Format("2006-01-02 15:04:05")
+	onlineAt := time.Now().Format("2006-01-02 15:04:05")
+	serviceName := "Ultra High-Speed Multi-Protocol"
+	adminUser := "admin"
+
+	user := UserDetail{
+		Username:            "DemoSubscriber",
+		Status:              "active",
+		UsedTraffic:         int64(18.5 * 1024 * 1024 * 1024), // 18.5 GB
+		LifetimeUsedTraffic: int64(45 * 1024 * 1024 * 1024),
+		DataLimit:           &limit,
+		Expire:              &expire,
+		CreatedAt:           createdAt,
+		OnlineAt:            &onlineAt,
+		ServiceName:         &serviceName,
+		AdminUsername:       &adminUser,
+		SubscriptionURL:     "https://example.com/sub/demo-subscription",
+	}
+
+	links := []string{
+		"vless://b6b47c61-0000-0000-0000-000000000000@de.server.com:443?type=tcp&security=reality&pbk=xyz&sni=google.com&sid=123#DE%20%7C%20Frankfurt%20-%20Reality",
+		"vmess://eyJhZGQiOiJmaS5zZXJ2ZXIuY29tIiwiYWlkIjowLCJob3N0IjoiZmkuc2VydmVyLmNvbSIsImlkIjoiYjZiNDdjNjEtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwibmV0Ijoid3MiLCJwYXRoIjoiL3ZtZXNzIiwicG9ydCI6NDQzLCJwcyI6IkZJIC0gSGVsc2lua2kgV1MiLCJzY3kiOiJhdXRvIiwic25pIjoiZmkuc2VydmVyLmNvbSIsInRscyI6InRscyIsInR5cGUiOiJub25lIiwidiI6IjIifQ==",
+		"trojan://sample-trojan-password@tr.server.com:443?security=tls&headerType=none&type=tcp&sni=tr.server.com#TR%20%7C%20Istanbul%20Fast",
+		"hysteria2://sample-hy2-key@nl.server.com:443?insecure=0&sni=nl.server.com#NL%20%7C%20Amsterdam%20Hy2",
+		"ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ=@fr.server.com:8388#FR%20%7C%20Paris%20Shadowsocks",
+	}
+
+	return renderSubscriptionPageTemplate(
+		content,
+		user,
+		links,
+		"/sub/demo/usage",
+		"https://t.me/your_support",
+		"demo-preview-token",
+	)
+}
+

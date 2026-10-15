@@ -20,6 +20,7 @@ import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import { DataTable, PageLoadingSkeleton, ResourceListCard, TabSystem, } from "../components/ui";
 import { CustomConfigRemarksSection } from "components/CustomConfigRemarksSection";
 import { VariableTemplateInput } from "components/VariableTemplateInput";
+import { SubscriptionTemplatesSection } from "components/SubscriptionTemplatesSection";
 const CLIENT_OPTIONS = [
     "clash-meta",
     "clash-mi",
@@ -1653,8 +1654,18 @@ export const IntegrationSettingsPage = () => {
                         },
                     ]
                     : []),
+                ...(canManageIntegrations || isSudoOrFull
+                    ? [
+                        {
+                            value: "templates",
+                            isActive: activeIntegrationTab === 5,
+                            onClick: () => handleIntegrationTabChange(5),
+                            label: t("settings.templates.tabTitle", "تمپلیت (قالب‌ها)"),
+                        },
+                    ]
+                    : []),
             ]}/>
-				{activeIntegrationTab !== 4 && (<Button flexShrink={0} alignSelf={{ base: "flex-end", md: "center" }} colorScheme="primary" leftIcon={<SaveIcon />} onClick={handleSaveAll} isLoading={saveAllMutation.isLoading || adminSelfSaveMutation.isLoading} isDisabled={!hasUnsavedChanges ||
+				{activeIntegrationTab !== 4 && activeIntegrationTab !== 5 && (<Button flexShrink={0} alignSelf={{ base: "flex-end", md: "center" }} colorScheme="primary" leftIcon={<SaveIcon />} onClick={handleSaveAll} isLoading={saveAllMutation.isLoading || adminSelfSaveMutation.isLoading} isDisabled={!hasUnsavedChanges ||
                 saveAllMutation.isLoading ||
                 adminSelfSaveMutation.isLoading}>
 						{t("settings.save")}
@@ -3039,6 +3050,11 @@ export const IntegrationSettingsPage = () => {
 			{activeIntegrationTab === 4 && canManagePlaceholders && (<Box mt={4}>
 					<PlaceholderSettingsPanel isTab/>
 				</Box>)}
+			{activeIntegrationTab === 5 && (canManageIntegrations || isSudoOrFull) && (
+				<Box mt={4}>
+					<SubscriptionTemplatesSection />
+				</Box>
+			)}
 			<Modal isOpen={isCertificateDialogOpen} onClose={() => setCertificateDialogOpen(false)} size={certificateForm.provider === "manual" ? "3xl" : "xl"} isCentered scrollBehavior="inside" closeOnOverlayClick={!isCertificateMutationLoading}>
 				<ModalOverlay bg="blackAlpha.500"/>
 				<ModalContent as="form" onSubmit={(event) => {

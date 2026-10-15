@@ -372,3 +372,20 @@ export const triggerResellerBackup = async (payload) => {
         body: JSON.stringify(payload || {}),
     });
 };
+
+export const getSubscriptionTemplates = async () => {
+    return apiFetch("/settings/subscription-templates");
+};
+
+export const activateSubscriptionTemplate = async (templateId) => {
+    return apiFetch(`/settings/subscription-templates/${encodeURIComponent(templateId)}/activate`, {
+        method: "POST",
+    });
+};
+
+export const resetSubscriptionTemplate = async () => {
+    return apiFetch("/settings/subscription-templates/reset", {
+        method: "POST",
+    });
+};
+
