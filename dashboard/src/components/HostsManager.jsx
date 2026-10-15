@@ -532,9 +532,6 @@ const getHostOrderKey = (host) => {
 const sortHosts = (hosts, orderMap) => {
     const activeOrder = orderMap ?? getHostsCustomOrder();
     return [...hosts].sort((a, b) => {
-        const inboundDiff = a.inboundTag.localeCompare(b.inboundTag);
-        if (inboundDiff !== 0)
-            return inboundDiff;
         const orderA = activeOrder[getHostOrderKey(a)];
         const orderB = activeOrder[getHostOrderKey(b)];
         if (orderA !== undefined && orderB !== undefined) {
@@ -547,6 +544,9 @@ const sortHosts = (hosts, orderMap) => {
         else if (orderB !== undefined) {
             return 1;
         }
+        const inboundDiff = a.inboundTag.localeCompare(b.inboundTag);
+        if (inboundDiff !== 0)
+            return inboundDiff;
         const leftID = a.data.id ?? Number.MAX_SAFE_INTEGER;
         const rightID = b.data.id ?? Number.MAX_SAFE_INTEGER;
         if (leftID !== rightID)
@@ -1276,95 +1276,89 @@ export const HostsManager = () => {
         ? (hostItemsRef.current.find((host) => host.uid === selectedHostUid) ??
             null)
         : null;
-    const getInboundPeers = useCallback((targetHost) => sortHosts(_hostItemsState.filter((h) => h.inboundTag === targetHost.inboundTag), customOrder), [_hostItemsState, customOrder]);
+    const displayedHostIndex = useMemo(() => {
+        const map = new Map();
+        displayedHosts.forEach((host, index) => {
+            map.set(host.uid, index);
+        });
+        return map;
+    }, [displayedHosts]);
+    const applyHostOrder = useCallback((orderedHosts, movedUid) => {
+        const nextOrder = {};
+        orderedHosts.forEach((host, index) => {
+            nextOrder[getHostOrderKey(host)] = index;
+        });
+        setHostsCustomOrder(nextOrder);
+        setCustomOrder(nextOrder);
+        applyHostItems((prev) => sortHosts(prev, nextOrder));
+        if (movedUid) {
+            setAnimatingUid(movedUid);
+            setTimeout(() => setAnimatingUid(null), 1200);
+        }
+        toast({
+            title: t("hostsPage.orderUpdated"),
+            status: "success",
+            duration: 2000,
+            isClosable: true,
+            position: "top",
+        });
+    }, [applyHostItems, t, toast]);
     const handleMoveHost = useCallback((targetHost, direction) => {
-        const peers = getInboundPeers(targetHost);
-        const idx = peers.findIndex((h) => h.uid === targetHost.uid);
-        if (idx === -1)
+        const visIdx = displayedHosts.findIndex((h) => h.uid === targetHost.uid);
+        if (visIdx === -1)
             return;
-        const targetIdx = idx + direction;
-        if (targetIdx < 0 || targetIdx >= peers.length)
+        const neighborVisIdx = visIdx + direction;
+        if (neighborVisIdx < 0 || neighborVisIdx >= displayedHosts.length)
             return;
-        const nextPeers = [...peers];
-        const temp = nextPeers[idx];
-        nextPeers[idx] = nextPeers[targetIdx];
-        nextPeers[targetIdx] = temp;
-        const nextOrder = { ...customOrder };
-        nextPeers.forEach((h, index) => {
-            nextOrder[getHostOrderKey(h)] = index;
-        });
-        setHostsCustomOrder(nextOrder);
-        setCustomOrder(nextOrder);
-        applyHostItems((prev) => sortHosts(prev, nextOrder));
-        setAnimatingUid(targetHost.uid);
-        setTimeout(() => setAnimatingUid(null), 1200);
-        toast({
-            title: t("hostsPage.orderUpdated"),
-            status: "success",
-            duration: 2000,
-            isClosable: true,
-            position: "top",
-        });
-    }, [applyHostItems, customOrder, getInboundPeers, t, toast]);
+        const neighbor = displayedHosts[neighborVisIdx];
+        const ordered = sortHosts(_hostItemsState, customOrder);
+        const fromIdx = ordered.findIndex((h) => h.uid === targetHost.uid);
+        const toIdx = ordered.findIndex((h) => h.uid === neighbor.uid);
+        if (fromIdx === -1 || toIdx === -1)
+            return;
+        const next = [...ordered];
+        const [moved] = next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, moved);
+        applyHostOrder(next, targetHost.uid);
+    }, [applyHostOrder, customOrder, displayedHosts, _hostItemsState]);
     const handleMoveHostToEdge = useCallback((targetHost, edge) => {
-        const peers = getInboundPeers(targetHost);
-        const idx = peers.findIndex((h) => h.uid === targetHost.uid);
-        if (idx === -1)
+        const visIdx = displayedHosts.findIndex((h) => h.uid === targetHost.uid);
+        if (visIdx === -1)
             return;
-        if (edge === "top" && idx === 0)
+        if (edge === "top" && visIdx === 0)
             return;
-        if (edge === "bottom" && idx === peers.length - 1)
+        if (edge === "bottom" && visIdx === displayedHosts.length - 1)
             return;
-        const filtered = peers.filter((h) => h.uid !== targetHost.uid);
-        const nextPeers = edge === "top" ? [targetHost, ...filtered] : [...filtered, targetHost];
-        const nextOrder = { ...customOrder };
-        nextPeers.forEach((h, index) => {
-            nextOrder[getHostOrderKey(h)] = index;
-        });
-        setHostsCustomOrder(nextOrder);
-        setCustomOrder(nextOrder);
-        applyHostItems((prev) => sortHosts(prev, nextOrder));
-        setAnimatingUid(targetHost.uid);
-        setTimeout(() => setAnimatingUid(null), 1200);
-        toast({
-            title: t("hostsPage.orderUpdated"),
-            status: "success",
-            duration: 2000,
-            isClosable: true,
-            position: "top",
-        });
-    }, [applyHostItems, customOrder, getInboundPeers, t, toast]);
+        const ordered = sortHosts(_hostItemsState, customOrder);
+        const fromIdx = ordered.findIndex((h) => h.uid === targetHost.uid);
+        if (fromIdx === -1)
+            return;
+        const next = [...ordered];
+        const [moved] = next.splice(fromIdx, 1);
+        const edgeHost = edge === "top" ? displayedHosts[0] : displayedHosts[displayedHosts.length - 1];
+        let insertIdx = next.findIndex((h) => h.uid === edgeHost.uid);
+        if (insertIdx === -1) {
+            insertIdx = edge === "top" ? 0 : next.length;
+        }
+        else if (edge === "bottom") {
+            insertIdx += 1;
+        }
+        next.splice(insertIdx, 0, moved);
+        applyHostOrder(next, targetHost.uid);
+    }, [applyHostOrder, customOrder, displayedHosts, _hostItemsState]);
     const handleDragDrop = useCallback((sourceUid, targetUid) => {
         if (sourceUid === targetUid)
             return;
-        const targetHost = _hostItemsState.find((h) => h.uid === targetUid);
-        if (!targetHost)
+        const ordered = sortHosts(_hostItemsState, customOrder);
+        const fromIdx = ordered.findIndex((h) => h.uid === sourceUid);
+        const toIdx = ordered.findIndex((h) => h.uid === targetUid);
+        if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx)
             return;
-        const peers = getInboundPeers(targetHost);
-        const sourceIdx = peers.findIndex((h) => h.uid === sourceUid);
-        const targetIdx = peers.findIndex((h) => h.uid === targetUid);
-        if (sourceIdx === -1 || targetIdx === -1 || sourceIdx === targetIdx)
-            return;
-        const nextPeers = [...peers];
-        const [moved] = nextPeers.splice(sourceIdx, 1);
-        nextPeers.splice(targetIdx, 0, moved);
-        const nextOrder = { ...customOrder };
-        nextPeers.forEach((h, index) => {
-            nextOrder[getHostOrderKey(h)] = index;
-        });
-        setHostsCustomOrder(nextOrder);
-        setCustomOrder(nextOrder);
-        applyHostItems((prev) => sortHosts(prev, nextOrder));
-        setAnimatingUid(sourceUid);
-        setTimeout(() => setAnimatingUid(null), 1200);
-        toast({
-            title: t("hostsPage.orderUpdated"),
-            status: "success",
-            duration: 2000,
-            isClosable: true,
-            position: "top",
-        });
-    }, [_hostItemsState, applyHostItems, customOrder, getInboundPeers, t, toast]);
+        const next = [...ordered];
+        const [moved] = next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, moved);
+        applyHostOrder(next, sourceUid);
+    }, [applyHostOrder, customOrder, _hostItemsState]);
     const handleResetOrder = useCallback(() => {
         clearHostsCustomOrder();
         setCustomOrder({});
@@ -1786,10 +1780,10 @@ export const HostsManager = () => {
             mobilePriority: 1,
             mobileMetaLabel: t("hostsPage.order"),
             cell: (host) => {
-                const peers = getInboundPeers(host);
-                const idx = peers.findIndex((h) => h.uid === host.uid);
-                const isFirst = idx <= 0;
-                const isLast = idx === -1 || idx >= peers.length - 1;
+                const displayIndex = displayedHostIndex.get(host.uid);
+                const idx = displayIndex ?? -1;
+                const isFirst = displayIndex === undefined || displayIndex === 0;
+                const isLast = displayIndex === undefined || displayIndex === displayedHosts.length - 1;
                 const isMoved = animatingUid === host.uid;
                 const isOver = dragOverUid === host.uid && draggedUid !== host.uid;
                 const isDragging = draggedUid === host.uid;
@@ -1984,7 +1978,8 @@ export const HostsManager = () => {
         animatingUid,
         dragOverUid,
         draggedUid,
-        getInboundPeers,
+        displayedHostIndex,
+        displayedHosts,
         handleDragDrop,
         handleMoveHost,
         inboundOptions,
@@ -1994,10 +1989,9 @@ export const HostsManager = () => {
     ]);
     const hostRowActions = (host) => {
         const isActive = !host.data.is_disabled;
-        const peers = getInboundPeers(host);
-        const idx = peers.findIndex((h) => h.uid === host.uid);
-        const isFirst = idx <= 0;
-        const isLast = idx === -1 || idx >= peers.length - 1;
+        const displayIndex = displayedHostIndex.get(host.uid);
+        const isFirst = displayIndex === undefined || displayIndex === 0;
+        const isLast = displayIndex === undefined || displayIndex === displayedHosts.length - 1;
         return [
             {
                 id: "edit",
