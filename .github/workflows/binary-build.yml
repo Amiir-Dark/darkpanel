@@ -2,17 +2,10 @@ name: Binary Build
 
 on:
   workflow_dispatch:
-    inputs:
-      full_matrix:
-        description: "Build every Linux architecture. This is slower than the default release build."
-        required: false
-        type: boolean
-        default: false
   push:
     branches:
       - dev
       - main
-      - go-usage-bridge
     tags:
       - "v*"
   pull_request:
@@ -32,7 +25,7 @@ concurrency:
 
 jobs:
   dashboard:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     env:
       DASH_DIR: ./dashboard
@@ -88,32 +81,17 @@ jobs:
 
   build-linux:
     needs: dashboard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         include:
-          - asset_arch: "386"
-            goarch: "386"
-            goarm: ""
           - asset_arch: amd64
             goarch: amd64
             goarm: ""
           - asset_arch: arm64
             goarch: arm64
-            goarm: ""
-          - asset_arch: armv5
-            goarch: arm
-            goarm: "5"
-          - asset_arch: armv6
-            goarch: arm
-            goarm: "6"
-          - asset_arch: armv7
-            goarch: arm
-            goarm: "7"
-          - asset_arch: s390x
-            goarch: s390x
             goarm: ""
 
     steps:
@@ -131,13 +109,11 @@ jobs:
           path: dashboard/build
 
       - name: Set up Go
-        if: matrix.asset_arch == 'amd64' || matrix.asset_arch == 'arm64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
 
       - name: Build Linux binary package
-        if: matrix.asset_arch == 'amd64' || matrix.asset_arch == 'arm64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         shell: bash
         env:
           ASSET_NAME: rebecca-linux-${{ matrix.asset_arch }}.tar.gz
@@ -151,73 +127,15 @@ jobs:
           sha256sum "dist/${ASSET_NAME}"
 
       - name: Upload Linux package artifact
-        if: matrix.asset_arch == 'amd64' || matrix.asset_arch == 'arm64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         uses: actions/upload-artifact@v4
         with:
           name: rebecca-linux-${{ matrix.asset_arch }}
           path: dist/rebecca-linux-${{ matrix.asset_arch }}.tar.gz
 
-  build-windows-amd64:
-    needs: dashboard
-    runs-on: windows-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Download dashboard
-        uses: actions/download-artifact@v4
-        with:
-          name: dashboard-build
-          path: dashboard/build
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.mod"
-
-      - name: Set up Windows C toolchain
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: false
-          path-type: inherit
-          install: mingw-w64-ucrt-x86_64-gcc
-
-      - name: Add Windows C toolchain to PATH
-        shell: msys2 {0}
-        run: |
-          set -euo pipefail
-          toolchain_path="$(cygpath -w "${MINGW_PREFIX}/bin")"
-          echo "${toolchain_path}" >> "${GITHUB_PATH}"
-          gcc --version
-
-      - name: Build Windows binaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash scripts/build_binary.sh
-
-      - name: Package Windows binaries
-        shell: pwsh
-        run: |
-          Compress-Archive `
-            -Path dist/rebecca-server.exe, dist/rebecca-cli.exe, dist/darkpanel-bot.exe, dist/templates `
-            -DestinationPath dist/rebecca-windows-amd64.zip `
-            -Force
-
-      - name: Upload Windows package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rebecca-windows-amd64
-          path: dist/rebecca-windows-amd64.zip
-
   publish-release:
     needs:
       - build-linux
-      - build-windows-amd64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     if: github.event_name == 'release' || github.ref_type == 'tag'
     env:
@@ -256,7 +174,7 @@ jobs:
           if [ -f "${notes_file}" ]; then
             cp "${notes_file}" release-body.md
           else
-            printf 'Rebecca %s\n' "${release_tag}" > release-body.md
+            printf 'DarkPanel %s (Ubuntu 22.04+)\n' "${release_tag}" > release-body.md
           fi
 
           gh release view "${release_tag}" >/dev/null 2>&1 || \
@@ -267,8 +185,7 @@ jobs:
   publish-dev-manifest:
     needs:
       - build-linux
-      - build-windows-amd64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main')
     env:
@@ -309,13 +226,6 @@ jobs:
                   cp "$asset" "dev-upload-assets/${base}-dev-${GITHUB_SHA::7}.tar.gz"
                 fi
                 ;;
-              rebecca-windows-*.zip)
-                base="${name%.zip}"
-                cp "$asset" "dev-upload-assets/${base}-${build_tag}.zip"
-                if [ "${branch_name}" = "main" ]; then
-                  cp "$asset" "dev-upload-assets/${base}-dev-${GITHUB_SHA::7}.zip"
-                fi
-                ;;
             esac
           done
           if ! compgen -G "dev-upload-assets/*" >/dev/null; then
@@ -328,13 +238,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          build_tag="${{ steps.meta.outputs.build_tag }}"
+          branch_name="${GITHUB_REF_NAME:-main}"
+
+          # 1. Upload rolling dev-builds prerelease for installer/updater
           gh release view "${DEV_RELEASE_TAG}" >/dev/null 2>&1 || \
             gh release create "${DEV_RELEASE_TAG}" \
-              --title "Rebecca dev binary builds" \
-              --notes "Rolling prerelease that stores Rebecca dev binary build assets." \
+              --title "DarkPanel dev binary builds" \
+              --notes "Rolling prerelease that stores DarkPanel dev binary build assets for Ubuntu 22.04+." \
               --prerelease \
               --target "${GITHUB_SHA}"
           gh release upload "${DEV_RELEASE_TAG}" dev-upload-assets/* --clobber
+
+          # 2. Also publish a visible GitHub Release for this update so it appears in the Releases tab
+          if [ "${branch_name}" = "main" ]; then
+            gh release view "${build_tag}" >/dev/null 2>&1 || \
+              gh release create "${build_tag}" \
+                --title "DarkPanel ${build_tag}" \
+                --notes "DarkPanel binary release for Ubuntu 22.04+ (Commit \`${GITHUB_SHA::7}\` on \`${branch_name}\` branch)." \
+                --target "${GITHUB_SHA}" \
+                dev-upload-assets/* || true
+          fi
 
       - name: Checkout dev build manifest branch
         shell: bash
@@ -362,7 +286,7 @@ jobs:
           fi
           jq -n \
             --argjson previous "${previous_manifest}" \
-            --arg project "Rebecca" \
+            --arg project "DarkPanel" \
             --arg build_tag "${{ steps.meta.outputs.build_tag }}" \
             --arg sha "${GITHUB_SHA}" \
             --arg branch "${GITHUB_REF_NAME}" \
@@ -377,8 +301,8 @@ jobs:
               def build_assets($names):
                 reduce $names[]? as $name
                   ({};
-                    if ($name | test("^rebecca-(?<platform>(linux|windows)-[A-Za-z0-9_]+)-(dev|main)-[0-9a-fA-F]+(\\.tar\\.gz|\\.zip)$")) then
-                      ($name | capture("^rebecca-(?<platform>(linux|windows)-[A-Za-z0-9_]+)-(dev|main)-[0-9a-fA-F]+(\\.tar\\.gz|\\.zip)$")) as $match
+                    if ($name | test("^rebecca-(?<platform>linux-[A-Za-z0-9_]+)-(dev|main)-[0-9a-fA-F]+(\\.tar\\.gz)$")) then
+                      ($name | capture("^rebecca-(?<platform>linux-[A-Za-z0-9_]+)-(dev|main)-[0-9a-fA-F]+(\\.tar\\.gz)$")) as $match
                       | .[$match.platform] = {name: $name, url: ($download_base + "/" + $name)}
                     else
                       .
