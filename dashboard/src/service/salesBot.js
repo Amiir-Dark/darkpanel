@@ -4,6 +4,31 @@ export const getSalesBotOverview = async () => {
     return apiFetch("/sales-bot/overview");
 };
 
+export const getSalesBotServiceStatus = async () => {
+    return apiFetch("/sales-bot/service/status");
+};
+
+export const startSalesBotService = async () => {
+    return apiFetch("/sales-bot/service/start", {
+        method: "POST",
+        body: JSON.stringify({}),
+    });
+};
+
+export const stopSalesBotService = async () => {
+    return apiFetch("/sales-bot/service/stop", {
+        method: "POST",
+        body: JSON.stringify({}),
+    });
+};
+
+export const restartSalesBotService = async () => {
+    return apiFetch("/sales-bot/service/restart", {
+        method: "POST",
+        body: JSON.stringify({}),
+    });
+};
+
 export const getSalesBotSettings = async () => {
     return apiFetch("/sales-bot/settings");
 };

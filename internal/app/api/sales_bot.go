@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rebeccapanel/rebecca/internal/app/salesbot"
 	_ "modernc.org/sqlite"
 )
 
@@ -151,6 +153,10 @@ func getBotDB() (*sql.DB, string, error) {
 
 func (s *Server) registerSalesBotRoutes(r chi.Router) {
 	r.HandleFunc("/sales-bot/overview", s.requireAdmin(s.handleSalesBotOverview))
+	r.HandleFunc("/sales-bot/service/status", s.requireAdmin(s.handleSalesBotServiceStatus))
+	r.HandleFunc("/sales-bot/service/start", s.requireAdmin(s.handleSalesBotServiceStart))
+	r.HandleFunc("/sales-bot/service/stop", s.requireAdmin(s.handleSalesBotServiceStop))
+	r.HandleFunc("/sales-bot/service/restart", s.requireAdmin(s.handleSalesBotServiceRestart))
 	r.HandleFunc("/sales-bot/settings", s.requireAdmin(s.handleSalesBotSettings))
 	r.HandleFunc("/sales-bot/orders/*", s.requireAdmin(s.handleSalesBotOrderAction))
 	r.HandleFunc("/sales-bot/orders", s.requireAdmin(s.handleSalesBotOrders))
@@ -159,6 +165,54 @@ func (s *Server) registerSalesBotRoutes(r chi.Router) {
 	r.HandleFunc("/sales-bot/users/*", s.requireAdmin(s.handleSalesBotUserAction))
 	r.HandleFunc("/sales-bot/users", s.requireAdmin(s.handleSalesBotUsers))
 	r.HandleFunc("/sales-bot/webhook/test", s.requireAdmin(s.handleSalesBotWebhookTest))
+}
+
+// -------------------------------------------------------------
+// 0. Service Lifecycle (Start / Stop / Restart)
+// -------------------------------------------------------------
+
+func (s *Server) handleSalesBotServiceStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, http.StatusOK, salesbot.GetService().Status())
+}
+
+func (s *Server) handleSalesBotServiceStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if err := salesbot.GetService().Start(r.Context()); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	_ = salesbot.SetSetting("sales_bot_enabled", "true")
+	writeJSON(w, http.StatusOK, salesbot.GetService().Status())
+}
+
+func (s *Server) handleSalesBotServiceStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	_ = salesbot.GetService().Stop()
+	_ = salesbot.SetSetting("sales_bot_enabled", "false")
+	writeJSON(w, http.StatusOK, salesbot.GetService().Status())
+}
+
+func (s *Server) handleSalesBotServiceRestart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if err := salesbot.GetService().Restart(r.Context()); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	_ = salesbot.SetSetting("sales_bot_enabled", "true")
+	writeJSON(w, http.StatusOK, salesbot.GetService().Status())
 }
 
 // -------------------------------------------------------------
@@ -178,23 +232,25 @@ func (s *Server) handleSalesBotOverview(w http.ResponseWriter, r *http.Request) 
 	}
 
 	type OverviewStats struct {
-		DBPath               string  `json:"db_path"`
-		TotalUsers           int64   `json:"total_users"`
-		ActiveServices       int64   `json:"active_services"`
-		TotalWalletsBalance  float64 `json:"total_wallets_balance"`
-		TotalApprovedRevenue float64 `json:"total_approved_revenue"`
-		OrdersTodayCount     int64   `json:"orders_today_count"`
-		OrdersTodayPaid      float64 `json:"orders_today_paid"`
-		OrdersPendingCount   int64   `json:"orders_pending_count"`
-		OrdersExpiredCount   int64   `json:"orders_expired_count"`
-		ReceiptsPendingCount int64   `json:"receipts_pending_count"`
-		TotalTrafficGB       float64 `json:"total_traffic_gb"`
-		WebhookPort          int     `json:"webhook_port"`
-		WebhookPath          string  `json:"webhook_path"`
-		WebhookSecret        string  `json:"webhook_secret"`
+		Service              salesbot.ServiceStatus `json:"service"`
+		DBPath               string                 `json:"db_path"`
+		TotalUsers           int64                  `json:"total_users"`
+		ActiveServices       int64                  `json:"active_services"`
+		TotalWalletsBalance  float64                `json:"total_wallets_balance"`
+		TotalApprovedRevenue float64                `json:"total_approved_revenue"`
+		OrdersTodayCount     int64                  `json:"orders_today_count"`
+		OrdersTodayPaid      float64                `json:"orders_today_paid"`
+		OrdersPendingCount   int64                  `json:"orders_pending_count"`
+		OrdersExpiredCount   int64                  `json:"orders_expired_count"`
+		ReceiptsPendingCount int64                  `json:"receipts_pending_count"`
+		TotalTrafficGB       float64                `json:"total_traffic_gb"`
+		WebhookPort          int                    `json:"webhook_port"`
+		WebhookPath          string                 `json:"webhook_path"`
+		WebhookSecret        string                 `json:"webhook_secret"`
 	}
 
 	var stats OverviewStats
+	stats.Service = salesbot.GetService().Status()
 	stats.DBPath = dbPath
 
 	_ = db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&stats.TotalUsers)
@@ -925,3 +981,11 @@ func parseSQLiteTime(s string) time.Time {
 	}
 	return time.Time{}
 }
+
+func (s *Server) runSalesBot(ctx context.Context) {
+	time.Sleep(3 * time.Second) // wait for server to settle
+	if salesbot.GetSetting("sales_bot_enabled", "true") == "true" && salesbot.GetSetting("bot_token", "") != "" {
+		_ = salesbot.GetService().Start(ctx)
+	}
+}
+

@@ -64,11 +64,14 @@ import {
     CreditCardIcon,
     DocumentDuplicateIcon,
     InboxArrowDownIcon,
+    PlayIcon,
     PlusIcon,
+    PowerIcon,
     QuestionMarkCircleIcon,
     ReceiptPercentIcon,
     ShoppingBagIcon,
     SignalIcon,
+    StopIcon,
     UserGroupIcon,
     XCircleIcon,
     XMarkIcon,
@@ -81,10 +84,14 @@ import {
     getSalesBotOrders,
     getSalesBotOverview,
     getSalesBotReceipts,
+    getSalesBotServiceStatus,
     getSalesBotSettings,
     getSalesBotUsers,
     orderAction,
     receiptAction,
+    restartSalesBotService,
+    startSalesBotService,
+    stopSalesBotService,
     testSalesBotWebhook,
     updateSalesBotSettings,
 } from "service/salesBot";
@@ -110,12 +117,98 @@ export const SalesBotPage = () => {
 
     // Queries
     const overviewQuery = useQuery("sales-bot-overview", getSalesBotOverview, {
-        refetchInterval: 15000,
+        refetchInterval: 10000,
+        refetchOnWindowFocus: true,
+    });
+
+    const serviceStatusQuery = useQuery("sales-bot-service-status", getSalesBotServiceStatus, {
+        refetchInterval: 5000,
         refetchOnWindowFocus: true,
     });
 
     const settingsQuery = useQuery("sales-bot-settings", getSalesBotSettings, {
         refetchOnWindowFocus: false,
+    });
+
+    // Determine current service status
+    const botStatus = serviceStatusQuery.data || overviewQuery.data?.service || {
+        running: false,
+        status: "stopped",
+        uptime: "",
+        bot_username: "",
+        webhook_port: 8085,
+        last_error: "",
+    };
+    const isBotRunning = botStatus.running === true || botStatus.status === "running";
+
+    // Service lifecycle mutations
+    const startServiceMutation = useMutation(startSalesBotService, {
+        onSuccess: (data) => {
+            toast({
+                title: "ربات با موفقیت روشن شد",
+                description: data?.bot_username ? `ربات @${data.bot_username} فعال و در حال دریافت پیام‌ها است.` : "سرویس فعال گردید.",
+                status: "success",
+                duration: 4000,
+                isClosable: true,
+            });
+            queryClient.invalidateQueries("sales-bot-service-status");
+            queryClient.invalidateQueries("sales-bot-overview");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا در روشن کردن ربات",
+                description: err?.message || String(err),
+                status: "error",
+                duration: 5000,
+                isClosable: true,
+            });
+        },
+    });
+
+    const stopServiceMutation = useMutation(stopSalesBotService, {
+        onSuccess: () => {
+            toast({
+                title: "ربات خاموش شد",
+                description: "سرویس‌های تلگرام و وب‌هوک متوقف شدند.",
+                status: "info",
+                duration: 4000,
+                isClosable: true,
+            });
+            queryClient.invalidateQueries("sales-bot-service-status");
+            queryClient.invalidateQueries("sales-bot-overview");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا در خاموش کردن ربات",
+                description: err?.message || String(err),
+                status: "error",
+                duration: 5000,
+                isClosable: true,
+            });
+        },
+    });
+
+    const restartServiceMutation = useMutation(restartSalesBotService, {
+        onSuccess: (data) => {
+            toast({
+                title: "راه‌اندازی مجدد انجام شد",
+                description: "ربات با موفقیت مجدداً راه‌اندازی گردید.",
+                status: "success",
+                duration: 4000,
+                isClosable: true,
+            });
+            queryClient.invalidateQueries("sales-bot-service-status");
+            queryClient.invalidateQueries("sales-bot-overview");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا در ری‌استارت ربات",
+                description: err?.message || String(err),
+                status: "error",
+                duration: 5000,
+                isClosable: true,
+            });
+        },
     });
 
     // Orders state
@@ -176,6 +269,9 @@ export const SalesBotPage = () => {
             });
             queryClient.invalidateQueries("sales-bot-settings");
             queryClient.invalidateQueries("sales-bot-overview");
+            if (isBotRunning) {
+                restartServiceMutation.mutate();
+            }
         },
         onError: (err) => {
             toast({
@@ -317,6 +413,7 @@ export const SalesBotPage = () => {
 
     const refreshAll = () => {
         overviewQuery.refetch();
+        serviceStatusQuery.refetch();
         settingsQuery.refetch();
         ordersQuery.refetch();
         receiptsQuery.refetch();
@@ -325,6 +422,7 @@ export const SalesBotPage = () => {
 
     const isGlobalLoading =
         overviewQuery.isFetching ||
+        serviceStatusQuery.isFetching ||
         settingsQuery.isFetching ||
         ordersQuery.isFetching ||
         receiptsQuery.isFetching ||
@@ -355,7 +453,7 @@ export const SalesBotPage = () => {
                             ربات فروش و سیستم شارژ خودکار
                         </Heading>
                         <Text fontSize="sm" color={textSecondary}>
-                            مدیریت هوشمند پرداخت ۵ دقیقه‌ای، تطبیق پیامک ForApp، فیش‌های واریزی و کاربران Pay-As-You-Go
+                            مدیریت یکپارچه ربات فروش، کنترل روشن/خاموش، سیستم ۵ دقیقه‌ای کارت به کارت و ترافیک Pay-As-You-Go
                         </Text>
                     </Box>
                 </HStack>
@@ -383,6 +481,102 @@ export const SalesBotPage = () => {
                 </HStack>
             </Flex>
 
+            {/* MASTER BOT POWER CONTROLLER CARD */}
+            <Box
+                p={5}
+                mb={6}
+                bg={bgCard}
+                borderRadius="2xl"
+                border="2px solid"
+                borderColor={isBotRunning ? "green.500" : borderColor}
+                boxShadow={isBotRunning ? "0 0 25px rgba(34, 197, 94, 0.15)" : "none"}
+                transition="all 0.3s ease"
+            >
+                <Flex
+                    direction={{ base: "column", md: "row" }}
+                    justify="space-between"
+                    align={{ base: "stretch", md: "center" }}
+                    gap={4}
+                >
+                    <HStack spacing={4}>
+                        <Box
+                            p={3.5}
+                            borderRadius="xl"
+                            bg={isBotRunning ? "green.500" : "red.500"}
+                            color="white"
+                            boxShadow={isBotRunning ? "0 4px 18px rgba(34, 197, 94, 0.4)" : "0 4px 18px rgba(239, 68, 68, 0.4)"}
+                        >
+                            <PowerIcon width={30} height={30} />
+                        </Box>
+                        <Box>
+                            <HStack spacing={3}>
+                                <Heading size="md" fontWeight="bold">
+                                    {isBotRunning ? "ربات فروش روشن و فعال است" : "ربات فروش در حال حاضر خاموش است"}
+                                </Heading>
+                                <Badge
+                                    colorScheme={isBotRunning ? "green" : "red"}
+                                    fontSize="xs"
+                                    px={2.5}
+                                    py={0.5}
+                                    borderRadius="full"
+                                >
+                                    {isBotRunning ? "روشن (Online)" : "خاموش (Stopped)"}
+                                </Badge>
+                            </HStack>
+                            <Text fontSize="xs" color={textSecondary} mt={1}>
+                                {isBotRunning
+                                    ? `یوزرنیم ربات: @${botStatus?.bot_username || 'ثبت شده'} | مدت زمان روشن بودن: ${botStatus?.uptime || '00:00:00'} | لیسنر وب‌هوک: پورت ${botStatus?.webhook_port || 8085} فعال`
+                                    : "برای راه‌اندازی تلگرام و لیسنر پیامک ForApp، روی دکمه «روشن کردن ربات» کلیک کنید."}
+                            </Text>
+                        </Box>
+                    </HStack>
+
+                    <HStack spacing={3} justify={{ base: "flex-end", md: "center" }}>
+                        {isBotRunning ? (
+                            <>
+                                <Button
+                                    colorScheme="red"
+                                    size="md"
+                                    px={6}
+                                    leftIcon={<StopIcon width={18} height={18} />}
+                                    isLoading={stopServiceMutation.isLoading}
+                                    onClick={() => stopServiceMutation.mutate()}
+                                >
+                                    خاموش کردن ربات
+                                </Button>
+                                <IconButton
+                                    colorScheme="gray"
+                                    variant="outline"
+                                    aria-label="Restart bot"
+                                    icon={<ArrowPathIcon width={18} height={18} />}
+                                    isLoading={restartServiceMutation.isLoading}
+                                    onClick={() => restartServiceMutation.mutate()}
+                                    title="راه‌اندازی مجدد"
+                                />
+                            </>
+                        ) : (
+                            <Button
+                                colorScheme="green"
+                                size="md"
+                                px={8}
+                                leftIcon={<PlayIcon width={18} height={18} />}
+                                isLoading={startServiceMutation.isLoading}
+                                onClick={() => startServiceMutation.mutate()}
+                            >
+                                روشن کردن ربات
+                            </Button>
+                        )}
+                    </HStack>
+                </Flex>
+
+                {botStatus?.last_error && !isBotRunning && (
+                    <Alert status="error" mt={4} borderRadius="lg" fontSize="xs">
+                        <AlertIcon />
+                        <Text>{botStatus.last_error}</Text>
+                    </Alert>
+                )}
+            </Box>
+
             {/* Tabs Container */}
             <Tabs
                 variant="soft-rounded"
@@ -400,7 +594,7 @@ export const SalesBotPage = () => {
                     gap={2}
                 >
                     <Tab fontWeight="medium" fontSize="sm">
-                        📊 نمای کلی و وضعیت
+                        📊 نمای کلی و آمار
                     </Tab>
                     <Tab fontWeight="medium" fontSize="sm">
                         ⏱️ سفارشات ۵ دقیقه‌ای آنلاین
