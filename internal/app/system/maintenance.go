@@ -439,6 +439,9 @@ func (DefaultRuntimeDetector) Info() RuntimeInfo {
 		}
 	}
 	if mode == "" {
+		mode = detectBinaryInstallMode()
+	}
+	if mode == "" {
 		mode = "docker"
 	}
 	tag := stringPtrFromAny(metadata["tag"])
@@ -461,6 +464,22 @@ func (DefaultRuntimeDetector) Info() RuntimeInfo {
 		Go:          runtime.Version(),
 		Binary:      metadata,
 	}
+}
+
+// detectBinaryInstallMode infers a binary installation from on-disk markers so
+// that panels installed by the binary installer are never mistaken for docker
+// installs when the env var and install-mode file are missing. It mirrors the
+// shell installer's fallback that treats the presence of the server binary as a
+// binary install.
+func detectBinaryInstallMode() string {
+	if _, err := os.Stat(runtimeMetadataPath()); err == nil {
+		return "binary"
+	}
+	serverBinary := filepath.Join(appDir(), "bin", "rebecca-server")
+	if info, err := os.Stat(serverBinary); err == nil && !info.IsDir() {
+		return "binary"
+	}
+	return ""
 }
 
 func serviceName() string {
