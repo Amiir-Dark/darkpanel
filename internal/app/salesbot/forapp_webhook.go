@@ -260,9 +260,7 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 
 		notifyText := fmt.Sprintf(
-			"✅ <b>شارژ خودکار کیف پول انجام شد!</b>\n\n"+
-				"واریز شما به مبلغ <b>%s تومان</b> از طریق پیامک بانک شناسایی و تایید گردید.\n"+
-				"اعتبار به کیف پول شما اضافه شد و سرویس شما آماده استفاده است 🚀",
+			"✅ <b>واریز شما به مبلغ %s تومان اعتبار به کیف پول شما اضافه شد</b>",
 			formatCurrency(exactAmountToman),
 		)
 		_ = s.tgClient.SendMessage(notifyCtx, s.botToken, userID, notifyText, mainKeyboard())

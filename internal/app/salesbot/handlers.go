@@ -400,21 +400,13 @@ func getTermsText() string {
 	minPrice := GetSetting("min_price_per_gb", "۴۱۵۰")
 	maxPrice := GetSetting("max_price_per_gb", "۵۰۰۰")
 
-	return fmt.Sprintf(`پرداخت فقط به اندازه مصرف 🫀
-%s با مدل Pay As You Go کار می‌کند؛ یعنی لازم نیست از قبل حجم مشخصی خریداری کنید یا بابت حجم استفاده‌نشده هزینه‌ای بپردازید. هزینه شما فقط بر اساس ترافیک واقعی مصرف‌شده محاسبه می‌شود؛ هرچه کمتر مصرف کنید، کمتر پرداخت می‌کنید.
+	return fmt.Sprintf(`🫀 <b>پرداخت فقط به اندازه مصرف</b>
 
-قیمت شفاف و متناسب با سرویس 🫀
-هر سرویس قیمت مصرف مخصوص به خود را دارد و در حال حاضر هزینه هر گیگابایت بین %s تا %s تومان است. قیمت دقیق هر سرویس و کانفیگ را می‌توانید مستقیماً از بخش‌های Configs و Subscriptions در پنل مدیریت مشاهده کنید؛ بنابراین قبل از ارائه هر سرویس، دقیقاً می‌دانید هزینه مصرف آن چقدر است.
+در %s با مدل Pay As You Go فقط بابت ترافیک واقعی مصرف‌شده هزینه می‌پردازید؛ بدون خرید حجم از قبل و بدون هزینه پنهان.
 
-بدون محدودیت و تعهد حجمی 🫀
-در %s خبری از سقف حجم، محدودیت زمانی یا محدودیت تعداد کاربر نیست. می‌توانید بدون نگرانی از تمام شدن حجم یا نیاز به تمدید اشتراک، سرویس خود را در هر مقیاسی که نیاز دارید ارائه کنید و هزینه را متناسب با مصرف واقعی پرداخت کنید.
-
-هزینه نمایندگی؛ ساده و ثابت 🫀
-برای هر پنل، مبلغ %s تومان به ازای هر ساعت بابت نمایندگی دریافت می‌شود. این مبلغ مستقل از تعداد کاربران و میزان مصرف است و تنها برای جلوگیری از ایجاد پنل‌های صوری و بدون استفاده در نظر گرفته شده است.
-
-یک سیستم شفاف، بدون هزینه‌های پنهان 🫀
-در نهایت، هزینه شما فقط شامل ترافیک مصرف‌شده بر اساس سرویس انتخابی + هزینه ساعتی نمایندگی پنل است. بدون خرید حجم اجباری، بدون هزینه اشتراک حجمی و بدون محدودیت برای رشد پنل.`,
-		brandName, minPrice, maxPrice, brandName, hourlyFee)
+💵 <b>هزینه هر گیگابایت:</b> از %s تا %s تومان
+⏱ <b>هزینه نمایندگی:</b> %s تومان در ساعت`,
+		brandName, minPrice, maxPrice, hourlyFee)
 }
 
 func getWalletText(u *User) string {
@@ -425,10 +417,6 @@ func formatPanelDetail(user *User, panel *UserPanel) string {
 	passLine := ""
 	if panel.PanelPassword != "" {
 		passLine = fmt.Sprintf("🔑 <b>کلمه عبور:</b> <code>%s</code>\n", panel.PanelPassword)
-	}
-	urlLine := ""
-	if panel.PanelURL != "" {
-		urlLine = fmt.Sprintf("🌐 <b>درگاه ورود به پنل:</b> <code>%s</code>\n", panel.PanelURL)
 	}
 	typeDesc := "نمایندگی Pay-As-You-Go ⭐"
 	if panel.PanelType == "test" {
@@ -441,13 +429,13 @@ func formatPanelDetail(user *User, panel *UserPanel) string {
 	return fmt.Sprintf(
 		"🌐 <b>مدیریت پنل: <code>%s</code></b>\n\n"+
 			"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
-			"%s%s"+
+			"%s"+
 			"🏷️ <b>نوع دسترسی:</b> %s\n"+
 			"⚡ <b>وضعیت:</b> %s\n"+
 			"💰 <b>موجودی کیف پول:</b> <code>%s تومان</code>\n\n"+
 			"<i>💡 جهت ورود، تغییر رمز یا حذف این پنل از دکمه‌های زیر استفاده فرمایید:</i>",
 		panel.PanelUsername, panel.PanelUsername,
-		passLine, urlLine, typeDesc, statusDesc,
+		passLine, typeDesc, statusDesc,
 		formatCurrency(user.WalletBalance),
 	)
 }
