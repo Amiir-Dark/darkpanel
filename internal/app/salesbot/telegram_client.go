@@ -291,7 +291,7 @@ func (c *TelegramClient) DeleteMessage(ctx context.Context, token string, chatID
 func (c *TelegramClient) RemoveReplyKeyboard(ctx context.Context, token string, chatID int64) {
 	payload := map[string]any{
 		"chat_id":      chatID,
-		"text":         "🔄",
+		"text":         "🔄 به‌روزرسانی منو...",
 		"reply_markup": ReplyKeyboardRemove{RemoveKeyboard: true},
 	}
 	raw, err := c.call(ctx, token, "sendMessage", payload)
@@ -302,6 +302,7 @@ func (c *TelegramClient) RemoveReplyKeyboard(ctx context.Context, token string, 
 		MessageID int64 `json:"message_id"`
 	}
 	if err := json.Unmarshal(raw, &res); err == nil && res.MessageID > 0 {
+		time.Sleep(300 * time.Millisecond)
 		_ = c.DeleteMessage(ctx, token, chatID, res.MessageID)
 	}
 }

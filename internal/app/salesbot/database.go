@@ -272,6 +272,7 @@ func GetDB() (*sql.DB, string, error) {
 		"ALTER TABLE users ADD COLUMN total_spent REAL DEFAULT 0;",
 		"ALTER TABLE users ADD COLUMN has_used_test INTEGER DEFAULT 0;",
 		"ALTER TABLE users ADD COLUMN test_usage_count INTEGER DEFAULT 0;",
+		"ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active';",
 		"ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;",
 		"ALTER TABLE orders ADD COLUMN bank_ref TEXT DEFAULT '';",
 		"ALTER TABLE orders ADD COLUMN code TEXT DEFAULT '';",
