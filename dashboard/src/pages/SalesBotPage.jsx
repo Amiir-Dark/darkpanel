@@ -407,8 +407,11 @@ export const SalesBotPage = () => {
     const webhookPort = overviewQuery.data?.webhook_port || 8085;
     const webhookPath = overviewQuery.data?.webhook_path || "/webhook/forapp";
     const serverHost = typeof window !== "undefined" ? window.location.hostname : "YOUR_SERVER_IP";
-    const fullWebhookUrl = `http://${serverHost}:${webhookPort}${webhookPath}`;
-    const { hasCopied: hasCopiedUrl, onCopy: onCopyUrl } = useClipboard(fullWebhookUrl);
+    const origin = typeof window !== "undefined" ? window.location.origin : `https://${serverHost}`;
+    const directWebhookUrl = `${origin}/webhook/forapp`;
+    const portWebhookUrl = `http://${serverHost}:${webhookPort}${webhookPath}`;
+    const { hasCopied: hasCopiedDirect, onCopy: onCopyDirect } = useClipboard(directWebhookUrl);
+    const { hasCopied: hasCopiedPort, onCopy: onCopyPort } = useClipboard(portWebhookUrl);
     const { hasCopied: hasCopiedSecret, onCopy: onCopySecret } = useClipboard(overviewQuery.data?.webhook_secret || "");
 
     const refreshAll = () => {
@@ -757,21 +760,30 @@ export const SalesBotPage = () => {
                                     برای فعال‌سازی شارژ آنی و خودکار کیف پول، نرم‌افزار اندروید ForApp را روی گوشی نصب کنید و آدرس زیر را به عنوان وب‌هوک تنظیم نمایید. پیامک‌های واریزی بلافاصله دریافت، مبلغ خوانده شده و سفارش ۵ دقیقه‌ای تایید می‌شود:
                                 </Text>
 
+                                <Alert status="info" borderRadius="lg" mb={4} fontSize="xs">
+                                    <AlertIcon />
+                                    <Box>
+                                        <Text fontWeight="bold">نکته کلیدی رفع خطای SSLException در ForApp:</Text>
+                                        <Text mt={1}>برای اتصال به ForApp، پیشنهاد می‌کنیم از <b>آدرس مستقیم HTTPS</b> (دارای گواهینامه امن SSL پنل) استفاده نمایید. چنانچه مایلید از آدرس پورت 8085 استفاده کنید، حتماً آن را با <b>http://</b> (نه https) در گوشی وارد کنید.</Text>
+                                    </Box>
+                                </Alert>
+
                                 <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={4}>
                                     <Box p={3} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                                        <Badge colorScheme="green" mb={1.5} fontSize="10px">پیشنهادی (با امنیت HTTPS بدون پورت)</Badge>
                                         <Text fontSize="xs" color={textSecondary} mb={1}>
-                                            آدرس وب‌هوک (Webhook URL جهت ثبت در ForApp):
+                                            آدرس وب‌هوک مستقیم پنل (HTTPS معتبر):
                                         </Text>
                                         <HStack justify="space-between">
                                             <Code p={2} borderRadius="md" fontSize="xs" wordBreak="break-all" flex={1}>
-                                                {fullWebhookUrl}
+                                                {directWebhookUrl}
                                             </Code>
                                             <IconButton
                                                 size="sm"
                                                 icon={<DocumentDuplicateIcon width={16} height={16} />}
-                                                onClick={onCopyUrl}
-                                                aria-label="Copy URL"
-                                                colorScheme={hasCopiedUrl ? "green" : "gray"}
+                                                onClick={onCopyDirect}
+                                                aria-label="کپی آدرس HTTPS"
+                                                colorScheme={hasCopiedDirect ? "green" : "purple"}
                                             />
                                         </HStack>
                                     </Box>

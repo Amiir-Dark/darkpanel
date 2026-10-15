@@ -3,6 +3,7 @@ package salesbot
 import (
 	"context"
 	"fmt"
+	"html"
 	"math"
 	"regexp"
 	"strconv"
@@ -115,7 +116,7 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 	state, _ := GetUserState(userID)
 
 	switch {
-	case text == "/start" || text == "منوی اصلی":
+	case strings.HasPrefix(text, "/start") || text == "منوی اصلی" || text == "منو":
 		ClearUserState(userID)
 		s.sendWelcome(ctx, user)
 
@@ -154,6 +155,11 @@ func (s *Service) sendWelcome(ctx context.Context, u *User) {
 	pricePerGB := GetSettingFloat("price_per_gb", 5000)
 	minBalance := GetSettingFloat("min_balance_to_start", 5000)
 
+	displayName := html.EscapeString(u.FirstName)
+	if strings.TrimSpace(displayName) == "" {
+		displayName = "کاربر"
+	}
+
 	text := fmt.Sprintf(
 		"سلام <b>%s</b> عزیز 👋\n\n"+
 			"به ربات خرید و شارژ خودکار اینترنت آزاد خوش آمدید 🚀\n\n"+
@@ -162,13 +168,15 @@ func (s *Service) sendWelcome(ctx context.Context, u *User) {
 			"🔹 حداقل موجودی کیف پول جهت اتصال: <code>%s تومان</code>\n\n"+
 			"💰 <b>موجودی فعلی کیف پول شما:</b> <code>%s تومان</code>\n\n"+
 			"جهت افزایش موجودی و دریافت یا تمدید اشتراک، از دکمه‌های زیر استفاده کنید:",
-		u.FirstName,
+		displayName,
 		formatCurrency(pricePerGB),
 		formatCurrency(minBalance),
 		formatCurrency(u.WalletBalance),
 	)
 
-	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, mainKeyboard())
+	if err := s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, mainKeyboard()); err != nil {
+		fmt.Printf("[SalesBot] Failed to send welcome message to %d: %v\n", u.TelegramID, err)
+	}
 }
 
 func (s *Service) promptChargeAmount(ctx context.Context, u *User) {

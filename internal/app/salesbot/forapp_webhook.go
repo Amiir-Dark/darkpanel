@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -19,6 +20,7 @@ var (
 )
 
 type ForAppPayload struct {
+	Test    bool   `json:"test"`
 	Message string `json:"message"`
 	Body    string `json:"body"`
 	Text    string `json:"text"`
@@ -27,7 +29,18 @@ type ForAppPayload struct {
 	Date    string `json:"date"`
 }
 
-func (s *Service) handleForAppWebhook(w http.ResponseWriter, r *http.Request) {
+func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
+	// Support GET for testing connectivity
+	if r.Method == http.MethodGet {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ok":      true,
+			"status":  "ready",
+			"message": "وب‌هوک فوراپ فعال و آماده دریافت پیامک است",
+		})
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 		return
@@ -46,9 +59,35 @@ func (s *Service) handleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, `{"error":"failed to read body"}`, http.StatusBadRequest)
+		return
+	}
+
+	var rawMap map[string]any
+	_ = json.Unmarshal(bodyBytes, &rawMap)
+
+	// Check if this is ForApp's test SMS ("test": true or "is_test": true)
+	isTest := false
+	if v, ok := rawMap["test"].(bool); ok && v {
+		isTest = true
+	}
+	if v, ok := rawMap["is_test"].(bool); ok && v {
+		isTest = true
+	}
+
 	var payload ForAppPayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, `{"error":"invalid json body"}`, http.StatusBadRequest)
+	_ = json.Unmarshal(bodyBytes, &payload)
+
+	if isTest || payload.Test {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ok":      true,
+			"test":    true,
+			"status":  "ok",
+			"message": "پیامک تستی فوراپ با موفقیت دریافت شد",
+		})
 		return
 	}
 
@@ -61,7 +100,12 @@ func (s *Service) handleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.TrimSpace(content) == "" {
-		http.Error(w, `{"error":"message content is empty"}`, http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ok":      true,
+			"status":  "received",
+			"message": "message content is empty",
+		})
 		return
 	}
 

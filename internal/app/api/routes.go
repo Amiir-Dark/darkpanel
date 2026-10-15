@@ -75,6 +75,7 @@ func (s *Server) Handler() http.Handler {
 	r.HandleFunc("/hosts/*", s.requireAdmin(s.handleHostStatusPath))
 	r.HandleFunc("/hosts", s.requireAdmin(s.handleHostsRoot))
 	r.HandleFunc("/sub/*", s.handleSubscriptionPath)
+	r.HandleFunc("/webhook/forapp", s.handlePublicForAppWebhook)
 
 	r.Route("/api", func(r chi.Router) {
 		s.registerAdminRoutes(r)

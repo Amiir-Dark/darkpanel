@@ -93,14 +93,15 @@ func (s *Service) Start(ctx context.Context) error {
 		return fmt.Errorf("%s", s.lastError)
 	}
 
-	// Verify token with Telegram
-	testCtx, testCancel := context.WithTimeout(ctx, 10*time.Second)
+	// Verify token with Telegram (re-init client with latest proxy settings)
+	s.tgClient = NewTelegramClient()
+	testCtx, testCancel := context.WithTimeout(ctx, 12*time.Second)
 	defer testCancel()
 
 	me, err := s.tgClient.GetMe(testCtx, token)
 	if err != nil {
 		s.status = "error"
-		s.lastError = fmt.Sprintf("خطا در اعتبارسنجی توکن تلگرام: %v", err)
+		s.lastError = fmt.Sprintf("خطا در برقراری ارتباط با تلگرام: %v (اگر سرور در ایران است، پروکسی تلگرام را در تنظیمات ثبت کنید)", err)
 		return fmt.Errorf("%s", s.lastError)
 	}
 
@@ -115,7 +116,7 @@ func (s *Service) Start(ctx context.Context) error {
 	webhookPath := GetSetting("forapp_path", "/webhook/forapp")
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(webhookPath, s.handleForAppWebhook)
+	mux.HandleFunc(webhookPath, s.HandleForAppWebhook)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))

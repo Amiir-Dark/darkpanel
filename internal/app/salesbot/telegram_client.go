@@ -6,9 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/net/proxy"
 )
 
 type TelegramClient struct {
@@ -17,10 +22,55 @@ type TelegramClient struct {
 }
 
 func NewTelegramClient() *TelegramClient {
-	return &TelegramClient{
-		httpClient: &http.Client{Timeout: 45 * time.Second},
-		apiBase:    "https://api.telegram.org",
+	apiBase := strings.TrimRight(strings.TrimSpace(GetSetting("telegram_api_base", "")), "/")
+	if apiBase == "" {
+		apiBase = "https://api.telegram.org"
 	}
+
+	proxyURL := strings.TrimSpace(GetSetting("telegram_proxy", ""))
+	if proxyURL == "" {
+		proxyURL = strings.TrimSpace(os.Getenv("TELEGRAM_PROXY"))
+	}
+	if proxyURL == "" {
+		proxyURL = strings.TrimSpace(os.Getenv("ALL_PROXY"))
+	}
+	if proxyURL == "" {
+		proxyURL = strings.TrimSpace(os.Getenv("HTTPS_PROXY"))
+	}
+
+	client := httpClientForProxy(proxyURL, 45*time.Second)
+
+	return &TelegramClient{
+		httpClient: client,
+		apiBase:    apiBase,
+	}
+}
+
+func httpClientForProxy(proxyURL string, timeout time.Duration) *http.Client {
+	if proxyURL == "" {
+		return &http.Client{Timeout: timeout}
+	}
+	parsed, err := url.Parse(proxyURL)
+	if err != nil {
+		return &http.Client{Timeout: timeout}
+	}
+	transport := &http.Transport{}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+		transport.Proxy = http.ProxyURL(parsed)
+	case "socks5", "socks5h":
+		dialer, err := proxy.FromURL(parsed, proxy.Direct)
+		if err == nil {
+			if contextDialer, ok := dialer.(proxy.ContextDialer); ok {
+				transport.DialContext = contextDialer.DialContext
+			} else {
+				transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+					return dialer.Dial(network, address)
+				}
+			}
+		}
+	}
+	return &http.Client{Timeout: timeout, Transport: transport}
 }
 
 type BotUser struct {

@@ -165,6 +165,7 @@ func (s *Server) registerSalesBotRoutes(r chi.Router) {
 	r.HandleFunc("/sales-bot/users/*", s.requireAdmin(s.handleSalesBotUserAction))
 	r.HandleFunc("/sales-bot/users", s.requireAdmin(s.handleSalesBotUsers))
 	r.HandleFunc("/sales-bot/webhook/test", s.requireAdmin(s.handleSalesBotWebhookTest))
+	r.HandleFunc("/sales-bot/webhook/forapp", s.handlePublicForAppWebhook)
 }
 
 // -------------------------------------------------------------
@@ -987,5 +988,9 @@ func (s *Server) runSalesBot(ctx context.Context) {
 	if salesbot.GetSetting("sales_bot_enabled", "true") == "true" && salesbot.GetSetting("bot_token", "") != "" {
 		_ = salesbot.GetService().Start(ctx)
 	}
+}
+
+func (s *Server) handlePublicForAppWebhook(w http.ResponseWriter, r *http.Request) {
+	salesbot.GetService().HandleForAppWebhook(w, r)
 }
 

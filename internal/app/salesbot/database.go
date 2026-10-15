@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -61,10 +62,18 @@ func resolveDBPath() string {
 	if p := strings.TrimSpace(os.Getenv("BOT_DATABASE_PATH")); p != "" {
 		return p
 	}
+	if dataDir := strings.TrimSpace(os.Getenv("REBECCA_DATA_DIR")); dataDir != "" {
+		_ = os.MkdirAll(filepath.Join(dataDir, "bot"), 0755)
+		return filepath.Join(dataDir, "bot", "bot.db")
+	}
+	if appDir := strings.TrimSpace(os.Getenv("REBECCA_APP_DIR")); appDir != "" {
+		_ = os.MkdirAll(filepath.Join(appDir, "bot"), 0755)
+		return filepath.Join(appDir, "bot", "bot.db")
+	}
 	candidates := []string{
-		"/opt/darkpanel/bot.db",
-		"/opt/darkpanel/bot/bot.db",
 		"/opt/rebecca/bot/bot.db",
+		"/opt/rebecca/data/bot.db",
+		"/opt/darkpanel/bot/bot.db",
 		"bot/bot.db",
 		"bot.db",
 	}
@@ -72,6 +81,10 @@ func resolveDBPath() string {
 		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
 			return c
 		}
+	}
+	if _, err := os.Stat("/opt/rebecca"); err == nil {
+		_ = os.MkdirAll("/opt/rebecca/bot", 0755)
+		return "/opt/rebecca/bot/bot.db"
 	}
 	if _, err := os.Stat("/opt/darkpanel"); err == nil {
 		_ = os.MkdirAll("/opt/darkpanel/bot", 0755)
