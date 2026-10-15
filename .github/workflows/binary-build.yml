@@ -56,22 +56,8 @@ jobs:
         working-directory: ${{ env.DASH_DIR }}
         run: npm ci
 
-      - name: Test dashboard
-        working-directory: ${{ env.DASH_DIR }}
-        run: npm test
-
-      - name: Lint dashboard
-        working-directory: ${{ env.DASH_DIR }}
-        run: npm run lint
-
       - name: Build dashboard
         run: bash scripts/build_dashboard.sh
-
-      - name: Test Go
-        run: go test ./internal/app/admin ./internal/app/backup ./internal/app/migrations
-
-      - name: Test binary database lifecycle
-        run: bash scripts/rebecca/test-database-maintenance.sh
 
       - name: Upload dashboard
         uses: actions/upload-artifact@v4

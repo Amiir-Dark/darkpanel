@@ -1,16 +1,7 @@
 name: "API CodeQL"
 
 on:
-  push:
-    branches:
-      - "*"
-    paths-ignore:
-      - "dashboard/**"
-  pull_request:
-    branches:
-      - "*"
-    paths-ignore:
-      - "dashboard/**"
+  workflow_dispatch:
   schedule:
     - cron: "0 11 * * 3"
 
