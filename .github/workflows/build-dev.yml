@@ -68,7 +68,8 @@ jobs:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           set -euo pipefail
-          tags="ghcr.io/rebeccapanel/rebecca:${GITHUB_REF_NAME}"
+          repo_lower=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          tags="ghcr.io/${repo_lower}:${GITHUB_REF_NAME}"
           dockerhub_enabled=false
           if [[ -n "${DOCKERHUB_USERNAME}" && -n "${DOCKERHUB_TOKEN}" ]]; then
             dockerhub_enabled=true
@@ -95,7 +96,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tags="ghcr.io/rebeccapanel/rebecca:${GITHUB_REF_NAME}"
+          repo_lower=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          tags="ghcr.io/${repo_lower}:${GITHUB_REF_NAME}"
           if [[ "${{ steps.dockerhub_login.outcome }}" == "success" ]]; then
             tags="${tags}"$'\n'"rebeccapanel/rebecca:${GITHUB_REF_NAME}"
           fi
