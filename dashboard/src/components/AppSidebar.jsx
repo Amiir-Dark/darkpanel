@@ -238,8 +238,14 @@ export const AppSidebar = ({ collapsed, inDrawer = false, onRequestExpand, }) =>
     const mainItems = [
         { title: t("dashboard"), url: "/", icon: HomeIconStyled },
         { title: t("users"), url: "/users", icon: UsersIconStyled },
-        { title: t("salesBot.menu", "ربات فروش"), url: "/sales-bot", icon: SalesBotIconStyled },
     ];
+    if (userData?.role !== AdminRole.Reseller) {
+        mainItems.push({
+            title: t("salesBot.menu", "ربات فروش"),
+            url: "/sales-bot",
+            icon: SalesBotIconStyled,
+        });
+    }
     if (canViewUsage) {
         mainItems.push({
             title: t("usage.menu"),

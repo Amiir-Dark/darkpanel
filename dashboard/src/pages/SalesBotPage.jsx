@@ -24,6 +24,7 @@ import {
     Input,
     InputGroup,
     InputRightElement,
+    Link,
     Modal,
     ModalBody,
     ModalCloseButton,
@@ -60,6 +61,7 @@ import {
 } from "@chakra-ui/react";
 import {
     ArrowPathIcon,
+    ArrowTopRightOnSquareIcon,
     BanknotesIcon,
     CheckCircleIcon,
     ClockIcon,
@@ -90,6 +92,9 @@ import { fetch } from "service/http";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
+import { Navigate } from "react-router-dom";
+import useGetUser from "hooks/useGetUser";
+import { AdminRole } from "types/Admin";
 import {
     adjustUserWallet,
     getSalesBotOrders,
@@ -122,6 +127,8 @@ const formatToman = (val) => {
 };
 
 export const SalesBotPage = () => {
+    const { userData } = useGetUser();
+    const isReseller = userData?.role === AdminRole.Reseller;
     const { t } = useTranslation();
     const toast = useToast();
     const queryClient = useQueryClient();
@@ -139,11 +146,13 @@ export const SalesBotPage = () => {
     const overviewQuery = useQuery("sales-bot-overview", getSalesBotOverview, {
         refetchInterval: 10000,
         refetchOnWindowFocus: true,
+        enabled: !isReseller,
     });
 
     const serviceStatusQuery = useQuery("sales-bot-service-status", getSalesBotServiceStatus, {
         refetchInterval: 5000,
         refetchOnWindowFocus: true,
+        enabled: !isReseller,
     });
 
     const servicesQuery = useQuery(
@@ -648,6 +657,10 @@ export const SalesBotPage = () => {
         receiptsQuery.isFetching ||
         usersQuery.isFetching;
 
+    if (isReseller) {
+        return <Navigate to="/users" replace />;
+    }
+
     return (
         <Box w="full" px={{ base: 3, md: 6 }} py={6} dir="rtl">
             {/* Header Section */}
@@ -1052,14 +1065,6 @@ export const SalesBotPage = () => {
                                     <Badge colorScheme="blue" p={1.5} borderRadius="md" fontSize="xs">
                                         دیتابیس: {overviewQuery.data?.db_path || "bot.db"}
                                     </Badge>
-                                    <Button
-                                        size="xs"
-                                        colorScheme="teal"
-                                        onClick={() => testWebhookMutation.mutate()}
-                                        isLoading={testWebhookMutation.isLoading}
-                                    >
-                                        ارسال درخواست پینگ تستی به وب‌هوک
-                                    </Button>
                                 </HStack>
                             </Box>
                         </VStack>
@@ -1158,9 +1163,25 @@ export const SalesBotPage = () => {
                                                             <Text fontWeight="medium" fontSize="xs">
                                                                 {order.first_name || "کاربر"}
                                                             </Text>
-                                                            <Text fontSize="10px" color={textSecondary}>
-                                                                {order.username ? `@${order.username}` : `ID: ${order.user_id}`}
-                                                            </Text>
+                                                            {order.username ? (
+                                                                <Link
+                                                                    href={`https://t.me/${order.username}`}
+                                                                    isExternal
+                                                                    color="blue.400"
+                                                                    fontSize="10px"
+                                                                    display="inline-flex"
+                                                                    alignItems="center"
+                                                                    gap={0.5}
+                                                                    _hover={{ textDecoration: "underline" }}
+                                                                >
+                                                                    @{order.username}
+                                                                    <ArrowTopRightOnSquareIcon width={10} height={10} />
+                                                                </Link>
+                                                            ) : (
+                                                                <Text fontSize="10px" color={textSecondary}>
+                                                                    ID: {order.user_id}
+                                                                </Text>
+                                                            )}
                                                         </Td>
                                                         <Td>{formatToman(order.amount_base)} ت</Td>
                                                         <Td fontWeight="bold" color="purple.400">
@@ -1315,17 +1336,51 @@ export const SalesBotPage = () => {
                                                         <Text fontWeight="medium" fontSize="xs">
                                                             {rec.first_name || "کاربر"}
                                                         </Text>
-                                                        <Text fontSize="10px" color={textSecondary}>
-                                                            {rec.username ? `@${rec.username}` : `ID: ${rec.user_id}`}
-                                                        </Text>
+                                                        {rec.username ? (
+                                                            <Link
+                                                                href={`https://t.me/${rec.username}`}
+                                                                isExternal
+                                                                color="blue.400"
+                                                                fontSize="10px"
+                                                                display="inline-flex"
+                                                                alignItems="center"
+                                                                gap={0.5}
+                                                                _hover={{ textDecoration: "underline" }}
+                                                            >
+                                                                @{rec.username}
+                                                                <ArrowTopRightOnSquareIcon width={10} height={10} />
+                                                            </Link>
+                                                        ) : (
+                                                            <Text fontSize="10px" color={textSecondary}>
+                                                                ID: {rec.user_id}
+                                                            </Text>
+                                                        )}
                                                     </Td>
                                                     <Td fontWeight="bold" color="green.400">
                                                         {formatToman(rec.amount)} تومان
                                                     </Td>
                                                     <Td fontSize="xs">
-                                                        <Code fontSize="10px" maxW="150px" isTruncated>
-                                                            {rec.file_id || "-"}
-                                                        </Code>
+                                                        {rec.file_id ? (
+                                                            <HStack spacing={1}>
+                                                                <Code fontSize="10px" maxW="120px" isTruncated title={rec.file_id}>
+                                                                    {rec.file_id}
+                                                                </Code>
+                                                                <Tooltip label="کپی شناسه فایل">
+                                                                    <IconButton
+                                                                        size="xs"
+                                                                        variant="ghost"
+                                                                        icon={<DocumentDuplicateIcon width={12} height={12} />}
+                                                                        onClick={() => {
+                                                                            navigator.clipboard.writeText(rec.file_id);
+                                                                            toast({ title: "شناسه فایل تلگرام کپی شد", status: "info", duration: 2000 });
+                                                                        }}
+                                                                        aria-label="کپی شناسه فایل"
+                                                                    />
+                                                                </Tooltip>
+                                                            </HStack>
+                                                        ) : (
+                                                            <Text fontSize="xs" color={textSecondary}>-</Text>
+                                                        )}
                                                     </Td>
                                                     <Td>
                                                         {rec.status === "approved" && (
@@ -1476,15 +1531,43 @@ export const SalesBotPage = () => {
                                             usersQuery.data.map((user) => (
                                                 <Tr key={user.telegram_id} _hover={{ bg: bgElevated }}>
                                                     <Td fontWeight="mono" fontSize="xs">
-                                                        {user.telegram_id}
+                                                        <HStack spacing={1}>
+                                                            <Text>{user.telegram_id}</Text>
+                                                            <Tooltip label="کپی آیدی عددی تلگرام">
+                                                                <IconButton
+                                                                    size="xs"
+                                                                    variant="ghost"
+                                                                    icon={<DocumentDuplicateIcon width={11} height={11} />}
+                                                                    onClick={() => {
+                                                                        navigator.clipboard.writeText(String(user.telegram_id));
+                                                                        toast({ title: "آیدی عددی تلگرام کپی شد", status: "info", duration: 1500 });
+                                                                    }}
+                                                                    aria-label="کپی آیدی تلگرام"
+                                                                />
+                                                            </Tooltip>
+                                                        </HStack>
                                                     </Td>
                                                     <Td>
                                                         <Text fontWeight="medium" fontSize="xs">
                                                             {user.first_name || "بدون نام"}
                                                         </Text>
-                                                        <Text fontSize="10px" color={textSecondary}>
-                                                            {user.username ? `@${user.username}` : "-"}
-                                                        </Text>
+                                                        {user.username ? (
+                                                            <Link
+                                                                href={`https://t.me/${user.username}`}
+                                                                isExternal
+                                                                color="blue.400"
+                                                                fontSize="10px"
+                                                                display="inline-flex"
+                                                                alignItems="center"
+                                                                gap={0.5}
+                                                                _hover={{ textDecoration: "underline" }}
+                                                            >
+                                                                @{user.username}
+                                                                <ArrowTopRightOnSquareIcon width={10} height={10} />
+                                                            </Link>
+                                                        ) : (
+                                                            <Text fontSize="10px" color={textSecondary}>-</Text>
+                                                        )}
                                                     </Td>
                                                     <Td fontWeight="bold" color="green.400">
                                                         {formatToman(user.wallet_balance)} تومان
@@ -1503,9 +1586,6 @@ export const SalesBotPage = () => {
                                                             <Badge colorScheme="gray">بدون اشتراک</Badge>
                                                         )}
                                                     </Td>
-                                                    <Td fontSize="xs">
-                                                        {formatToman(user.total_spent)} تومان
-                                                    </Td>
                                                     <Td>
                                                         {user.has_used_test ? (
                                                             <Badge colorScheme="purple">دریافت کرده ({user.test_usage_count || 1})</Badge>
@@ -1513,7 +1593,7 @@ export const SalesBotPage = () => {
                                                             <Badge colorScheme="green">دریافت نکرده</Badge>
                                                         )}
                                                     </Td>
-                                                    <Td fontSize="xs">
+                                                    <Td fontSize="xs" fontWeight="bold">
                                                         {formatToman(user.total_spent)} تومان
                                                     </Td>
                                                     <Td fontSize="10px" color={textSecondary}>
@@ -1775,10 +1855,50 @@ export const SalesBotPage = () => {
                                     </Box>
                                 </HStack>
 
-                                <Alert status="info" borderRadius="lg" mb={4} fontSize="xs">
+                                <Alert status="info" borderRadius="lg" mb={3} fontSize="xs">
                                     <AlertIcon />
                                     شما می‌توانید در متن پیام از فرمت‌های HTML تلگرام (مانند <code>&lt;b&gt;بولد&lt;/b&gt;</code> یا <code>&lt;code&gt;کد&lt;/code&gt;</code>) و اموجی‌ها استفاده فرمایید.
                                 </Alert>
+
+                                <Box mb={3}>
+                                    <Text fontSize="xs" color={textSecondary} mb={2} fontWeight="medium">
+                                        قالب‌های آماده و پرکاربرد:
+                                    </Text>
+                                    <HStack spacing={2} wrap="wrap">
+                                        <Button
+                                            size="xs"
+                                            variant="outline"
+                                            colorScheme="purple"
+                                            onClick={() => setBroadcastText("🎉 <b>جشنواره تخفیف ویژه!</b>\n\nکاربران گرامی، هم‌اکنون به مدت محدود می‌توانید با شارژ کیف پول خود از تخفیف ویژه بهره‌مند شوید.\n\n⚡️ جهت شارژ حساب وارد ربات شده و گزینه «افزایش موجودی» را انتخاب نمایید.")}
+                                        >
+                                            🎁 تخفیف ویژه
+                                        </Button>
+                                        <Button
+                                            size="xs"
+                                            variant="outline"
+                                            colorScheme="orange"
+                                            onClick={() => setBroadcastText("⚠️ <b>اطلاعیه فنی و ارتقای سرورها</b>\n\nکاربران محترم، به اطلاع می‌رساند سرورها در حال انجام عملیات نگهداری و بهبود کیفیت می‌باشند. این پروسه به زودی تکمیل خواهد شد و نیاز به تغییری از سمت شما نیست.\n\nاز شکیبایی شما سپاسگزاریم.")}
+                                        >
+                                            ⚙️ بروزرسانی سرورها
+                                        </Button>
+                                        <Button
+                                            size="xs"
+                                            variant="outline"
+                                            colorScheme="blue"
+                                            onClick={() => setBroadcastText("🚀 <b>اضافه شدن لوکیشن‌های جدید!</b>\n\nنودها و سرورهای جدید با پینگ پایین و سرعت فوق‌العاده به سیستم اضافه شدند.\n\nجهت دریافت لینک‌های تازه به بخش «پنل‌های من» در ربات مراجعه نمایید.")}
+                                        >
+                                            🚀 سرورهای جدید
+                                        </Button>
+                                        <Button
+                                            size="xs"
+                                            variant="outline"
+                                            colorScheme="teal"
+                                            onClick={() => setBroadcastText("📌 <b>یادآوری تمدید اشتراک</b>\n\nکاربر گرامی، جهت جلوگیری از قطع شدن دسترسی، لطفا موجودی کیف پول خود را در منوی ربات بررسی کرده و در صورت نیاز شارژ فرمایید.")}
+                                        >
+                                            📌 یادآوری تمدید
+                                        </Button>
+                                    </HStack>
+                                </Box>
 
                                 <FormControl isRequired mb={4}>
                                     <FormLabel fontSize="xs">متن پیام ارسالی</FormLabel>
@@ -2281,18 +2401,47 @@ export const SalesBotPage = () => {
                                         />
                                     </FormControl>
 
-                                    <FormControl gridColumn={{ md: "span 2" }}>
-                                        <FormLabel fontSize="xs">آدرس ورود به پنل نمایندگان (Domain یا IP با پورت)</FormLabel>
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">نام برند یا مجموعه (Brand Name)</FormLabel>
                                         <Input
                                             size="sm"
-                                            value={formSettings.panel_url || ""}
-                                            onChange={(e) => handleSettingChange("panel_url", e.target.value)}
-                                            placeholder="https://panel.example.com:8000"
+                                            value={formSettings.brand_name || ""}
+                                            onChange={(e) => handleSettingChange("brand_name", e.target.value)}
+                                            placeholder="گارد"
+                                            borderRadius="lg"
+                                        />
+                                        <FormHelperText fontSize="10px">
+                                            این نام در متن خوش‌آمدگویی، فاکتورها و اعلان‌های ربات قرار می‌گیرد (پیش‌فرض: گارد)
+                                        </FormHelperText>
+                                    </FormControl>
+
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">پروکسی تلگرام (اختیاری - سرورهای ایران)</FormLabel>
+                                        <Input
+                                            size="sm"
+                                            value={formSettings.telegram_proxy || ""}
+                                            onChange={(e) => handleSettingChange("telegram_proxy", e.target.value)}
+                                            placeholder="socks5://127.0.0.1:1080 یا http://127.0.0.1:8080"
                                             dir="ltr"
                                             borderRadius="lg"
                                         />
                                         <FormHelperText fontSize="10px">
-                                            آدرس ورود به داشبورد DarkPanel که به کاربر جهت ورود به پنل نمایندگی تست یا پنل‌های من ارسال می‌شود
+                                            در صورتی که سرور شما در ایران است، آدرس پروکسی جهت اتصال ربات به تلگرام
+                                        </FormHelperText>
+                                    </FormControl>
+
+                                    <FormControl gridColumn={{ md: "span 2" }}>
+                                        <FormLabel fontSize="xs">آدرس پایه API تلگرام (Local Bot API / Reverse Proxy)</FormLabel>
+                                        <Input
+                                            size="sm"
+                                            value={formSettings.telegram_api_base || ""}
+                                            onChange={(e) => handleSettingChange("telegram_api_base", e.target.value)}
+                                            placeholder="https://api.telegram.org یا http://127.0.0.1:8081"
+                                            dir="ltr"
+                                            borderRadius="lg"
+                                        />
+                                        <FormHelperText fontSize="10px">
+                                            آدرس سفارشی سرور تلگرام در صورت استفاده از Local Bot API Server یا Reverse Proxy
                                         </FormHelperText>
                                     </FormControl>
                                 </SimpleGrid>
@@ -2443,13 +2592,13 @@ export const SalesBotPage = () => {
                                     <Tbody>
                                         {webhookLogsQuery.isLoading ? (
                                             <Tr>
-                                                <Td colSpan={9} textAlign="center" py={8}>
+                                                <Td colSpan={8} textAlign="center" py={8}>
                                                     <Spinner size="sm" color="purple.500" />
                                                 </Td>
                                             </Tr>
                                         ) : (webhookLogsQuery.data?.length ?? 0) === 0 ? (
                                             <Tr>
-                                                <Td colSpan={9} textAlign="center" py={12} color={textSecondary}>
+                                                <Td colSpan={8} textAlign="center" py={12} color={textSecondary}>
                                                     <VStack spacing={2}>
                                                         <InboxArrowDownIcon width={32} height={32} />
                                                         <Text fontWeight="medium">هنوز هیچ پیامکی به وب‌هوک ارسال نشده است.</Text>

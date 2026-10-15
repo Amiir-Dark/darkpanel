@@ -73,6 +73,17 @@ func (s *Server) requireSudo(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+func (s *Server) requireSalesBotAccess(next http.HandlerFunc) http.HandlerFunc {
+	return s.requireAdmin(func(w http.ResponseWriter, r *http.Request) {
+		principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+		if principal.Role == string(adminapp.RoleReseller) {
+			writeError(w, http.StatusForbidden, "resellers cannot access sales bot")
+			return
+		}
+		next(w, r)
+	})
+}
+
 func (s *Server) authenticate(ctx context.Context, r *http.Request) (adminPrincipal, error) {
 	token := bearerToken(r)
 	if token != "" {
