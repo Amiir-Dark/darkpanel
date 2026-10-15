@@ -205,6 +205,51 @@ func (c *TelegramClient) GetMe(ctx context.Context, token string) (*BotUser, err
 	return &u, nil
 }
 
+type TgFile struct {
+	FileID   string `json:"file_id"`
+	FileSize int64  `json:"file_size"`
+	FilePath string `json:"file_path"`
+}
+
+// GetFile resolves the server-side file path for a Telegram file_id.
+func (c *TelegramClient) GetFile(ctx context.Context, token, fileID string) (*TgFile, error) {
+	raw, err := c.call(ctx, token, "getFile", map[string]any{"file_id": fileID})
+	if err != nil {
+		return nil, err
+	}
+	var f TgFile
+	if err := json.Unmarshal(raw, &f); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(f.FilePath) == "" {
+		return nil, fmt.Errorf("telegram returned an empty file path")
+	}
+	return &f, nil
+}
+
+// DownloadFile fetches the binary content of a Telegram file by its server path.
+func (c *TelegramClient) DownloadFile(ctx context.Context, token, filePath string) ([]byte, error) {
+	if strings.TrimSpace(token) == "" {
+		return nil, fmt.Errorf("bot token is empty")
+	}
+	filePath = strings.TrimLeft(strings.TrimSpace(filePath), "/")
+	downloadURL := fmt.Sprintf("%s/file/bot%s/%s", c.apiBase, token, filePath)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("telegram file download failed with status %d", resp.StatusCode)
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, 15*1024*1024))
+}
+
 func (c *TelegramClient) GetUpdates(ctx context.Context, token string, offset int64, timeout int) ([]Update, error) {
 	payload := map[string]any{
 		"timeout":         timeout,

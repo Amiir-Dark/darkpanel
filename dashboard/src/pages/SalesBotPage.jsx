@@ -21,6 +21,7 @@ import {
     Heading,
     HStack,
     IconButton,
+    Image,
     Input,
     InputGroup,
     InputRightElement,
@@ -92,9 +93,13 @@ import {
     NoSymbolIcon,
     BellAlertIcon,
     KeyIcon,
+    PhotoIcon,
+    ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import { fetch } from "service/http";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+
+const RevenueChart = lazy(() => import("react-apexcharts"));
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { Navigate } from "react-router-dom";
@@ -107,7 +112,9 @@ import {
     getSalesBotReceipts,
     getSalesBotServiceStatus,
     getSalesBotSettings,
+    getSalesBotRevenueStats,
     getSalesBotUsers,
+    getReceiptImage,
     orderAction,
     receiptAction,
     restartSalesBotService,
@@ -144,6 +151,62 @@ const formatTraffic = (bytes) => {
     return `${mb.toFixed(0)} مگابایت`;
 };
 
+const ReceiptImage = ({ receiptId }) => {
+    const [url, setUrl] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        let objectUrl = "";
+        let cancelled = false;
+        setLoading(true);
+        setError("");
+        setUrl("");
+        getReceiptImage(receiptId)
+            .then((blob) => {
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setUrl(objectUrl);
+            })
+            .catch((err) => {
+                if (!cancelled) setError(err?.message || "خطا در دریافت تصویر فیش");
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [receiptId]);
+
+    if (loading) {
+        return (
+            <Flex justify="center" py={12}>
+                <Spinner size="lg" color="purple.500" />
+            </Flex>
+        );
+    }
+    if (error) {
+        return (
+            <Alert status="warning" borderRadius="lg" fontSize="xs">
+                <AlertIcon />
+                {error}
+            </Alert>
+        );
+    }
+    return (
+        <Image
+            src={url}
+            alt={`فیش #${receiptId}`}
+            borderRadius="lg"
+            maxH="70vh"
+            mx="auto"
+            objectFit="contain"
+        />
+    );
+};
+
 export const SalesBotPage = () => {
     const { userData } = useGetUser();
     const isReseller = userData?.role === AdminRole.Reseller;
@@ -172,6 +235,16 @@ export const SalesBotPage = () => {
         refetchOnWindowFocus: true,
         enabled: !isReseller,
     });
+
+    const revenueQuery = useQuery(
+        ["sales-bot-revenue", 14],
+        () => getSalesBotRevenueStats({ days: 14 }),
+        {
+            refetchInterval: 60000,
+            refetchOnWindowFocus: false,
+            enabled: !isReseller,
+        }
+    );
 
     const servicesQuery = useQuery(
         ["sales-bot-services-list"],
@@ -374,6 +447,7 @@ export const SalesBotPage = () => {
     // Webhook logs state
     const [autoRefreshLogs, setAutoRefreshLogs] = useState(true);
     const [selectedLogModal, setSelectedLogModal] = useState(null);
+    const [receiptImageTarget, setReceiptImageTarget] = useState(null);
     const [isSimulateOpen, setIsSimulateOpen] = useState(false);
     const [simulateContent, setSimulateContent] = useState("");
     const [simulateSender, setSimulateSender] = useState("Bank");
@@ -745,6 +819,79 @@ export const SalesBotPage = () => {
         receiptsQuery.isFetching ||
         usersQuery.isFetching;
 
+    // Revenue / orders trend chart (last 14 days)
+    const revenuePoints = revenueQuery.data?.points || [];
+    const revenueChartOptions = useMemo(() => {
+        const categories = revenuePoints.map((p) => {
+            try {
+                return new Date(p.date).toLocaleDateString("fa-IR", {
+                    month: "2-digit",
+                    day: "2-digit",
+                });
+            } catch {
+                return p.date;
+            }
+        });
+        return {
+            chart: {
+                toolbar: { show: false },
+                fontFamily: "inherit",
+                background: "transparent",
+                animations: { enabled: false },
+            },
+            colors: ["#a855f7", "#38bdf8"],
+            dataLabels: { enabled: false },
+            stroke: { curve: "smooth", width: [3, 0] },
+            fill: {
+                type: ["gradient", "solid"],
+                gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.04 },
+            },
+            plotOptions: { bar: { columnWidth: "38%", borderRadius: 4 } },
+            grid: { borderColor: "rgba(148,163,184,0.15)" },
+            xaxis: {
+                categories,
+                labels: { style: { fontSize: "10px" } },
+            },
+            yaxis: [
+                {
+                    labels: {
+                        formatter: (v) => formatToman(v),
+                        style: { fontSize: "10px" },
+                    },
+                },
+                {
+                    opposite: true,
+                    labels: { formatter: (v) => Math.round(v), style: { fontSize: "10px" } },
+                },
+            ],
+            legend: { position: "top", horizontalAlign: "right", fontSize: "12px" },
+            tooltip: {
+                y: {
+                    formatter: (v, { seriesIndex }) =>
+                        seriesIndex === 0 ? `${formatToman(v)} تومان` : `${v} سفارش`,
+                },
+            },
+        };
+    }, [revenuePoints]);
+
+    const revenueChartSeries = useMemo(
+        () => [
+            {
+                name: "درآمد (تومان)",
+                type: "area",
+                yAxis: 0,
+                data: revenuePoints.map((p) => Math.round(p.revenue)),
+            },
+            {
+                name: "سفارشات پرداخت‌شده",
+                type: "column",
+                yAxis: 1,
+                data: revenuePoints.map((p) => p.orders),
+            },
+        ],
+        [revenuePoints]
+    );
+
     if (isReseller) {
         return <Navigate to="/users" replace />;
     }
@@ -972,6 +1119,8 @@ export const SalesBotPage = () => {
                                     borderRadius="xl"
                                     border="1px solid"
                                     borderColor={borderColor}
+                                    transition="all 0.2s ease"
+                                    _hover={{ borderColor: "purple.400", boxShadow: "md" }}
                                 >
                                     <HStack justify="space-between" align="start">
                                         <Box>
@@ -998,6 +1147,8 @@ export const SalesBotPage = () => {
                                     borderRadius="xl"
                                     border="1px solid"
                                     borderColor={borderColor}
+                                    transition="all 0.2s ease"
+                                    _hover={{ borderColor: "purple.400", boxShadow: "md" }}
                                 >
                                     <HStack justify="space-between" align="start">
                                         <Box>
@@ -1026,6 +1177,8 @@ export const SalesBotPage = () => {
                                     borderRadius="xl"
                                     border="1px solid"
                                     borderColor={borderColor}
+                                    transition="all 0.2s ease"
+                                    _hover={{ borderColor: "purple.400", boxShadow: "md" }}
                                 >
                                     <HStack justify="space-between" align="start">
                                         <Box>
@@ -1057,6 +1210,8 @@ export const SalesBotPage = () => {
                                     borderRadius="xl"
                                     border="1px solid"
                                     borderColor={borderColor}
+                                    transition="all 0.2s ease"
+                                    _hover={{ borderColor: "purple.400", boxShadow: "md" }}
                                 >
                                     <HStack justify="space-between" align="start">
                                         <Box>
@@ -1079,6 +1234,63 @@ export const SalesBotPage = () => {
                                     </Text>
                                 </Box>
                             </SimpleGrid>
+
+                            {/* Revenue & Orders Trend Chart */}
+                            <Box
+                                p={5}
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                            >
+                                <Flex justify="space-between" align="center" mb={3} wrap="wrap" gap={2}>
+                                    <HStack spacing={3}>
+                                        <Box p={2} bg="purple.500" color="white" borderRadius="lg">
+                                            <ChartBarIcon width={20} height={20} />
+                                        </Box>
+                                        <Box>
+                                            <Heading size="sm">روند درآمد و سفارشات (۱۴ روز اخیر)</Heading>
+                                            <Text fontSize="xs" color={textSecondary}>
+                                                مجموع درآمد این بازه: {formatToman(revenueQuery.data?.total_revenue)} تومان
+                                            </Text>
+                                        </Box>
+                                    </HStack>
+                                    <HStack spacing={2}>
+                                        <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>
+                                            {revenueQuery.data?.total_orders ?? 0} سفارش
+                                        </Badge>
+                                        <Badge colorScheme="cyan" borderRadius="full" px={3} py={1}>
+                                            {revenueQuery.data?.total_receipts ?? 0} فیش
+                                        </Badge>
+                                    </HStack>
+                                </Flex>
+
+                                {revenueQuery.isLoading ? (
+                                    <Flex justify="center" py={16}>
+                                        <Spinner color="purple.500" />
+                                    </Flex>
+                                ) : revenuePoints.length === 0 ? (
+                                    <Box py={10} textAlign="center" color={textSecondary} fontSize="sm">
+                                        هنوز درآمد ثبت‌شده‌ای برای نمایش وجود ندارد.
+                                    </Box>
+                                ) : (
+                                    <Suspense
+                                        fallback={
+                                            <Flex justify="center" py={16}>
+                                                <Spinner color="purple.500" />
+                                            </Flex>
+                                        }
+                                    >
+                                        <RevenueChart
+                                            type="line"
+                                            height={300}
+                                            width="100%"
+                                            options={revenueChartOptions}
+                                            series={revenueChartSeries}
+                                        />
+                                    </Suspense>
+                                )}
+                            </Box>
 
                             {/* Webhook & ForApp Info Banner */}
                             <Box
@@ -1450,9 +1662,15 @@ export const SalesBotPage = () => {
                                                     <Td fontSize="xs">
                                                         {rec.file_id ? (
                                                             <HStack spacing={1}>
-                                                                <Code fontSize="10px" maxW="120px" isTruncated title={rec.file_id}>
-                                                                    {rec.file_id}
-                                                                </Code>
+                                                                <Button
+                                                                    size="xs"
+                                                                    colorScheme="purple"
+                                                                    variant="outline"
+                                                                    leftIcon={<PhotoIcon width={13} height={13} />}
+                                                                    onClick={() => setReceiptImageTarget(rec)}
+                                                                >
+                                                                    مشاهده تصویر
+                                                                </Button>
                                                                 <Tooltip label="کپی شناسه فایل">
                                                                     <IconButton
                                                                         size="xs"
@@ -2709,6 +2927,91 @@ export const SalesBotPage = () => {
                                 </SimpleGrid>
                             </Box>
 
+                            {/* SECTION 5: BOT TEXTS & DISPLAY PRICING */}
+                            <Box
+                                p={5}
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                            >
+                                <Flex align="center" gap={2} mb={4}>
+                                    <ChatBubbleBottomCenterTextIcon width={22} height={22} color="#A78BFA" />
+                                    <Heading size="sm" color="purple.300">
+                                        ✍️ بخش ۵: متن‌های ربات و تعرفه نمایشی
+                                    </Heading>
+                                </Flex>
+
+                                <VStack spacing={4} align="stretch">
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">پیام خوش‌آمدگویی (/start)</FormLabel>
+                                        <Textarea
+                                            rows={3}
+                                            size="sm"
+                                            value={formSettings.welcome_message || ""}
+                                            onChange={(e) => handleSettingChange("welcome_message", e.target.value)}
+                                            placeholder="اگر خالی بماند، متن پیش‌فرض برند نمایش داده می‌شود."
+                                            borderRadius="md"
+                                        />
+                                    </FormControl>
+
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">متن قوانین و شرایط (پیش از خرید پنل)</FormLabel>
+                                        <Textarea
+                                            rows={5}
+                                            size="sm"
+                                            value={formSettings.terms_message || ""}
+                                            onChange={(e) => handleSettingChange("terms_message", e.target.value)}
+                                            placeholder="اگر خالی بماند، متن پیش‌فرض شرایط Pay-As-You-Go نمایش داده می‌شود."
+                                            borderRadius="md"
+                                        />
+                                    </FormControl>
+
+                                    <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                                        <FormControl>
+                                            <FormLabel fontSize="xs">هزینه ساعتی نمایندگی (نمایشی)</FormLabel>
+                                            <Input
+                                                size="sm"
+                                                value={formSettings.hourly_fee || ""}
+                                                onChange={(e) => handleSettingChange("hourly_fee", e.target.value)}
+                                                placeholder="۱۳۸"
+                                                borderRadius="md"
+                                            />
+                                            <FormHelperText fontSize="10px">
+                                                فقط در متن قوانین به کاربر نمایش داده می‌شود.
+                                            </FormHelperText>
+                                        </FormControl>
+
+                                        <FormControl>
+                                            <FormLabel fontSize="xs">حداقل قیمت هر گیگ (نمایشی)</FormLabel>
+                                            <Input
+                                                size="sm"
+                                                value={formSettings.min_price_per_gb || ""}
+                                                onChange={(e) => handleSettingChange("min_price_per_gb", e.target.value)}
+                                                placeholder="۴۱۵۰"
+                                                borderRadius="md"
+                                            />
+                                        </FormControl>
+
+                                        <FormControl>
+                                            <FormLabel fontSize="xs">حداکثر قیمت هر گیگ (نمایشی)</FormLabel>
+                                            <Input
+                                                size="sm"
+                                                value={formSettings.max_price_per_gb || ""}
+                                                onChange={(e) => handleSettingChange("max_price_per_gb", e.target.value)}
+                                                placeholder="۵۰۰۰"
+                                                borderRadius="md"
+                                            />
+                                        </FormControl>
+                                    </SimpleGrid>
+
+                                    <Alert status="info" borderRadius="lg" fontSize="11px">
+                                        <AlertIcon />
+                                        این مقادیر فقط جهت نمایش در پیام‌های ربات هستند. نرخ واقعی کسر اعتبار همان «قیمت هر گیگابایت» در بخش ۱ است.
+                                    </Alert>
+                                </VStack>
+                            </Box>
+
                             {/* Save Settings Button */}
                             <Flex justify="flex-end" pt={2}>
                                 <Button
@@ -3020,6 +3323,35 @@ export const SalesBotPage = () => {
                     </ModalBody>
                     <ModalFooter>
                         <Button size="sm" onClick={() => setSelectedLogModal(null)}>بستن</Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Receipt Image Modal */}
+            <Modal
+                isOpen={Boolean(receiptImageTarget)}
+                onClose={() => setReceiptImageTarget(null)}
+                size="2xl"
+                isCentered
+                dir="rtl"
+            >
+                <ModalOverlay />
+                <ModalContent bg={bgCard} border="1px solid" borderColor={borderColor}>
+                    <ModalHeader fontSize="md" fontWeight="bold">
+                        <HStack spacing={2}>
+                            <PhotoIcon width={20} height={20} color="#a855f7" />
+                            <Text>
+                                فیش واریزی #{receiptImageTarget?.id}
+                                {receiptImageTarget ? ` — ${formatToman(receiptImageTarget.amount)} تومان` : ""}
+                            </Text>
+                        </HStack>
+                    </ModalHeader>
+                    <ModalCloseButton left={3} right="auto" />
+                    <ModalBody maxH="78vh" overflowY="auto">
+                        {receiptImageTarget && <ReceiptImage receiptId={receiptImageTarget.id} />}
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button size="sm" onClick={() => setReceiptImageTarget(null)}>بستن</Button>
                     </ModalFooter>
                 </ModalContent>
             </Modal>
@@ -3345,30 +3677,38 @@ export const SalesBotPage = () => {
                                                     <Tr>
                                                         <Th>شناسه</Th>
                                                         <Th>مبلغ</Th>
-                                                        <Th>روش پرداخت</Th>
+                                                        <Th>کد پیگیری بانک</Th>
                                                         <Th>وضعیت</Th>
                                                         <Th>تاریخ</Th>
                                                     </Tr>
                                                 </Thead>
                                                 <Tbody>
-                                                    {userDetailsQuery.data.orders.map((ord) => (
+                                                    {userDetailsQuery.data.orders.map((ord) => {
+                                                        const ordStatusLabel = {
+                                                            paid: "پرداخت شده",
+                                                            pending: "در انتظار",
+                                                            expired: "منقضی",
+                                                            cancelled: "لغو شده",
+                                                        }[ord.status] || ord.status;
+                                                        return (
                                                         <Tr key={ord.id}>
                                                             <Td fontSize="xs" fontWeight="mono">#{ord.id}</Td>
                                                             <Td fontSize="xs" fontWeight="bold" color="green.400">
-                                                                {formatToman(ord.amount)} تومان
+                                                                {formatToman(ord.amount_exact)} تومان
                                                             </Td>
-                                                            <Td fontSize="xs">{ord.payment_method}</Td>
+                                                            <Td fontSize="10px" fontFamily="mono">{ord.bank_ref || "-"}</Td>
                                                             <Td>
                                                                 <Badge
                                                                     colorScheme={ord.status === "paid" ? "green" : ord.status === "pending" ? "yellow" : "red"}
                                                                     fontSize="10px"
                                                                 >
-                                                                    {ord.status}
+                                                                    {ordStatusLabel}
                                                                 </Badge>
                                                             </Td>
                                                             <Td fontSize="10px" color={textSecondary}>{ord.created_at}</Td>
                                                         </Tr>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </Tbody>
                                             </Table>
                                         </Box>

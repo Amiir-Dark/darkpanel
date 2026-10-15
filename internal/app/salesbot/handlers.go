@@ -305,18 +305,65 @@ func depositOnlyKeyboard() InlineKeyboardMarkup {
 }
 
 func depositKeyboard() InlineKeyboardMarkup {
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "⚡ کارت به کارت هوشمند (شناسایی ۵ دقیقه‌ای)", CallbackData: "deposit_5min"},
-			},
-			{
-				{Text: "💳 واریز کارت به کارت (ارسال فیش)", CallbackData: "deposit_receipt"},
-			},
-			{
-				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-			},
-		},
+	var rows [][]InlineKeyboardButton
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "⚡ کارت به کارت هوشمند (شناسایی ۵ دقیقه‌ای)", CallbackData: "deposit_5min"},
+	})
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "💳 واریز کارت به کارت (ارسال فیش)", CallbackData: "deposit_receipt"},
+	})
+	if strings.TrimSpace(GetSetting("tether_wallet", "")) != "" || strings.TrimSpace(GetSetting("ton_wallet", "")) != "" {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "🪙 پرداخت با رمزارز (USDT / TON)", CallbackData: "deposit_crypto"},
+		})
+	}
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+	})
+	return InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+// buildCryptoWalletsText renders the configured crypto wallet addresses.
+func buildCryptoWalletsText() string {
+	tether := strings.TrimSpace(GetSetting("tether_wallet", ""))
+	ton := strings.TrimSpace(GetSetting("ton_wallet", ""))
+	var sb strings.Builder
+	sb.WriteString("🪙 <b>پرداخت با رمزارز</b>\n\n")
+	if tether != "" {
+		sb.WriteString("💵 <b>تتر (USDT - TRC20):</b>\n")
+		sb.WriteString(fmt.Sprintf("<code>%s</code>\n\n", tether))
+	}
+	if ton != "" {
+		sb.WriteString("💎 <b>تون (TON):</b>\n")
+		sb.WriteString(fmt.Sprintf("<code>%s</code>\n\n", ton))
+	}
+	sb.WriteString("⚠️ پس از انتقال، تصویر رسید تراکنش را همراه با مبلغ به پشتیبانی ارسال فرمایید تا کیف پول شما شارژ شود.")
+	return sb.String()
+}
+
+// notifyAdmins sends a plain notification to every configured admin id.
+func (s *Service) notifyAdmins(ctx context.Context, text string) {
+	raw := strings.TrimSpace(GetSetting("admin_ids", ""))
+	if raw == "" {
+		return
+	}
+	token := s.botToken
+	if token == "" {
+		token = GetSetting("bot_token", "")
+	}
+	if token == "" {
+		return
+	}
+	for _, part := range strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ';' || r == ' ' || r == '\n' }) {
+		id, err := strconv.ParseInt(strings.TrimSpace(part), 10, 64)
+		if err != nil || id <= 0 {
+			continue
+		}
+		go func(adminID int64) {
+			notifyCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+			defer cancel()
+			_ = s.tgClient.SendMessage(notifyCtx, token, adminID, text, nil)
+		}(id)
 	}
 }
 
@@ -853,6 +900,10 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		SetUserState(user.TelegramID, "awaiting_receipt_amount", "")
 		s.promptReceipt(ctx, user)
 
+	case "deposit_crypto":
+		ClearUserState(user.TelegramID)
+		s.editOrSend(ctx, chatID, messageID, buildCryptoWalletsText(), backKeyboard())
+
 	case "gift_code":
 		SetUserState(user.TelegramID, "awaiting_gift_code", "")
 		text := "🎉 <b>اعمال کد هدیه</b>\n\nلطفاً کد هدیه خود را در چت ارسال نمایید:"
@@ -1066,6 +1117,11 @@ func (s *Service) processChargeAmount(ctx context.Context, u *User, input string
 	cardNumber := GetSetting("card_number", "در پنل تنظیم نشده است")
 	cardHolder := GetSetting("card_holder", "")
 	bankName := GetSetting("bank_name", "")
+	shabaNumber := strings.TrimSpace(GetSetting("shaba_number", ""))
+	shabaLine := ""
+	if shabaNumber != "" {
+		shabaLine = fmt.Sprintf("شبا: <code>%s</code>\n", shabaNumber)
+	}
 
 	text := fmt.Sprintf(
 		"⏱️ <b>فاکتور پرداخت موقت (مهلت ۵ دقیقه)</b>\n\n"+
@@ -1076,7 +1132,8 @@ func (s *Service) processChargeAmount(ctx context.Context, u *User, input string
 			"💳 <b>اطلاعات کارت بانکی مقصد:</b>\n"+
 			"شماره کارت: <code>%s</code>\n"+
 			"به نام: <b>%s</b>\n"+
-			"بانک: <b>%s</b>\n\n"+
+			"بانک: <b>%s</b>\n"+
+			"%s\n"+
 			"⏳ <b>مهلت پرداخت:</b> ۵ دقیقه\n"+
 			"پس از انتقال، پیامک بانک به صورت خودکار شناسایی شده و کیف پول شما طی چند ثانیه شارژ خواهد شد. نیازی به ارسال فیش نیست!",
 		formatCurrency(order.AmountExact),
@@ -1085,6 +1142,7 @@ func (s *Service) processChargeAmount(ctx context.Context, u *User, input string
 		cardNumber,
 		cardHolder,
 		bankName,
+		shabaLine,
 	)
 
 	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, backKeyboard())
@@ -1114,14 +1172,20 @@ func (s *Service) promptReceipt(ctx context.Context, u *User) {
 	cardNumber := GetSetting("card_number", "")
 	cardHolder := GetSetting("card_holder", "")
 	bankName := GetSetting("bank_name", "")
+	shabaNumber := strings.TrimSpace(GetSetting("shaba_number", ""))
+	shabaLine := ""
+	if shabaNumber != "" {
+		shabaLine = fmt.Sprintf("شبا: <code>%s</code>\n", shabaNumber)
+	}
 
 	text := fmt.Sprintf(
 		"💳 <b>واریز کارت به کارت دستی (با ارسال عکس فیش)</b>\n\n"+
 			"شماره کارت: <code>%s</code>\n"+
 			"صاحب حساب: <b>%s</b>\n"+
-			"بانک: <b>%s</b>\n\n"+
+			"بانک: <b>%s</b>\n"+
+			"%s\n"+
 			"مرحله ۱: ابتدا مبلغی که واریز کرده‌اید را به تومان وارد کنید:",
-		cardNumber, cardHolder, bankName,
+		cardNumber, cardHolder, bankName, shabaLine,
 	)
 
 	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, backKeyboard())
@@ -1174,4 +1238,21 @@ func (s *Service) handleReceiptPhoto(ctx context.Context, msg *Message, u *User)
 	ClearUserState(u.TelegramID)
 
 	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "✅ <b>فیش شما با موفقیت ثبت شد و برای مدیریت ارسال گردید.</b>\nپس از تایید، موجودی کیف پول شما افزایش خواهد یافت.", mainInlineKeyboard())
+
+	// Notify configured admins so pending receipts can be reviewed quickly.
+	who := u.FirstName
+	if who == "" {
+		who = fmt.Sprintf("%d", u.TelegramID)
+	}
+	if u.Username != "" {
+		who = fmt.Sprintf("%s (@%s)", who, u.Username)
+	}
+	s.notifyAdmins(ctx, fmt.Sprintf(
+		"🧾 <b>فیش کارت به کارت جدید</b>\n\n"+
+			"👤 کاربر: <b>%s</b>\n"+
+			"📱 آیدی: <code>%d</code>\n"+
+			"💰 مبلغ اعلامی: <b>%s تومان</b>\n\n"+
+			"جهت تایید یا رد، وارد پنل مدیریت → ربات فروش → فیش‌های کارت به کارت شوید.",
+		who, u.TelegramID, formatCurrency(amt),
+	))
 }

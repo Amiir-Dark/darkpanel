@@ -34,6 +34,7 @@ func (s *Server) registerSalesBotRoutes(r chi.Router) {
 	r.HandleFunc("/sales-bot/broadcast", s.requireSalesBotAccess(s.handleSalesBotBroadcast))
 	r.HandleFunc("/sales-bot/gift-codes/*", s.requireSalesBotAccess(s.handleSalesBotGiftCodeAction))
 	r.HandleFunc("/sales-bot/gift-codes", s.requireSalesBotAccess(s.handleSalesBotGiftCodes))
+	r.HandleFunc("/sales-bot/stats/revenue", s.requireSalesBotAccess(s.handleSalesBotRevenueStats))
 	r.HandleFunc("/sales-bot/test-resets/all", s.requireSalesBotAccess(s.handleSalesBotResetAllTests))
 	r.HandleFunc("/sales-bot/users/*", s.requireSalesBotAccess(s.handleSalesBotUserAction))
 	r.HandleFunc("/sales-bot/users", s.requireSalesBotAccess(s.handleSalesBotUsers))
@@ -169,6 +170,115 @@ func (s *Server) handleSalesBotOverview(w http.ResponseWriter, r *http.Request) 
 	stats.WebhookSecret = secretStr
 
 	writeJSON(w, http.StatusOK, stats)
+}
+
+// -------------------------------------------------------------
+// 1b. Revenue / Orders Analytics (daily trend for charts)
+// -------------------------------------------------------------
+
+type RevenuePoint struct {
+	Date     string  `json:"date"`
+	Revenue  float64 `json:"revenue"`
+	Orders   int64   `json:"orders"`
+	Receipts int64   `json:"receipts"`
+}
+
+func (s *Server) handleSalesBotRevenueStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	db, _, err := getBotDB()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	days := 14
+	if dStr := r.URL.Query().Get("days"); dStr != "" {
+		if d, err := strconv.Atoi(dStr); err == nil && d > 0 && d <= 90 {
+			days = d
+		}
+	}
+
+	type agg struct {
+		revenue  float64
+		orders   int64
+		receipts int64
+	}
+	byDate := make(map[string]*agg)
+
+	modifier := fmt.Sprintf("-%d days", days-1)
+
+	orderRows, err := db.Query(`
+		SELECT date(created_at) AS d, COALESCE(SUM(amount_exact), 0), COUNT(*)
+		FROM orders
+		WHERE status = 'paid' AND date(created_at) >= date('now', ?)
+		GROUP BY d
+	`, modifier)
+	if err == nil {
+		for orderRows.Next() {
+			var d string
+			var rev float64
+			var cnt int64
+			if err := orderRows.Scan(&d, &rev, &cnt); err == nil {
+				if byDate[d] == nil {
+					byDate[d] = &agg{}
+				}
+				byDate[d].revenue += rev
+				byDate[d].orders += cnt
+			}
+		}
+		orderRows.Close()
+	}
+
+	receiptRows, err := db.Query(`
+		SELECT date(created_at) AS d, COALESCE(SUM(amount), 0), COUNT(*)
+		FROM receipts
+		WHERE status = 'approved' AND date(created_at) >= date('now', ?)
+		GROUP BY d
+	`, modifier)
+	if err == nil {
+		for receiptRows.Next() {
+			var d string
+			var rev float64
+			var cnt int64
+			if err := receiptRows.Scan(&d, &rev, &cnt); err == nil {
+				if byDate[d] == nil {
+					byDate[d] = &agg{}
+				}
+				byDate[d].revenue += rev
+				byDate[d].receipts += cnt
+			}
+		}
+		receiptRows.Close()
+	}
+
+	points := make([]RevenuePoint, 0, days)
+	var totalRevenue float64
+	var totalOrders, totalReceipts int64
+	for i := days - 1; i >= 0; i-- {
+		day := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
+		p := RevenuePoint{Date: day}
+		if a, ok := byDate[day]; ok {
+			p.Revenue = a.revenue
+			p.Orders = a.orders
+			p.Receipts = a.receipts
+		}
+		totalRevenue += p.Revenue
+		totalOrders += p.Orders
+		totalReceipts += p.Receipts
+		points = append(points, p)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"days":           days,
+		"points":         points,
+		"total_revenue":  totalRevenue,
+		"total_orders":   totalOrders,
+		"total_receipts": totalReceipts,
+	})
 }
 
 // -------------------------------------------------------------
@@ -567,11 +677,6 @@ func (s *Server) handleSalesBotReceipts(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleSalesBotReceiptAction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/sales-bot/receipts/"), "/")
 	parts := strings.Split(path, "/")
 	if len(parts) != 2 {
@@ -589,6 +694,55 @@ func (s *Server) handleSalesBotReceiptAction(w http.ResponseWriter, r *http.Requ
 	db, _, err := getBotDB()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Image streaming is a GET and works independently of the moderation actions.
+	if action == "image" {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		var fileID string
+		if err := db.QueryRow(`SELECT file_id FROM receipts WHERE id = ?`, receiptID).Scan(&fileID); err != nil {
+			writeError(w, http.StatusNotFound, "فیش یافت نشد")
+			return
+		}
+		if strings.TrimSpace(fileID) == "" {
+			writeError(w, http.StatusNotFound, "این فیش تصویری ندارد")
+			return
+		}
+		botToken := strings.TrimSpace(salesbot.GetSetting("bot_token", ""))
+		if botToken == "" {
+			writeError(w, http.StatusBadRequest, "توکن ربات تلگرام در تنظیمات ثبت نشده است")
+			return
+		}
+		tgClient := salesbot.NewTelegramClient()
+		ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+		defer cancel()
+		tgFile, err := tgClient.GetFile(ctx, botToken, fileID)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "خطا در دریافت اطلاعات فایل از تلگرام: "+err.Error())
+			return
+		}
+		data, err := tgClient.DownloadFile(ctx, botToken, tgFile.FilePath)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "خطا در دانلود تصویر فیش: "+err.Error())
+			return
+		}
+		contentType := http.DetectContentType(data)
+		if contentType == "application/octet-stream" {
+			contentType = "image/jpeg"
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "private, max-age=600")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 

@@ -55,6 +55,19 @@ export const orderAction = async (orderId, action) => {
     });
 };
 
+export const getSalesBotRevenueStats = async (params = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.days) searchParams.set("days", String(params.days));
+    const qs = searchParams.toString();
+    return apiFetch(`/sales-bot/stats/revenue${qs ? `?${qs}` : ""}`);
+};
+
+export const getReceiptImage = async (receiptId) => {
+    return apiFetch(`/sales-bot/receipts/${encodeURIComponent(receiptId)}/image`, {
+        responseType: "blob",
+    });
+};
+
 export const getSalesBotReceipts = async (params = {}) => {
     const searchParams = new URLSearchParams();
     if (params.status) searchParams.set("status", params.status);
