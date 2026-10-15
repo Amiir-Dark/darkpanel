@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -249,9 +250,18 @@ func CreateTestAdmin(ctx context.Context, tgID int64, firstName string) (usernam
 		return "", "", "", fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// 3. 5 GB data limit (in bytes) & 1 day expire (in unix timestamp seconds)
-	dataLimit := int64(5 * 1024 * 1024 * 1024) // 5 GB
-	expire := time.Now().UTC().Add(24 * time.Hour).Unix()
+	// 3. Dynamic test traffic limit (in bytes) & expire (in unix timestamp seconds) from settings
+	testGB := GetSettingFloat("test_traffic_gb", 5)
+	if testGB <= 0 {
+		testGB = 5
+	}
+	dataLimit := int64(testGB * 1024 * 1024 * 1024)
+
+	durationHours := GetSettingInt("test_duration_hours", 24)
+	if durationHours <= 0 {
+		durationHours = 24
+	}
+	expire := time.Now().UTC().Add(time.Duration(durationHours) * time.Hour).Unix()
 
 	// 4. Role & Permissions (Reseller without hosts/inbounds access)
 	role := string(admin.RoleReseller)
@@ -290,9 +300,9 @@ func CreateTestAdmin(ctx context.Context, tgID int64, firstName string) (usernam
 
 	adminID, _ := res.LastInsertId()
 
-	// 6. Assign all active services to this reseller so they can create users
+	// 6. Assign configured services to this reseller so they can create users
 	if adminID > 0 {
-		assignAllServicesToAdmin(ctx, mainDB, adminID)
+		assignConfiguredServicesToAdmin(ctx, mainDB, adminID)
 	}
 
 	// 7. Resolve panel login URL
@@ -345,11 +355,11 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 				WHERE LOWER(username) = LOWER(?)
 			`, string(cleanPermsJSON), existingUser.PanelUsername)
 
-			// Ensure all services are assigned
+			// Ensure configured services are assigned
 			var adminID int64
 			_ = mainDB.QueryRowContext(ctx, `SELECT id FROM admins WHERE LOWER(username) = LOWER(?)`, existingUser.PanelUsername).Scan(&adminID)
 			if adminID > 0 {
-				assignAllServicesToAdmin(ctx, mainDB, adminID)
+				assignConfiguredServicesToAdmin(ctx, mainDB, adminID)
 			}
 
 			// Ensure usage_tracking baseline
@@ -423,7 +433,7 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 
 	adminID, _ := res.LastInsertId()
 	if adminID > 0 {
-		assignAllServicesToAdmin(ctx, mainDB, adminID)
+		assignConfiguredServicesToAdmin(ctx, mainDB, adminID)
 	}
 
 	// Initialize usage tracking baseline at 0
@@ -687,18 +697,32 @@ func sanitizeResellerPermissions(ctx context.Context, db *sql.DB) {
 	}
 }
 
-func assignAllServicesToAdmin(ctx context.Context, db *sql.DB, adminID int64) {
-	rows, err := db.QueryContext(ctx, `SELECT id FROM services`)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-
+func assignConfiguredServicesToAdmin(ctx context.Context, db *sql.DB, adminID int64) {
+	allowedRaw := strings.TrimSpace(GetSetting("allowed_services", ""))
 	var serviceIDs []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err == nil {
-			serviceIDs = append(serviceIDs, id)
+	if allowedRaw != "" {
+		parts := strings.Split(allowedRaw, ",")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if id, err := strconv.ParseInt(p, 10, 64); err == nil && id > 0 {
+				serviceIDs = append(serviceIDs, id)
+			}
+		}
+	}
+
+	// Fallback to all services if none configured
+	if len(serviceIDs) == 0 {
+		rows, err := db.QueryContext(ctx, `SELECT id FROM services`)
+		if err != nil {
+			return
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err == nil {
+				serviceIDs = append(serviceIDs, id)
+			}
 		}
 	}
 

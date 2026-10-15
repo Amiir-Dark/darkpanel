@@ -9,6 +9,8 @@ import {
     Card,
     CardBody,
     CardHeader,
+    Checkbox,
+    CheckboxGroup,
     Code,
     Divider,
     Flex,
@@ -81,6 +83,7 @@ import {
     ExclamationTriangleIcon,
     XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { fetch } from "service/http";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
@@ -133,6 +136,15 @@ export const SalesBotPage = () => {
         refetchInterval: 5000,
         refetchOnWindowFocus: true,
     });
+
+    const servicesQuery = useQuery(
+        ["sales-bot-services-list"],
+        () => fetch("/v2/services"),
+        {
+            refetchOnWindowFocus: false,
+        }
+    );
+    const availableServices = useMemo(() => servicesQuery.data?.services || [], [servicesQuery.data]);
 
     const settingsQuery = useQuery("sales-bot-settings", getSalesBotSettings, {
         refetchOnWindowFocus: false,
@@ -1411,6 +1423,166 @@ export const SalesBotPage = () => {
                                         </FormHelperText>
                                     </FormControl>
                                 </SimpleGrid>
+                            </Box>
+
+                            {/* Panel URL Section */}
+                            <Box
+                                p={5}
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                            >
+                                <Heading size="sm" mb={4} color="purple.400">
+                                    🌐 آدرس ورود به پنل نمایندگان (Panel URL)
+                                </Heading>
+                                <FormControl>
+                                    <FormLabel fontSize="xs">آدرس یا دامنه پنل دارک‌پنل جهت ورود نمایندگان</FormLabel>
+                                    <Input
+                                        size="sm"
+                                        value={formSettings.panel_url || ""}
+                                        onChange={(e) => handleSettingChange("panel_url", e.target.value)}
+                                        placeholder="https://panel.example.com یا http://1.2.3.4:8000"
+                                        dir="ltr"
+                                        borderRadius="lg"
+                                    />
+                                    <FormHelperText fontSize="10px">
+                                        این آدرس در دکمه شیشه‌ای «ورود به پنل مدیریت» در تلگرام قرار می‌گیرد. در صورت خالی بودن، از آدرس هاست یا دامنه پیش‌فرض سرور استفاده می‌شود.
+                                    </FormHelperText>
+                                </FormControl>
+                            </Box>
+
+                            {/* Test Panel Section */}
+                            <Box
+                                p={5}
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                            >
+                                <Heading size="sm" mb={4} color="purple.400">
+                                    🧪 تنظیمات پنل نمایندگی تست (Test Panel)
+                                </Heading>
+                                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">حجم ترافیک تست (گیگابایت)</FormLabel>
+                                        <Input
+                                            type="number"
+                                            size="sm"
+                                            value={formSettings.test_traffic_gb || ""}
+                                            onChange={(e) => handleSettingChange("test_traffic_gb", e.target.value)}
+                                            placeholder="5"
+                                            borderRadius="lg"
+                                        />
+                                        <FormHelperText fontSize="10px">
+                                            سقف ترافیک اختصاص داده شده به اکانت تست (پیش‌فرض: ۵ گیگابایت)
+                                        </FormHelperText>
+                                    </FormControl>
+
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">مدت اعتبار پنل تست (ساعت)</FormLabel>
+                                        <Input
+                                            type="number"
+                                            size="sm"
+                                            value={formSettings.test_duration_hours || ""}
+                                            onChange={(e) => handleSettingChange("test_duration_hours", e.target.value)}
+                                            placeholder="24"
+                                            borderRadius="lg"
+                                        />
+                                        <FormHelperText fontSize="10px">
+                                            مدت زمان انقضای اکانت تست به ساعت (۲۴ ساعت = ۱ روز)
+                                        </FormHelperText>
+                                    </FormControl>
+
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">سقف دریافت تست برای هر کاربر (تعداد بار)</FormLabel>
+                                        <Input
+                                            type="number"
+                                            size="sm"
+                                            value={formSettings.test_limit_per_user || ""}
+                                            onChange={(e) => handleSettingChange("test_limit_per_user", e.target.value)}
+                                            placeholder="1"
+                                            borderRadius="lg"
+                                        />
+                                        <FormHelperText fontSize="10px">
+                                            هر کاربر تلگرام حداکثر چند بار می‌تواند پنل تست دریافت کند (پیش‌فرض: ۱)
+                                        </FormHelperText>
+                                    </FormControl>
+                                </SimpleGrid>
+                            </Box>
+
+                            {/* Allowed Services Section */}
+                            <Box
+                                p={5}
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                            >
+                                <Heading size="sm" mb={2} color="purple.400">
+                                    🛡️ سرویس‌های مجاز برای نمایندگان (اختصاص سرویس موقع ساخت اکانت)
+                                </Heading>
+                                <Text fontSize="xs" color="gray.400" mb={4}>
+                                    مشخص کنید موقع ساخت اکانت نماینده (تست یا خرید)، چه سرویس‌هایی به او اختصاص داده شود. در صورت عدم انتخاب، نماینده به <b>تمام سرویس‌های فعال سرور</b> دسترسی خواهد داشت.
+                                </Text>
+
+                                {servicesQuery.isLoading ? (
+                                    <HStack spacing={2} py={2}>
+                                        <Spinner size="xs" color="purple.400" />
+                                        <Text fontSize="xs" color="gray.400">در حال دریافت لیست سرویس‌ها...</Text>
+                                    </HStack>
+                                ) : availableServices.length === 0 ? (
+                                    <Text fontSize="xs" color="gray.500">هیچ سرویسی در سرور تعریف نشده است.</Text>
+                                ) : (
+                                    <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={3}>
+                                        {availableServices.map((srv) => {
+                                            const selectedIds = (formSettings.allowed_services || "")
+                                                .split(",")
+                                                .map((s) => s.trim())
+                                                .filter(Boolean);
+                                            const isChecked = selectedIds.includes(String(srv.id));
+
+                                            return (
+                                                <Box
+                                                    key={srv.id}
+                                                    p={3}
+                                                    borderRadius="lg"
+                                                    border="1px solid"
+                                                    borderColor={isChecked ? "purple.500" : borderColor}
+                                                    bg={isChecked ? "purple.900" : "transparent"}
+                                                    opacity={isChecked ? 1 : 0.85}
+                                                    cursor="pointer"
+                                                    onClick={() => {
+                                                        const idStr = String(srv.id);
+                                                        let nextIds;
+                                                        if (isChecked) {
+                                                            nextIds = selectedIds.filter((x) => x !== idStr);
+                                                        } else {
+                                                            nextIds = [...selectedIds, idStr];
+                                                        }
+                                                        handleSettingChange("allowed_services", nextIds.join(","));
+                                                    }}
+                                                >
+                                                    <Checkbox
+                                                        isChecked={isChecked}
+                                                        colorScheme="purple"
+                                                        pointerEvents="none"
+                                                    >
+                                                        <Text fontSize="xs" fontWeight="semibold">
+                                                            {srv.name || `سرویس #${srv.id}`}
+                                                        </Text>
+                                                    </Checkbox>
+                                                </Box>
+                                            );
+                                        })}
+                                    </SimpleGrid>
+                                )}
+
+                                {(!formSettings.allowed_services || formSettings.allowed_services.trim() === "") && (
+                                    <Badge colorScheme="blue" variant="subtle" mt={3} p={1} borderRadius="md" fontSize="10px">
+                                        ✓ دسترسی پیش‌فرض: اتصال خودکار به تمام سرویس‌های فعال سرور
+                                    </Badge>
+                                )}
                             </Box>
 
                             {/* Bank Card Section */}

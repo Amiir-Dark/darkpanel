@@ -29,9 +29,10 @@ type User struct {
 	PanelPassword string    `json:"panel_password"`
 	SubURL        string    `json:"sub_url"`
 	ServiceStatus string    `json:"service_status"`
-	TotalSpent    float64   `json:"total_spent"`
-	HasUsedTest   bool      `json:"has_used_test"`
-	CreatedAt     time.Time `json:"created_at"`
+	TotalSpent     float64   `json:"total_spent"`
+	HasUsedTest    bool      `json:"has_used_test"`
+	TestUsageCount int       `json:"test_usage_count"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type Order struct {
@@ -244,6 +245,7 @@ func GetDB() (*sql.DB, string, error) {
 		"ALTER TABLE users ADD COLUMN service_status TEXT DEFAULT 'none';",
 		"ALTER TABLE users ADD COLUMN total_spent REAL DEFAULT 0;",
 		"ALTER TABLE users ADD COLUMN has_used_test INTEGER DEFAULT 0;",
+		"ALTER TABLE users ADD COLUMN test_usage_count INTEGER DEFAULT 0;",
 		"ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;",
 		"ALTER TABLE orders ADD COLUMN bank_ref TEXT DEFAULT '';",
 		"ALTER TABLE orders ADD COLUMN code TEXT DEFAULT '';",
@@ -437,13 +439,14 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 		uServiceStatus sql.NullString
 		uTotalSpent    sql.NullFloat64
 		uHasUsedTest   sql.NullInt64
+		uTestCount     sql.NullInt64
 		uCreatedAt     sql.NullString
 	)
 
 	err = db.QueryRow(`
-		SELECT telegram_id, username, first_name, wallet_balance, panel_username, panel_password, sub_url, service_status, total_spent, has_used_test, created_at 
+		SELECT telegram_id, username, first_name, wallet_balance, panel_username, panel_password, sub_url, service_status, total_spent, has_used_test, test_usage_count, created_at 
 		FROM users WHERE telegram_id = ?`, tgID).Scan(
-		&u.TelegramID, &uUsername, &uFirstName, &uWalletBalance, &uPanelUsername, &uPanelPassword, &uSubURL, &uServiceStatus, &uTotalSpent, &uHasUsedTest, &uCreatedAt,
+		&u.TelegramID, &uUsername, &uFirstName, &uWalletBalance, &uPanelUsername, &uPanelPassword, &uSubURL, &uServiceStatus, &uTotalSpent, &uHasUsedTest, &uTestCount, &uCreatedAt,
 	)
 	if err == sql.ErrNoRows {
 		now := time.Now()
@@ -479,6 +482,10 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 	}
 	u.TotalSpent = uTotalSpent.Float64
 	u.HasUsedTest = uHasUsedTest.Int64 == 1
+	u.TestUsageCount = int(uTestCount.Int64)
+	if u.TestUsageCount == 0 && u.HasUsedTest {
+		u.TestUsageCount = 1
+	}
 	u.CreatedAt = parseTimeStr(uCreatedAt.String)
 
 	// Update username/firstName if changed
@@ -495,7 +502,7 @@ func MarkUserUsedTest(tgID int64) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(`UPDATE users SET has_used_test = 1 WHERE telegram_id = ?`, tgID)
+	_, err = db.Exec(`UPDATE users SET has_used_test = 1, test_usage_count = COALESCE(test_usage_count, 0) + 1 WHERE telegram_id = ?`, tgID)
 	return err
 }
 

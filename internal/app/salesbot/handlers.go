@@ -492,8 +492,18 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 	case "test_panel":
 		ClearUserState(user.TelegramID)
-		if user.HasUsedTest {
-			text := "🔒 <b>تو سقف دریافت نمایندگی تست را پر کرده‌ای.</b>\n\nهر کاربر تنها ۱ بار امکان دریافت پنل نمایندگی تست را دارد.\nدر صورتی که نیاز به پنل جدید دارید می‌توانید از منوی اصلی اقدام به خرید نمایید یا با پشتیبانی در تماس باشید."
+		maxTests := GetSettingInt("test_limit_per_user", 1)
+		if maxTests <= 0 {
+			maxTests = 1
+		}
+
+		if user.TestUsageCount >= maxTests || (maxTests == 1 && user.HasUsedTest) {
+			text := fmt.Sprintf(
+				"🔒 <b>شما سقف دریافت نمایندگی تست (%d بار) را پر کرده‌اید.</b>\n\n"+
+					"هر کاربر مجاز است حداکثر %d بار پنل نمایندگی تست دریافت کند.\n"+
+					"در صورتی که نیاز به پنل جدید دارید می‌توانید از منوی اصلی اقدام به خرید نمایید یا با پشتیبانی در تماس باشید.",
+				maxTests, maxTests,
+			)
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
@@ -507,6 +517,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		}
 
 		user.HasUsedTest = true
+		user.TestUsageCount++
 		user.PanelUsername = adminUser
 		user.PanelPassword = adminPass
 		user.SubURL = panelURL
@@ -517,17 +528,32 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 			panelDisplay = "پنل مدیریت DarkPanel"
 		}
 
+		testGB := GetSettingFloat("test_traffic_gb", 5)
+		if testGB <= 0 {
+			testGB = 5
+		}
+		durationHours := GetSettingInt("test_duration_hours", 24)
+		if durationHours <= 0 {
+			durationHours = 24
+		}
+
+		durationStr := fmt.Sprintf("%d ساعت", durationHours)
+		if durationHours >= 24 && durationHours%24 == 0 {
+			durationStr = fmt.Sprintf("%d روز (%d ساعت)", durationHours/24, durationHours)
+		}
+
 		text := fmt.Sprintf(
 			"🧪 <b>پنل نمایندگی تست شما با موفقیت فعال شد!</b>\n\n"+
 				"📋 <b>مشخصات ورود به پنل مدیریت:</b>\n"+
 				"🌐 <b>آدرس پنل:</b> <code>%s</code>\n"+
 				"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
 				"🔑 <b>کلمه عبور:</b> <code>%s</code>\n\n"+
-				"📦 <b>میزان ترافیک:</b> ۵ گیگابایت (5 GB)\n"+
-				"⏳ <b>مدت اعتبار:</b> ۱ روز (۲۴ ساعت)\n"+
+				"📦 <b>میزان ترافیک:</b> %s گیگابایت\n"+
+				"⏳ <b>مدت اعتبار:</b> %s\n"+
 				"🛡️ <b>نوع دسترسی:</b> نماینده (Reseller)\n\n"+
 				"💡 <i>راهنما: وارد آدرس پنل شوید و با نام کاربری و کلمه عبور بالا لاگین فرمایید. شما دسترسی ساخت کاربر و تست کانفیگ‌ها را خواهید داشت.</i>",
 			panelDisplay, adminUser, adminPass,
+			strconv.FormatFloat(testGB, 'f', -1, 64), durationStr,
 		)
 		s.editOrSend(ctx, chatID, messageID, text, testPanelSuccessKeyboard(panelURL))
 
