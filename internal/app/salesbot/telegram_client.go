@@ -257,3 +257,22 @@ func (c *TelegramClient) AnswerCallbackQuery(ctx context.Context, token string, 
 	return err
 }
 
+func (c *TelegramClient) EditMessageText(ctx context.Context, token string, chatID, messageID int64, text string, replyMarkup any) error {
+	payload := map[string]any{
+		"chat_id":    chatID,
+		"message_id": messageID,
+		"text":       text,
+		"parse_mode": "HTML",
+	}
+	if replyMarkup != nil {
+		payload["reply_markup"] = replyMarkup
+	}
+	_, err := c.call(ctx, token, "editMessageText", payload)
+	if err != nil && strings.Contains(err.Error(), "can't parse entities") {
+		delete(payload, "parse_mode")
+		_, err = c.call(ctx, token, "editMessageText", payload)
+	}
+	return err
+}
+
+

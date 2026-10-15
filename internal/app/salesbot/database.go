@@ -29,6 +29,7 @@ type User struct {
 	SubURL        string    `json:"sub_url"`
 	ServiceStatus string    `json:"service_status"`
 	TotalSpent    float64   `json:"total_spent"`
+	HasUsedTest   bool      `json:"has_used_test"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -207,6 +208,24 @@ func GetDB() (*sql.DB, string, error) {
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_webhook_logs_date ON webhook_logs(received_at DESC);
+
+	CREATE TABLE IF NOT EXISTS gift_codes (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		code TEXT UNIQUE NOT NULL,
+		amount REAL NOT NULL,
+		max_uses INTEGER DEFAULT 1,
+		used_count INTEGER DEFAULT 0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS gift_code_redemptions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		code TEXT NOT NULL,
+		amount REAL NOT NULL,
+		redeemed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(user_id, code)
+	);
 	`
 	if _, err := conn.Exec(schema); err != nil {
 		_ = conn.Close()
@@ -222,6 +241,7 @@ func GetDB() (*sql.DB, string, error) {
 		"ALTER TABLE users ADD COLUMN sub_url TEXT DEFAULT '';",
 		"ALTER TABLE users ADD COLUMN service_status TEXT DEFAULT 'none';",
 		"ALTER TABLE users ADD COLUMN total_spent REAL DEFAULT 0;",
+		"ALTER TABLE users ADD COLUMN has_used_test INTEGER DEFAULT 0;",
 		"ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;",
 		"ALTER TABLE orders ADD COLUMN bank_ref TEXT DEFAULT '';",
 		"ALTER TABLE orders ADD COLUMN code TEXT DEFAULT '';",
@@ -413,13 +433,14 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 		uSubURL        sql.NullString
 		uServiceStatus sql.NullString
 		uTotalSpent    sql.NullFloat64
+		uHasUsedTest   sql.NullInt64
 		uCreatedAt     sql.NullString
 	)
 
 	err = db.QueryRow(`
-		SELECT telegram_id, username, first_name, wallet_balance, panel_username, sub_url, service_status, total_spent, created_at 
+		SELECT telegram_id, username, first_name, wallet_balance, panel_username, sub_url, service_status, total_spent, has_used_test, created_at 
 		FROM users WHERE telegram_id = ?`, tgID).Scan(
-		&u.TelegramID, &uUsername, &uFirstName, &uWalletBalance, &uPanelUsername, &uSubURL, &uServiceStatus, &uTotalSpent, &uCreatedAt,
+		&u.TelegramID, &uUsername, &uFirstName, &uWalletBalance, &uPanelUsername, &uSubURL, &uServiceStatus, &uTotalSpent, &uHasUsedTest, &uCreatedAt,
 	)
 	if err == sql.ErrNoRows {
 		now := time.Now()
@@ -435,6 +456,7 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 			FirstName:     firstName,
 			WalletBalance: 0,
 			ServiceStatus: "none",
+			HasUsedTest:   false,
 			CreatedAt:     now,
 		}, nil
 	}
@@ -452,6 +474,7 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 		u.ServiceStatus = "none"
 	}
 	u.TotalSpent = uTotalSpent.Float64
+	u.HasUsedTest = uHasUsedTest.Int64 == 1
 	u.CreatedAt = parseTimeStr(uCreatedAt.String)
 
 	// Update username/firstName if changed
@@ -462,6 +485,88 @@ func GetOrCreateUser(tgID int64, username, firstName string) (*User, error) {
 	}
 	return &u, nil
 }
+
+func MarkUserUsedTest(tgID int64) error {
+	db, _, err := GetDB()
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`UPDATE users SET has_used_test = 1 WHERE telegram_id = ?`, tgID)
+	return err
+}
+
+func ActivateUserPanel(tgID int64, username, subURL string) error {
+	db, _, err := GetDB()
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		UPDATE users 
+		SET panel_username = ?, sub_url = ?, service_status = 'active'
+		WHERE telegram_id = ?`, username, subURL, tgID)
+	return err
+}
+
+func RedeemGiftCode(userID int64, rawCode string) (float64, error) {
+	code := strings.ToUpper(strings.TrimSpace(rawCode))
+	if code == "" {
+		return 0, fmt.Errorf("کد هدیه وارد نشده است")
+	}
+
+	db, _, err := GetDB()
+	if err != nil {
+		return 0, err
+	}
+
+	var alreadyCount int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM gift_code_redemptions WHERE user_id = ? AND UPPER(code) = ?`, userID, code).Scan(&alreadyCount)
+	if alreadyCount > 0 {
+		return 0, fmt.Errorf("شما قبلاً از این کد هدیه استفاده کرده‌اید")
+	}
+
+	var (
+		id        int64
+		amount    float64
+		maxUses   int
+		usedCount int
+	)
+	err = db.QueryRow(`SELECT id, amount, max_uses, used_count FROM gift_codes WHERE UPPER(code) = ?`, code).Scan(&id, &amount, &maxUses, &usedCount)
+	if err == sql.ErrNoRows {
+		return 0, fmt.Errorf("کد هدیه نامعتبر است یا وجود ندارد")
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	if maxUses > 0 && usedCount >= maxUses {
+		return 0, fmt.Errorf("ظرفیت استفاده از این کد هدیه به پایان رسیده است")
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`UPDATE gift_codes SET used_count = used_count + 1 WHERE id = ?`, id); err != nil {
+		return 0, err
+	}
+
+	if _, err := tx.Exec(`INSERT INTO gift_code_redemptions (user_id, code, amount) VALUES (?, ?, ?)`, userID, code, amount); err != nil {
+		return 0, err
+	}
+
+	if _, err := tx.Exec(`UPDATE users SET wallet_balance = wallet_balance + ? WHERE telegram_id = ?`, amount, userID); err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	return amount, nil
+}
+
 
 // Generate5MinOrder creates a 5-minute order with a randomized 3-digit tail
 func Generate5MinOrder(userID int64, amountBase float64) (*Order, error) {

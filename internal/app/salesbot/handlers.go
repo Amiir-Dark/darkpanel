@@ -3,7 +3,6 @@ package salesbot
 import (
 	"context"
 	"fmt"
-	"html"
 	"math"
 	"regexp"
 	"strconv"
@@ -63,27 +62,177 @@ func formatCurrency(val float64) string {
 	return strings.Join(parts, ",")
 }
 
-func mainKeyboard() ReplyKeyboardMarkup {
-	return ReplyKeyboardMarkup{
-		Keyboard: [][]KeyboardButton{
+// -------------------------------------------------------------
+// Keyboards (Inline Style matching the exact screenshots)
+// -------------------------------------------------------------
+
+func mainInlineKeyboard() InlineKeyboardMarkup {
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
 			{
-				{Text: "⚡ شارژ کیف پول (پرداخت ۵ دقیقه‌ای)"},
-				{Text: "📊 وضعیت اشتراک و اعتبار"},
+				{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"},
 			},
 			{
-				{Text: "💳 ارسال فیش کارت به کارت"},
-				{Text: "📖 راهنمای اتصال"},
+				{Text: "🌐 پنل‌های من", CallbackData: "my_panels"},
+				{Text: "💳 موجودی", CallbackData: "wallet"},
 			},
 			{
-				{Text: "📞 پشتیبانی"},
+				{Text: "🧪 دریافت پنل تست", CallbackData: "test_panel"},
+			},
+			{
+				{Text: "📮 پشتیبانی", CallbackData: "support"},
 			},
 		},
-		ResizeKeyboard: true,
-		IsPersistent:   true,
 	}
 }
 
+func mainKeyboard() InlineKeyboardMarkup {
+	return mainInlineKeyboard()
+}
+
+func buyPanelKeyboard() InlineKeyboardMarkup {
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "توضیحات رو مطالعه و تایید میکنم.", CallbackData: "confirm_buy_panel"},
+			},
+			{
+				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+			},
+		},
+	}
+}
+
+func walletKeyboard() InlineKeyboardMarkup {
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "➕ افزایش موجودی", CallbackData: "deposit"},
+			},
+			{
+				{Text: "🎉 کد هدیه", CallbackData: "gift_code"},
+			},
+			{
+				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+			},
+		},
+	}
+}
+
+func myPanelsKeyboard(hasPanel bool) InlineKeyboardMarkup {
+	if !hasPanel {
+		return InlineKeyboardMarkup{
+			InlineKeyboard: [][]InlineKeyboardButton{
+				{
+					{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"},
+				},
+				{
+					{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+				},
+			},
+		}
+	}
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "➕ افزایش موجودی", CallbackData: "deposit"},
+			},
+			{
+				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+			},
+		},
+	}
+}
+
+func depositKeyboard() InlineKeyboardMarkup {
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "⚡ کارت به کارت هوشمند (شناسایی ۵ دقیقه‌ای)", CallbackData: "deposit_5min"},
+			},
+			{
+				{Text: "💳 واریز کارت به کارت (ارسال فیش)", CallbackData: "deposit_receipt"},
+			},
+			{
+				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+			},
+		},
+	}
+}
+
+func backKeyboard() InlineKeyboardMarkup {
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+			},
+		},
+	}
+}
+
+// -------------------------------------------------------------
+// Text Templates
+// -------------------------------------------------------------
+
+func getWelcomeText(u *User) string {
+	customWelcome := GetSetting("welcome_message", "")
+	if strings.TrimSpace(customWelcome) != "" {
+		return customWelcome
+	}
+	brandName := GetSetting("brand_name", "گارد")
+	return fmt.Sprintf("درود و خوش آمدید! 🪪\n\nبرای خرید نمایندگی بدون دردسر و اذیت، با تنوع لوکیشن بالا و قیمت مناسب و سرعت کامل، مجموعه‌ی %s در خدمت شما عزیزان می‌باشد.", brandName)
+}
+
+func getTermsText() string {
+	customTerms := GetSetting("terms_message", "")
+	if strings.TrimSpace(customTerms) != "" {
+		return customTerms
+	}
+	brandName := GetSetting("brand_name", "گارد")
+	hourlyFee := GetSetting("hourly_fee", "۱۳۸")
+	minPrice := GetSetting("min_price_per_gb", "۴۱۵۰")
+	maxPrice := GetSetting("max_price_per_gb", "۵۰۰۰")
+
+	return fmt.Sprintf(`پرداخت فقط به اندازه مصرف 🫀
+%s با مدل Pay As You Go کار می‌کند؛ یعنی لازم نیست از قبل حجم مشخصی خریداری کنید یا بابت حجم استفاده‌نشده هزینه‌ای بپردازید. هزینه شما فقط بر اساس ترافیک واقعی مصرف‌شده محاسبه می‌شود؛ هرچه کمتر مصرف کنید، کمتر پرداخت می‌کنید.
+
+قیمت شفاف و متناسب با سرویس 🫀
+هر سرویس قیمت مصرف مخصوص به خود را دارد و در حال حاضر هزینه هر گیگابایت بین %s تا %s تومان است. قیمت دقیق هر سرویس و کانفیگ را می‌توانید مستقیماً از بخش‌های Configs و Subscriptions در پنل مدیریت مشاهده کنید؛ بنابراین قبل از ارائه هر سرویس، دقیقاً می‌دانید هزینه مصرف آن چقدر است.
+
+بدون محدودیت و تعهد حجمی 🫀
+در %s خبری از سقف حجم، محدودیت زمانی یا محدودیت تعداد کاربر نیست. می‌توانید بدون نگرانی از تمام شدن حجم یا نیاز به تمدید اشتراک، سرویس خود را در هر مقیاسی که نیاز دارید ارائه کنید و هزینه را متناسب با مصرف واقعی پرداخت کنید.
+
+هزینه نمایندگی؛ ساده و ثابت 🫀
+برای هر پنل، مبلغ %s تومان به ازای هر ساعت بابت نمایندگی دریافت می‌شود. این مبلغ مستقل از تعداد کاربران و میزان مصرف است و تنها برای جلوگیری از ایجاد پنل‌های صوری و بدون استفاده در نظر گرفته شده است.
+
+یک سیستم شفاف، بدون هزینه‌های پنهان 🫀
+در نهایت، هزینه شما فقط شامل ترافیک مصرف‌شده بر اساس سرویس انتخابی + هزینه ساعتی نمایندگی پنل است. بدون خرید حجم اجباری، بدون هزینه اشتراک حجمی و بدون محدودیت برای رشد پنل.`,
+		brandName, minPrice, maxPrice, brandName, hourlyFee)
+}
+
+func getWalletText(u *User) string {
+	return fmt.Sprintf("💰 <b>کیف پول شما</b>\n\n💵 <b>موجودی فعلی:</b> %s تومان", formatCurrency(u.WalletBalance))
+}
+
+func getMyPanelsText(u *User) string {
+	if u.PanelUsername == "" || u.ServiceStatus == "none" {
+		return "📦 <b>هنوز اشتراکی نداری.</b>\n\nاز دکمه «خرید اشتراک» می‌تونی اشتراک جدید بگیری."
+	}
+	return fmt.Sprintf("🌐 <b>پنل‌های من</b>\n\n👤 <b>نام کاربری:</b> <code>%s</code>\n⚡ <b>وضعیت:</b> %s\n💰 <b>موجودی کیف پول:</b> <code>%s تومان</code>\n\n🔗 <b>لینک سابسکریپشن:</b>\n<code>%s</code>",
+		u.PanelUsername, u.ServiceStatus, formatCurrency(u.WalletBalance), u.SubURL)
+}
+
+// -------------------------------------------------------------
+// Update & Callback Handling
+// -------------------------------------------------------------
+
 func (s *Service) handleUpdate(ctx context.Context, u Update) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("[SalesBot] Panic recovered in handleUpdate: %v\n", r)
+		}
+	}()
+
 	if u.CallbackQuery != nil {
 		s.handleCallback(ctx, u.CallbackQuery)
 		return
@@ -134,29 +283,9 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 	state, _ := GetUserState(userID)
 
 	switch {
-	case strings.HasPrefix(text, "/start") || text == "منوی اصلی" || text == "منو":
+	case strings.HasPrefix(text, "/start") || text == "منوی اصلی" || text == "منو" || text == "شروع":
 		ClearUserState(userID)
 		s.sendWelcome(ctx, user)
-
-	case text == "⚡ شارژ کیف پول (پرداخت ۵ دقیقه‌ای)":
-		SetUserState(userID, "awaiting_amount", "")
-		s.promptChargeAmount(ctx, user)
-
-	case text == "📊 وضعیت اشتراک و اعتبار":
-		ClearUserState(userID)
-		s.sendUserStatus(ctx, user)
-
-	case text == "💳 ارسال فیش کارت به کارت":
-		SetUserState(userID, "awaiting_receipt_amount", "")
-		s.promptReceipt(ctx, user)
-
-	case text == "📖 راهنمای اتصال":
-		ClearUserState(userID)
-		s.sendGuide(ctx, user)
-
-	case text == "📞 پشتیبانی":
-		ClearUserState(userID)
-		s.sendSupport(ctx, user)
 
 	case state == "awaiting_amount":
 		s.processChargeAmount(ctx, user, text)
@@ -164,61 +293,191 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 	case state == "awaiting_receipt_amount":
 		s.processReceiptAmount(ctx, user, text)
 
+	case state == "awaiting_gift_code":
+		s.processGiftCode(ctx, user, text)
+
 	default:
 		s.sendWelcome(ctx, user)
 	}
 }
 
-func (s *Service) sendWelcome(ctx context.Context, u *User) {
-	pricePerGB := GetSettingFloat("price_per_gb", 5000)
-	minBalance := GetSettingFloat("min_balance_to_start", 5000)
+func (s *Service) editOrSend(ctx context.Context, chatID, messageID int64, text string, replyMarkup any) {
+	if messageID > 0 {
+		err := s.tgClient.EditMessageText(ctx, s.botToken, chatID, messageID, text, replyMarkup)
+		if err == nil {
+			return
+		}
+	}
+	_ = s.tgClient.SendMessage(ctx, s.botToken, chatID, text, replyMarkup)
+}
 
-	displayName := html.EscapeString(u.FirstName)
-	if strings.TrimSpace(displayName) == "" {
-		displayName = "کاربر"
+func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
+	_ = s.tgClient.AnswerCallbackQuery(ctx, s.botToken, cb.ID, "")
+
+	var chatID, messageID int64
+	if cb.Message != nil {
+		chatID = cb.Message.Chat.ID
+		messageID = cb.Message.MessageID
+	} else {
+		chatID = cb.From.ID
 	}
 
-	text := fmt.Sprintf(
-		"سلام <b>%s</b> عزیز 👋\n\n"+
-			"به ربات خرید و شارژ خودکار اینترنت آزاد خوش آمدید 🚀\n\n"+
-			"💎 <b>سیستم محاسبه Pay-As-You-Go (پرداخت به میزان مصرف):</b>\n"+
-			"🔹 نرخ هر گیگابایت ترافیک: <code>%s تومان</code>\n"+
-			"🔹 حداقل موجودی کیف پول جهت اتصال: <code>%s تومان</code>\n\n"+
-			"💰 <b>موجودی فعلی کیف پول شما:</b> <code>%s تومان</code>\n\n"+
-			"جهت افزایش موجودی و دریافت یا تمدید اشتراک، از دکمه‌های زیر استفاده کنید:",
-		displayName,
-		formatCurrency(pricePerGB),
-		formatCurrency(minBalance),
-		formatCurrency(u.WalletBalance),
-	)
+	user, err := GetOrCreateUser(cb.From.ID, cb.From.Username, cb.From.FirstName)
+	if err != nil {
+		user = &User{TelegramID: cb.From.ID, FirstName: cb.From.FirstName, WalletBalance: 0}
+	}
 
-	if err := s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, mainKeyboard()); err != nil {
-		fmt.Printf("[SalesBot] Failed to send welcome message to %d: %v\n", u.TelegramID, err)
+	data := cb.Data
+
+	switch data {
+	case "main_menu":
+		ClearUserState(user.TelegramID)
+		s.editOrSend(ctx, chatID, messageID, getWelcomeText(user), mainInlineKeyboard())
+
+	case "buy_panel":
+		ClearUserState(user.TelegramID)
+		s.editOrSend(ctx, chatID, messageID, getTermsText(), buyPanelKeyboard())
+
+	case "confirm_buy_panel":
+		ClearUserState(user.TelegramID)
+		minBalance := GetSettingFloat("min_balance_to_start", 5000)
+		if user.WalletBalance < minBalance {
+			text := fmt.Sprintf(
+				"⚠️ <b>موجودی کیف پول شما کافی نیست!</b>\n\n"+
+					"حداقل موجودی مورد نیاز برای دریافت پنل: <b>%s تومان</b>\n"+
+					"موجودی فعلی شما: <b>%s تومان</b>\n\n"+
+					"لطفاً ابتدا از بخش زیر کیف پول خود را شارژ کنید.",
+				formatCurrency(minBalance),
+				formatCurrency(user.WalletBalance),
+			)
+			s.editOrSend(ctx, chatID, messageID, text, depositKeyboard())
+			return
+		}
+
+		// Activate/create panel for user
+		panelUser := user.PanelUsername
+		if panelUser == "" {
+			panelUser = fmt.Sprintf("user_%d", user.TelegramID)
+		}
+		subURL := user.SubURL
+		if subURL == "" {
+			host := GetSetting("sub_domain", "")
+			if host == "" {
+				host = "https://sub.darkpanel.link"
+			}
+			subURL = fmt.Sprintf("%s/sub/%s", strings.TrimRight(host, "/"), panelUser)
+		}
+		_ = ActivateUserPanel(user.TelegramID, panelUser, subURL)
+		user.PanelUsername = panelUser
+		user.SubURL = subURL
+		user.ServiceStatus = "active"
+
+		text := fmt.Sprintf(
+			"🎉 <b>پنل نمایندگی شما با موفقیت فعال شد!</b>\n\n"+
+				"👤 <b>نام کاربری پنل:</b> <code>%s</code>\n"+
+				"⚡ <b>وضعیت:</b> فعال ✅\n"+
+				"💰 <b>موجودی کیف پول:</b> <code>%s تومان</code>\n\n"+
+				"🔗 <b>لینک سابسکریپشن اختصاصی:</b>\n<code>%s</code>\n\n"+
+				"<i>می‌توانید این لینک را در نرم‌افزارهای کلاینت ایمپورت کرده و متصل شوید.</i>",
+			panelUser, formatCurrency(user.WalletBalance), subURL,
+		)
+		s.editOrSend(ctx, chatID, messageID, text, myPanelsKeyboard(true))
+
+	case "wallet":
+		ClearUserState(user.TelegramID)
+		s.editOrSend(ctx, chatID, messageID, getWalletText(user), walletKeyboard())
+
+	case "my_panels":
+		ClearUserState(user.TelegramID)
+		hasPanel := user.PanelUsername != "" && user.ServiceStatus == "active"
+		s.editOrSend(ctx, chatID, messageID, getMyPanelsText(user), myPanelsKeyboard(hasPanel))
+
+	case "test_panel":
+		ClearUserState(user.TelegramID)
+		if user.HasUsedTest {
+			text := "🔒 <b>تو سقف دریافت نمایندگی تست (1 بار) را پر کرده‌ای.</b>"
+			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
+			return
+		}
+
+		// First-time test panel
+		_ = MarkUserUsedTest(user.TelegramID)
+		user.HasUsedTest = true
+
+		panelUser := fmt.Sprintf("test_%d", user.TelegramID)
+		host := GetSetting("sub_domain", "")
+		if host == "" {
+			host = "https://sub.darkpanel.link"
+		}
+		testSubURL := fmt.Sprintf("%s/sub/%s", strings.TrimRight(host, "/"), panelUser)
+		_ = ActivateUserPanel(user.TelegramID, panelUser, testSubURL)
+
+		text := fmt.Sprintf(
+			"🧪 <b>پنل نمایندگی تست شما فعال شد!</b>\n\n"+
+				"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
+				"📦 <b>اعتبار تست:</b> ۱ گیگابایت رایگان\n"+
+				"⏳ <b>مهلت تست:</b> ۲۴ ساعت\n\n"+
+				"🔗 <b>لینک سابسکریپشن:</b>\n<code>%s</code>\n\n"+
+				"<i>این لینک را در نرم‌افزارهای V2rayNG, Happ, v2box کپی و تست نمایید.</i>",
+			panelUser, testSubURL,
+		)
+		s.editOrSend(ctx, chatID, messageID, text, myPanelsKeyboard(true))
+
+	case "deposit":
+		ClearUserState(user.TelegramID)
+		text := "💳 <b>افزایش موجودی کیف پول</b>\n\nلطفاً روش واریز مورد نظر خود را انتخاب نمایید:"
+		s.editOrSend(ctx, chatID, messageID, text, depositKeyboard())
+
+	case "deposit_5min":
+		SetUserState(user.TelegramID, "awaiting_amount", "")
+		text := "⚡ <b>کارت به کارت خودکار (شناسایی ۵ دقیقه‌ای)</b>\n\n" +
+			"لطفاً مبلغ مورد نظر خود را به تومان ارسال فرمایید:\n" +
+			"(مثال: <code>50000</code> یا <code>100000</code>)"
+		s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
+
+	case "deposit_receipt":
+		SetUserState(user.TelegramID, "awaiting_receipt_amount", "")
+		s.promptReceipt(ctx, user)
+
+	case "gift_code":
+		SetUserState(user.TelegramID, "awaiting_gift_code", "")
+		text := "🎉 <b>اعمال کد هدیه</b>\n\nلطفاً کد هدیه خود را در چت ارسال نمایید:"
+		s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
+
+	case "support":
+		ClearUserState(user.TelegramID)
+		supportUser := GetSetting("support_username", "@AdminSupport")
+		channelUser := GetSetting("channel_username", "")
+		text := fmt.Sprintf(
+			"📮 <b>پشتیبانی و ارتباط با ما:</b>\n\n"+
+				"در صورت بروز هرگونه سوال یا مشکل با آیدی زیر در ارتباط باشید:\n"+
+				"👉 <b>%s</b>\n\n",
+			supportUser,
+		)
+		if channelUser != "" {
+			text += fmt.Sprintf("📢 <b>کانال اطلاع‌رسانی:</b>\n👉 <b>%s</b>\n", channelUser)
+		}
+		s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 	}
 }
 
-func (s *Service) promptChargeAmount(ctx context.Context, u *User) {
-	text := "💳 <b>شارژ خودکار کیف پول (روش کارت به کارت هوشمند)</b>\n\n" +
-		"لطفاً مبلغ مورد نظر خود را به تومان وارد کنید:\n" +
-		"(یا یکی از مبالغ آماده زیر را تایپ نمایید)\n\n" +
-		"▫️ <code>50000</code> تومان (۱۰ گیگ)\n" +
-		"▫️ <code>100000</code> تومان (۲۰ گیگ)\n" +
-		"▫️ <code>200000</code> تومان (۴۰ گیگ)\n\n" +
-		"<i>سیستم به صورت خودکار ۳ رقم آخر را تصادفی تغییر می‌دهد تا پس از کارت به کارت، پیامک بانک سریعاً تطبیق داده شده و بدون نیاز به ارسال فیش کیف پول شارژ شود.</i>"
-
-	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, nil)
+func (s *Service) sendWelcome(ctx context.Context, u *User) {
+	text := getWelcomeText(u)
+	if err := s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, mainInlineKeyboard()); err != nil {
+		fmt.Printf("[SalesBot] Failed to send welcome message to %d: %v\n", u.TelegramID, err)
+	}
 }
 
 func (s *Service) processChargeAmount(ctx context.Context, u *User, input string) {
 	amountBase, err := parseAmount(input)
 	if err != nil || amountBase < 10000 {
-		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "⚠️ لطفاً یک مبلغ معتبر (حداقل ۱۰,۰۰۰ تومان) به عدد وارد کنید:", nil)
+		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "⚠️ لطفاً یک مبلغ معتبر (حداقل ۱۰,۰۰۰ تومان) به عدد وارد کنید:", backKeyboard())
 		return
 	}
 
 	order, err := Generate5MinOrder(u.TelegramID, amountBase)
 	if err != nil {
-		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "⚠️ خطا در ایجاد فاکتور موقت. لطفاً مجدداً تلاش کنید.", nil)
+		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "⚠️ خطا در ایجاد فاکتور موقت. لطفاً مجدداً تلاش کنید.", backKeyboard())
 		return
 	}
 
@@ -248,42 +507,27 @@ func (s *Service) processChargeAmount(ctx context.Context, u *User, input string
 		bankName,
 	)
 
-	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, mainKeyboard())
+	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, backKeyboard())
 }
 
-func (s *Service) sendUserStatus(ctx context.Context, u *User) {
-	pricePerGB := GetSettingFloat("price_per_gb", 5000)
-	var estGB float64
-	if pricePerGB > 0 {
-		estGB = u.WalletBalance / pricePerGB
+func (s *Service) processGiftCode(ctx context.Context, u *User, input string) {
+	ClearUserState(u.TelegramID)
+	amt, err := RedeemGiftCode(u.TelegramID, input)
+	if err != nil {
+		text := fmt.Sprintf("❌ <b>خطا در اعمال کد هدیه:</b>\n%v", err)
+		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, backKeyboard())
+		return
 	}
 
-	statusText := "فعال ✅"
-	if u.ServiceStatus == "suspended" || u.WalletBalance < GetSettingFloat("min_balance_to_start", 5000) {
-		statusText = "معلق (نیازمند شارژ) ⚠️"
-	} else if u.ServiceStatus == "none" {
-		statusText = "بدون اشتراک فعال ❌"
-	}
-
+	u.WalletBalance += amt
 	text := fmt.Sprintf(
-		"📊 <b>اطلاعات حساب و وضعیت اشتراک:</b>\n\n"+
-			"👤 نام کاربر: %s\n"+
-			"🆔 شناسه کاربری: <code>%d</code>\n"+
-			"💰 موجودی کیف پول: <code>%s تومان</code>\n"+
-			"📶 ترافیک قابل استفاده معادل: <b>%.2f گیگابایت</b>\n"+
-			"⚡ وضعیت دسترسی: <b>%s</b>\n\n",
-		u.FirstName,
-		u.TelegramID,
+		"🎉 <b>کد هدیه با موفقیت اعمال شد!</b>\n\n"+
+			"مبلغ <b>%s تومان</b> به کیف پول شما افزوده شد.\n\n"+
+			"💰 <b>موجودی فعلی کیف پول شما:</b> <code>%s تومان</code>",
+		formatCurrency(amt),
 		formatCurrency(u.WalletBalance),
-		estGB,
-		statusText,
 	)
-
-	if u.SubURL != "" {
-		text += fmt.Sprintf("🔗 <b>لینک سابسکریپشن شما:</b>\n<code>%s</code>\n\n<i>این لینک را در نرم‌افزارهای V2rayNG, Happ, v2box کپی و ایمپورت نمایید.</i>", u.SubURL)
-	}
-
-	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, mainKeyboard())
+	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, walletKeyboard())
 }
 
 func (s *Service) promptReceipt(ctx context.Context, u *User) {
@@ -300,18 +544,18 @@ func (s *Service) promptReceipt(ctx context.Context, u *User) {
 		cardNumber, cardHolder, bankName,
 	)
 
-	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, nil)
+	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, backKeyboard())
 }
 
 func (s *Service) processReceiptAmount(ctx context.Context, u *User, input string) {
 	amt, err := parseAmount(input)
 	if err != nil || amt < 5000 {
-		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "⚠️ لطفاً یک مبلغ معتبر وارد کنید:", nil)
+		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "⚠️ لطفاً یک مبلغ معتبر وارد کنید:", backKeyboard())
 		return
 	}
 
 	SetUserState(u.TelegramID, "awaiting_receipt_photo", fmt.Sprintf("%.0f", amt))
-	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "📸 مرحله ۲: اکنون تصویر فیش واریزی خود را ارسال کنید:", nil)
+	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "📸 مرحله ۲: اکنون تصویر فیش واریزی خود را ارسال فرمایید:", backKeyboard())
 }
 
 func (s *Service) handleReceiptPhoto(ctx context.Context, msg *Message, u *User) {
@@ -320,7 +564,7 @@ func (s *Service) handleReceiptPhoto(ctx context.Context, msg *Message, u *User)
 	}
 	state, data := GetUserState(u.TelegramID)
 	if state != "awaiting_receipt_photo" {
-		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "لطفاً ابتدا از منوی اصلی گزینه ارسال فیش را انتخاب کنید.", nil)
+		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "لطفاً ابتدا از منوی اصلی گزینه افزایش موجودی و سپس ارسال فیش را انتخاب کنید.", backKeyboard())
 		return
 	}
 
@@ -333,7 +577,7 @@ func (s *Service) handleReceiptPhoto(ctx context.Context, msg *Message, u *User)
 
 	db, _, err := GetDB()
 	if err != nil {
-		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "خطا در ثبت فیش.", nil)
+		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "خطا در ثبت فیش.", backKeyboard())
 		return
 	}
 
@@ -343,44 +587,11 @@ func (s *Service) handleReceiptPhoto(ctx context.Context, msg *Message, u *User)
 		u.TelegramID, amt, fileID, time.Now().Format("2006-01-02 15:04:05"),
 	)
 	if err != nil {
-		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "خطا در ذخیره فیش.", nil)
+		_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "خطا در ذخیره فیش.", backKeyboard())
 		return
 	}
 
 	ClearUserState(u.TelegramID)
 
-	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "✅ فیش شما با موفقیت ثبت شد و برای مدیریت ارسال گردید. پس از تایید موجودی کیف پول شما افزایش خواهد یافت.", mainKeyboard())
-}
-
-func (s *Service) sendGuide(ctx context.Context, u *User) {
-	text := "📖 <b>راهنمای اتصال به اینترنت آزاد:</b>\n\n" +
-		"1️⃣ نرم‌افزار متناسب با سیستم‌عامل خود را نصب کنید:\n" +
-		"▫️ اندروید: V2rayNG یا Happ\n" +
-		"▫️ آیفون (iOS): v2box یا Streisand یا Foxray\n" +
-		"▫️ ویندوز: V2rayN یا Nekoray\n\n" +
-		"2️⃣ لینک سابسکریپشن خود را از بخش «وضعیت اشتراک» کپی کنید.\n" +
-		"3️⃣ در نرم‌افزار گزینه Add from clipboard یا Update Subscription را بزنید و متصل شوید!"
-
-	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, mainKeyboard())
-}
-
-func (s *Service) sendSupport(ctx context.Context, u *User) {
-	supportUser := GetSetting("support_username", "@AdminSupport")
-	channelUser := GetSetting("channel_username", "")
-
-	text := fmt.Sprintf(
-		"📞 <b>پشتیبانی و ارتباط با ما:</b>\n\n"+
-			"در صورت بروز هرگونه سوال یا مشکل با آیدی زیر در ارتباط باشید:\n"+
-			"👉 <b>%s</b>\n\n",
-		supportUser,
-	)
-	if channelUser != "" {
-		text += fmt.Sprintf("📢 کانال اطلاع‌رسانی:\n👉 <b>%s</b>\n", channelUser)
-	}
-
-	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, mainKeyboard())
-}
-
-func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
-	_ = s.tgClient.AnswerCallbackQuery(ctx, s.botToken, cb.ID, "درحال پردازش...")
+	_ = s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, "✅ <b>فیش شما با موفقیت ثبت شد و برای مدیریت ارسال گردید.</b>\nپس از تایید، موجودی کیف پول شما افزایش خواهد یافت.", mainInlineKeyboard())
 }
