@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -333,23 +334,53 @@ func (c *TelegramClient) DeleteMessage(ctx context.Context, token string, chatID
 	return err
 }
 
+var replyKeyboardCleared sync.Map
+
 func (c *TelegramClient) RemoveReplyKeyboard(ctx context.Context, token string, chatID int64) {
-	payload := map[string]any{
-		"chat_id":      chatID,
-		"text":         "🔄 به‌روزرسانی منو...",
-		"reply_markup": ReplyKeyboardRemove{RemoveKeyboard: true},
-	}
-	raw, err := c.call(ctx, token, "sendMessage", payload)
-	if err != nil {
+	if _, seen := replyKeyboardCleared.Load(chatID); seen {
 		return
 	}
+	replyKeyboardCleared.Store(chatID, struct{}{})
+
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		payload := map[string]any{
+			"chat_id":      chatID,
+			"text":         "\u200b",
+			"reply_markup": ReplyKeyboardRemove{RemoveKeyboard: true},
+		}
+		raw, err := c.call(bgCtx, token, "sendMessage", payload)
+		if err != nil {
+			return
+		}
+		var res struct {
+			MessageID int64 `json:"message_id"`
+		}
+		if err := json.Unmarshal(raw, &res); err == nil && res.MessageID > 0 {
+			time.Sleep(500 * time.Millisecond)
+			_ = c.DeleteMessage(bgCtx, token, chatID, res.MessageID)
+		}
+	}()
+}
+
+func (c *TelegramClient) GetChatMember(ctx context.Context, token, chatID string, userID int64) (string, error) {
+	payload := map[string]any{
+		"chat_id": chatID,
+		"user_id": userID,
+	}
+	raw, err := c.call(ctx, token, "getChatMember", payload)
+	if err != nil {
+		return "", err
+	}
 	var res struct {
-		MessageID int64 `json:"message_id"`
+		Status string `json:"status"`
 	}
-	if err := json.Unmarshal(raw, &res); err == nil && res.MessageID > 0 {
-		time.Sleep(300 * time.Millisecond)
-		_ = c.DeleteMessage(ctx, token, chatID, res.MessageID)
+	if err := json.Unmarshal(raw, &res); err != nil {
+		return "", err
 	}
+	return res.Status, nil
 }
 
 

@@ -1,4 +1,9 @@
 import {
+    Accordion,
+    AccordionButton,
+    AccordionIcon,
+    AccordionItem,
+    AccordionPanel,
     Alert,
     AlertDescription,
     AlertIcon,
@@ -1047,43 +1052,107 @@ export const SalesBotPage = () => {
 
             {/* Tabs Container */}
             <Tabs
-                variant="soft-rounded"
+                variant="unstyled"
                 colorScheme="purple"
                 index={tabIndex}
                 onChange={setTabIndex}
                 isLazy
             >
                 <TabList
+                    position="sticky"
+                    top="0"
+                    zIndex={5}
                     overflowX="auto"
-                    py={1.5}
+                    bg={bgCard}
+                    p={1.5}
                     mb={6}
-                    borderBottom="1px solid"
+                    borderRadius="xl"
+                    border="1px solid"
                     borderColor={borderColor}
-                    gap={2}
+                    gap={1}
+                    css={{
+                        "&::-webkit-scrollbar": { display: "none" },
+                        scrollbarWidth: "none",
+                    }}
                 >
-                    <Tab fontWeight="medium" fontSize="sm">
-                        📊 نمای کلی و آمار
+                    <Tab
+                        whiteSpace="nowrap"
+                        borderRadius="lg"
+                        px={3}
+                        py={2}
+                        fontWeight="medium"
+                        fontSize="sm"
+                        color={textSecondary}
+                        transition="all 0.2s"
+                        _selected={{ bg: "purple.500", color: "white", boxShadow: "0 4px 14px rgba(159, 122, 234, 0.35)" }}
+                        _hover={{ bg: "whiteAlpha.200" }}
+                    >
+                        📊 نمای کلی
                     </Tab>
-                    <Tab fontWeight="medium" fontSize="sm">
-                        ⏱️ سفارشات ۵ دقیقه‌ای آنلاین
+                    <Tab
+                        whiteSpace="nowrap"
+                        borderRadius="lg"
+                        px={3}
+                        py={2}
+                        fontWeight="medium"
+                        fontSize="sm"
+                        color={textSecondary}
+                        transition="all 0.2s"
+                        _selected={{ bg: "purple.500", color: "white", boxShadow: "0 4px 14px rgba(159, 122, 234, 0.35)" }}
+                        _hover={{ bg: "whiteAlpha.200" }}
+                    >
+                        ⏱️ سفارشات
                         {overviewQuery.data?.orders_pending_count > 0 && (
                             <Badge ml={2} colorScheme="yellow" borderRadius="full">
                                 {overviewQuery.data?.orders_pending_count}
                             </Badge>
                         )}
                     </Tab>
-                    <Tab fontWeight="medium" fontSize="sm">
-                        📩 فیش‌های کارت به کارت
+                    <Tab
+                        whiteSpace="nowrap"
+                        borderRadius="lg"
+                        px={3}
+                        py={2}
+                        fontWeight="medium"
+                        fontSize="sm"
+                        color={textSecondary}
+                        transition="all 0.2s"
+                        _selected={{ bg: "purple.500", color: "white", boxShadow: "0 4px 14px rgba(159, 122, 234, 0.35)" }}
+                        _hover={{ bg: "whiteAlpha.200" }}
+                    >
+                        📩 فیش‌ها
                         {overviewQuery.data?.receipts_pending_count > 0 && (
                             <Badge ml={2} colorScheme="red" borderRadius="full">
                                 {overviewQuery.data?.receipts_pending_count}
                             </Badge>
                         )}
                     </Tab>
-                    <Tab fontWeight="medium" fontSize="sm">
-                        👥 مشتریان و کیف‌پول‌ها
+                    <Tab
+                        whiteSpace="nowrap"
+                        borderRadius="lg"
+                        px={3}
+                        py={2}
+                        fontWeight="medium"
+                        fontSize="sm"
+                        color={textSecondary}
+                        transition="all 0.2s"
+                        _selected={{ bg: "purple.500", color: "white", boxShadow: "0 4px 14px rgba(159, 122, 234, 0.35)" }}
+                        _hover={{ bg: "whiteAlpha.200" }}
+                    >
+                        👥 مشتریان
                     </Tab>
-                    <Tab fontWeight="medium" fontSize="sm">
+                    <Tab
+                        whiteSpace="nowrap"
+                        borderRadius="lg"
+                        px={3}
+                        py={2}
+                        fontWeight="medium"
+                        fontSize="sm"
+                        color={textSecondary}
+                        transition="all 0.2s"
+                        _selected={{ bg: "purple.500", color: "white", boxShadow: "0 4px 14px rgba(159, 122, 234, 0.35)" }}
+                        _hover={{ bg: "whiteAlpha.200" }}
+                    >
                         🎁 کدهای هدیه
                         {giftCodesQuery.data?.length > 0 && (
                             <Badge ml={2} colorScheme="green" borderRadius="full">
@@ -1091,14 +1160,47 @@ export const SalesBotPage = () => {
                             </Badge>
                         )}
                     </Tab>
-                    <Tab fontWeight="medium" fontSize="sm">
+                    <Tab
+                        whiteSpace="nowrap"
+                        borderRadius="lg"
+                        px={3}
+                        py={2}
+                        fontWeight="medium"
+                        fontSize="sm"
+                        color={textSecondary}
+                        transition="all 0.2s"
+                        _selected={{ bg: "purple.500", color: "white", boxShadow: "0 4px 14px rgba(159, 122, 234, 0.35)" }}
+                        _hover={{ bg: "whiteAlpha.200" }}
+                    >
                         📢 ارسال همگانی
                     </Tab>
-                    <Tab fontWeight="medium" fontSize="sm">
-                        ⚙️ تنظیمات نرخ و درگاه‌ها
+                    <Tab
+                        whiteSpace="nowrap"
+                        borderRadius="lg"
+                        px={3}
+                        py={2}
+                        fontWeight="medium"
+                        fontSize="sm"
+                        color={textSecondary}
+                        transition="all 0.2s"
+                        _selected={{ bg: "purple.500", color: "white", boxShadow: "0 4px 14px rgba(159, 122, 234, 0.35)" }}
+                        _hover={{ bg: "whiteAlpha.200" }}
+                    >
+                        ⚙️ تنظیمات
                     </Tab>
-                    <Tab fontWeight="medium" fontSize="sm">
-                        📜 لاگ‌های پیامک و وب‌هوک
+                    <Tab
+                        whiteSpace="nowrap"
+                        borderRadius="lg"
+                        px={3}
+                        py={2}
+                        fontWeight="medium"
+                        fontSize="sm"
+                        color={textSecondary}
+                        transition="all 0.2s"
+                        _selected={{ bg: "purple.500", color: "white", boxShadow: "0 4px 14px rgba(159, 122, 234, 0.35)" }}
+                        _hover={{ bg: "whiteAlpha.200" }}
+                    >
+                        📜 لاگ‌ها
                         {webhookLogsQuery.data?.length > 0 && (
                             <Badge ml={2} colorScheme="purple" borderRadius="full">
                                 {webhookLogsQuery.data.length}
@@ -2301,22 +2403,27 @@ export const SalesBotPage = () => {
 
                     {/* TAB 7: PRICING, ALERTS & SETTINGS */}
                     <TabPanel p={0}>
-                        <VStack spacing={6} align="stretch">
+                        <Accordion allowToggle defaultIndex={0}>
+                        <VStack spacing={4} align="stretch">
                             {/* SECTION 1: BILLING & SMART EXPIRY ALERTS */}
-                            <Box
-                                p={5}
+                            <AccordionItem
                                 bg={bgCard}
                                 borderRadius="xl"
                                 border="1px solid"
                                 borderColor={borderColor}
+                                overflow="hidden"
                             >
-                                <Flex align="center" gap={2} mb={4}>
-                                    <BanknotesIcon width={22} height={22} color="#9F7AEA" />
-                                    <Heading size="sm" color="purple.400">
-                                        ⚡ بخش ۱: نرخ‌گذاری و هشدارهای هوشمند تمدید و موجودی
-                                    </Heading>
-                                </Flex>
+                                <AccordionButton px={5} py={4} _hover={{ bg: "whiteAlpha.100" }}>
+                                    <Flex align="center" gap={2} flex="1" textAlign="left">
+                                        <BanknotesIcon width={20} height={20} color="#9F7AEA" />
+                                        <Heading size="sm" color="purple.400">
+                                            ⚡ نرخ‌گذاری و هشدارهای هوشمند تمدید و موجودی
+                                        </Heading>
+                                    </Flex>
+                                    <AccordionIcon />
+                                </AccordionButton>
 
+                                <AccordionPanel px={5} pb={5}>
                                 <VStack spacing={5} align="stretch">
                                     {/* Pay-As-You-Go Rates */}
                                     <Box p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
@@ -2503,24 +2610,74 @@ export const SalesBotPage = () => {
                                         </SimpleGrid>
                                     </Box>
                                 </VStack>
-                            </Box>
+                                </AccordionPanel>
+                            </AccordionItem>
 
                             {/* SECTION 2: PAYMENT GATEWAYS & WALLETS */}
-                            <Box
-                                p={5}
+                            <AccordionItem
                                 bg={bgCard}
                                 borderRadius="xl"
                                 border="1px solid"
                                 borderColor={borderColor}
+                                overflow="hidden"
                             >
-                                <Flex align="center" gap={2} mb={4}>
-                                    <CreditCardIcon width={22} height={22} color="#48BB78" />
-                                    <Heading size="sm" color="green.400">
-                                        💳 بخش ۲: درگاه‌های پرداخت، کارت به کارت و رمزارز
-                                    </Heading>
-                                </Flex>
+                                <AccordionButton px={5} py={4} _hover={{ bg: "whiteAlpha.100" }}>
+                                    <Flex align="center" gap={2} flex="1" textAlign="left">
+                                        <CreditCardIcon width={20} height={20} color="#48BB78" />
+                                        <Heading size="sm" color="green.400">
+                                            💳 درگاه‌های پرداخت، کارت به کارت و رمزارز
+                                        </Heading>
+                                    </Flex>
+                                    <AccordionIcon />
+                                </AccordionButton>
 
+                                <AccordionPanel px={5} pb={5}>
                                 <VStack spacing={4} align="stretch">
+                                    {/* Deposit Methods Toggles */}
+                                    <Box p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                                        <Text fontSize="xs" fontWeight="bold" color="green.300" mb={3}>
+                                            روش‌های فعال واریز (نمایش در ربات)
+                                        </Text>
+                                        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                                            <FormControl>
+                                                <Flex justify="space-between" align="center">
+                                                    <FormLabel fontSize="xs" mb={0}>⚡ کارت به کارت هوشمند (۵ دقیقه)</FormLabel>
+                                                    <Switch
+                                                        size="sm"
+                                                        colorScheme="green"
+                                                        isChecked={formSettings.deposit_5min_enabled !== "false"}
+                                                        onChange={(e) => handleSettingChange("deposit_5min_enabled", e.target.checked ? "true" : "false")}
+                                                    />
+                                                </Flex>
+                                            </FormControl>
+                                            <FormControl>
+                                                <Flex justify="space-between" align="center">
+                                                    <FormLabel fontSize="xs" mb={0}>💳 کارت به کارت (ارسال فیش)</FormLabel>
+                                                    <Switch
+                                                        size="sm"
+                                                        colorScheme="green"
+                                                        isChecked={formSettings.deposit_receipt_enabled !== "false"}
+                                                        onChange={(e) => handleSettingChange("deposit_receipt_enabled", e.target.checked ? "true" : "false")}
+                                                    />
+                                                </Flex>
+                                            </FormControl>
+                                            <FormControl>
+                                                <Flex justify="space-between" align="center">
+                                                    <FormLabel fontSize="xs" mb={0}>🪙 پرداخت با رمزارز</FormLabel>
+                                                    <Switch
+                                                        size="sm"
+                                                        colorScheme="green"
+                                                        isChecked={formSettings.deposit_crypto_enabled !== "false"}
+                                                        onChange={(e) => handleSettingChange("deposit_crypto_enabled", e.target.checked ? "true" : "false")}
+                                                    />
+                                                </Flex>
+                                            </FormControl>
+                                        </SimpleGrid>
+                                        <FormHelperText fontSize="10px" mt={2}>
+                                            هر روش را می‌توانید مستقل فعال/غیرفعال کنید. «کارت به کارت هوشمند» پس از شناسایی پیامک بانک به‌صورت خودکار تایید و شارژ می‌شود.
+                                        </FormHelperText>
+                                    </Box>
+
                                     {/* Bank Card */}
                                     <Box p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
                                         <Text fontSize="xs" fontWeight="bold" color="green.300" mb={3}>
@@ -2652,23 +2809,28 @@ export const SalesBotPage = () => {
                                         </Box>
                                     </SimpleGrid>
                                 </VStack>
-                            </Box>
+                                </AccordionPanel>
+                            </AccordionItem>
 
                             {/* SECTION 3: PANEL SETTINGS, TEST & PERMISSIONS */}
-                            <Box
-                                p={5}
+                            <AccordionItem
                                 bg={bgCard}
                                 borderRadius="xl"
                                 border="1px solid"
                                 borderColor={borderColor}
+                                overflow="hidden"
                             >
-                                <Flex align="center" gap={2} mb={4}>
-                                    <ShoppingBagIcon width={22} height={22} color="#4299E1" />
-                                    <Heading size="sm" color="blue.400">
-                                        🌐 بخش ۳: پنل نمایندگان، تست رایگان و سرویس‌های مجاز
-                                    </Heading>
-                                </Flex>
+                                <AccordionButton px={5} py={4} _hover={{ bg: "whiteAlpha.100" }}>
+                                    <Flex align="center" gap={2} flex="1" textAlign="left">
+                                        <ShoppingBagIcon width={20} height={20} color="#4299E1" />
+                                        <Heading size="sm" color="blue.400">
+                                            🌐 پنل نمایندگان، تست رایگان و سرویس‌های مجاز
+                                        </Heading>
+                                    </Flex>
+                                    <AccordionIcon />
+                                </AccordionButton>
 
+                                <AccordionPanel px={5} pb={5}>
                                 <VStack spacing={4} align="stretch">
                                     {/* Panel URL & Limit */}
                                     <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
@@ -2823,23 +2985,28 @@ export const SalesBotPage = () => {
                                         )}
                                     </Box>
                                 </VStack>
-                            </Box>
+                                </AccordionPanel>
+                            </AccordionItem>
 
                             {/* SECTION 4: TELEGRAM BOT CORE & SUPPORT */}
-                            <Box
-                                p={5}
+                            <AccordionItem
                                 bg={bgCard}
                                 borderRadius="xl"
                                 border="1px solid"
                                 borderColor={borderColor}
+                                overflow="hidden"
                             >
-                                <Flex align="center" gap={2} mb={4}>
-                                    <CommandLineIcon width={22} height={22} color="#ED8936" />
-                                    <Heading size="sm" color="orange.400">
-                                        🤖 بخش ۴: هسته ربات تلگرام و تنظیمات ارتباطی
-                                    </Heading>
-                                </Flex>
+                                <AccordionButton px={5} py={4} _hover={{ bg: "whiteAlpha.100" }}>
+                                    <Flex align="center" gap={2} flex="1" textAlign="left">
+                                        <CommandLineIcon width={20} height={20} color="#ED8936" />
+                                        <Heading size="sm" color="orange.400">
+                                            🤖 هسته ربات تلگرام و تنظیمات ارتباطی
+                                        </Heading>
+                                    </Flex>
+                                    <AccordionIcon />
+                                </AccordionButton>
 
+                                <AccordionPanel px={5} pb={5}>
                                 <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                                     <FormControl>
                                         <FormLabel fontSize="xs">توکن ربات تلگرام (Bot Token)</FormLabel>
@@ -2925,23 +3092,64 @@ export const SalesBotPage = () => {
                                         />
                                     </FormControl>
                                 </SimpleGrid>
-                            </Box>
+
+                                {/* Force-Join Channel Lock */}
+                                <Box mt={4} p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                                    <Flex justify="space-between" align="center" mb={3}>
+                                        <Text fontSize="xs" fontWeight="bold" color="orange.300">
+                                            🔒 قفل عضویت در کانال (Force Join)
+                                        </Text>
+                                        <HStack spacing={2}>
+                                            <Text fontSize="xs">
+                                                {formSettings.force_join_enabled === "true" ? "فعال" : "غیرفعال"}
+                                            </Text>
+                                            <Switch
+                                                size="sm"
+                                                colorScheme="orange"
+                                                isChecked={formSettings.force_join_enabled === "true"}
+                                                onChange={(e) => handleSettingChange("force_join_enabled", e.target.checked ? "true" : "false")}
+                                            />
+                                        </HStack>
+                                    </Flex>
+                                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                                        <FormControl isDisabled={formSettings.force_join_enabled !== "true"}>
+                                            <FormLabel fontSize="xs">لینک عضویت کانال (برای کانال خصوصی)</FormLabel>
+                                            <Input
+                                                size="sm"
+                                                value={formSettings.channel_link || ""}
+                                                onChange={(e) => handleSettingChange("channel_link", e.target.value)}
+                                                placeholder="https://t.me/+AbCdEf123"
+                                                dir="ltr"
+                                                borderRadius="md"
+                                            />
+                                        </FormControl>
+                                    </SimpleGrid>
+                                    <FormHelperText fontSize="10px">
+                                        تا وقتی کاربر عضو «کانال تلگرام اطلاع‌رسانی» بالا نشود، نمی‌تواند از ربات استفاده کند. ربات باید در آن کانال ادمین باشد.
+                                    </FormHelperText>
+                                </Box>
+                                </AccordionPanel>
+                            </AccordionItem>
 
                             {/* SECTION 5: BOT TEXTS & DISPLAY PRICING */}
-                            <Box
-                                p={5}
+                            <AccordionItem
                                 bg={bgCard}
                                 borderRadius="xl"
                                 border="1px solid"
                                 borderColor={borderColor}
+                                overflow="hidden"
                             >
-                                <Flex align="center" gap={2} mb={4}>
-                                    <ChatBubbleBottomCenterTextIcon width={22} height={22} color="#A78BFA" />
-                                    <Heading size="sm" color="purple.300">
-                                        ✍️ بخش ۵: متن‌های ربات و تعرفه نمایشی
-                                    </Heading>
-                                </Flex>
+                                <AccordionButton px={5} py={4} _hover={{ bg: "whiteAlpha.100" }}>
+                                    <Flex align="center" gap={2} flex="1" textAlign="left">
+                                        <ChatBubbleBottomCenterTextIcon width={20} height={20} color="#A78BFA" />
+                                        <Heading size="sm" color="purple.300">
+                                            ✍️ متن‌های ربات و تعرفه نمایشی
+                                        </Heading>
+                                    </Flex>
+                                    <AccordionIcon />
+                                </AccordionButton>
 
+                                <AccordionPanel px={5} pb={5}>
                                 <VStack spacing={4} align="stretch">
                                     <FormControl>
                                         <FormLabel fontSize="xs">پیام خوش‌آمدگویی (/start)</FormLabel>
@@ -2967,50 +3175,13 @@ export const SalesBotPage = () => {
                                         />
                                     </FormControl>
 
-                                    <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-                                        <FormControl>
-                                            <FormLabel fontSize="xs">هزینه ساعتی نمایندگی (نمایشی)</FormLabel>
-                                            <Input
-                                                size="sm"
-                                                value={formSettings.hourly_fee || ""}
-                                                onChange={(e) => handleSettingChange("hourly_fee", e.target.value)}
-                                                placeholder="۱۳۸"
-                                                borderRadius="md"
-                                            />
-                                            <FormHelperText fontSize="10px">
-                                                فقط در متن قوانین به کاربر نمایش داده می‌شود.
-                                            </FormHelperText>
-                                        </FormControl>
-
-                                        <FormControl>
-                                            <FormLabel fontSize="xs">حداقل قیمت هر گیگ (نمایشی)</FormLabel>
-                                            <Input
-                                                size="sm"
-                                                value={formSettings.min_price_per_gb || ""}
-                                                onChange={(e) => handleSettingChange("min_price_per_gb", e.target.value)}
-                                                placeholder="۴۱۵۰"
-                                                borderRadius="md"
-                                            />
-                                        </FormControl>
-
-                                        <FormControl>
-                                            <FormLabel fontSize="xs">حداکثر قیمت هر گیگ (نمایشی)</FormLabel>
-                                            <Input
-                                                size="sm"
-                                                value={formSettings.max_price_per_gb || ""}
-                                                onChange={(e) => handleSettingChange("max_price_per_gb", e.target.value)}
-                                                placeholder="۵۰۰۰"
-                                                borderRadius="md"
-                                            />
-                                        </FormControl>
-                                    </SimpleGrid>
-
                                     <Alert status="info" borderRadius="lg" fontSize="11px">
                                         <AlertIcon />
-                                        این مقادیر فقط جهت نمایش در پیام‌های ربات هستند. نرخ واقعی کسر اعتبار همان «قیمت هر گیگابایت» در بخش ۱ است.
+                                        قیمت هر گیگابایت در پیام‌های ربات به‌صورت خودکار از نرخ واقعی «بخش ۱: قیمت هر گیگابایت» خوانده و نمایش داده می‌شود.
                                     </Alert>
                                 </VStack>
-                            </Box>
+                                </AccordionPanel>
+                            </AccordionItem>
 
                             {/* Save Settings Button */}
                             <Flex justify="flex-end" pt={2}>
@@ -3025,6 +3196,7 @@ export const SalesBotPage = () => {
                                 </Button>
                             </Flex>
                         </VStack>
+                        </Accordion>
                     </TabPanel>
 
                     {/* TAB 8: WEBHOOK & SMS LOGS */}

@@ -304,15 +304,32 @@ func depositOnlyKeyboard() InlineKeyboardMarkup {
 	}
 }
 
+func settingOn(key string, defaultOn bool) bool {
+	val := strings.ToLower(strings.TrimSpace(GetSetting(key, "")))
+	if val == "" {
+		return defaultOn
+	}
+	switch val {
+	case "true", "1", "yes", "on":
+		return true
+	}
+	return false
+}
+
 func depositKeyboard() InlineKeyboardMarkup {
 	var rows [][]InlineKeyboardButton
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "⚡ کارت به کارت هوشمند (شناسایی ۵ دقیقه‌ای)", CallbackData: "deposit_5min"},
-	})
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "💳 واریز کارت به کارت (ارسال فیش)", CallbackData: "deposit_receipt"},
-	})
-	if strings.TrimSpace(GetSetting("tether_wallet", "")) != "" || strings.TrimSpace(GetSetting("ton_wallet", "")) != "" {
+	if settingOn("deposit_5min_enabled", true) {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "⚡ کارت به کارت هوشمند (شناسایی ۵ دقیقه‌ای)", CallbackData: "deposit_5min"},
+		})
+	}
+	if settingOn("deposit_receipt_enabled", true) {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "💳 واریز کارت به کارت (ارسال فیش)", CallbackData: "deposit_receipt"},
+		})
+	}
+	if settingOn("deposit_crypto_enabled", true) &&
+		(strings.TrimSpace(GetSetting("tether_wallet", "")) != "" || strings.TrimSpace(GetSetting("ton_wallet", "")) != "") {
 		rows = append(rows, []InlineKeyboardButton{
 			{Text: "🪙 پرداخت با رمزارز (USDT / TON)", CallbackData: "deposit_crypto"},
 		})
@@ -396,15 +413,17 @@ func getTermsText() string {
 		return customTerms
 	}
 	brandName := GetSetting("brand_name", "zonixvpn")
-	minPrice := GetSetting("min_price_per_gb", "۴۱۵۰")
-	maxPrice := GetSetting("max_price_per_gb", "۵۰۰۰")
+	pricePerGB := GetSettingFloat("price_per_gb", 5000)
+	if pricePerGB <= 0 {
+		pricePerGB = 5000
+	}
 
 	return fmt.Sprintf(`🫀 <b>پرداخت فقط به اندازه مصرف</b>
 
 در %s با مدل Pay As You Go فقط بابت ترافیک واقعی مصرف‌شده هزینه می‌پردازید؛ بدون خرید حجم از قبل و بدون هزینه پنهان.
 
-💵 <b>هزینه هر گیگابایت:</b> از %s تا %s تومان`,
-		brandName, minPrice, maxPrice)
+💵 <b>هزینه هر گیگابایت:</b> %s تومان`,
+		brandName, formatCurrency(pricePerGB))
 }
 
 func getWalletText(u *User) string {
@@ -509,6 +528,11 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 		username = msg.Chat.Username
 		firstName = msg.Chat.FirstName
 	} else {
+		return
+	}
+
+	if !s.channelAllows(ctx, userID) {
+		s.sendJoinRequired(ctx, userID)
 		return
 	}
 
@@ -620,6 +644,29 @@ func (s *Service) editOrSend(ctx context.Context, chatID, messageID int64, text 
 }
 
 func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
+	userID := cb.From.ID
+
+	if cb.Data == "check_membership" {
+		resetJoinCache(userID)
+		if !s.channelAllows(ctx, userID) {
+			_ = s.tgClient.AnswerCallbackQuery(ctx, s.botToken, cb.ID, "❌ هنوز عضو کانال نشده‌اید!")
+			return
+		}
+		_ = s.tgClient.AnswerCallbackQuery(ctx, s.botToken, cb.ID, "✅ عضویت شما تایید شد")
+		user, err := GetOrCreateUser(userID, cb.From.Username, cb.From.FirstName)
+		if err != nil {
+			return
+		}
+		s.sendWelcome(ctx, user)
+		return
+	}
+
+	if !s.channelAllows(ctx, userID) {
+		_ = s.tgClient.AnswerCallbackQuery(ctx, s.botToken, cb.ID, "")
+		s.sendJoinRequired(ctx, userID)
+		return
+	}
+
 	_ = s.tgClient.AnswerCallbackQuery(ctx, s.botToken, cb.ID, "")
 
 	var chatID, messageID int64
@@ -876,6 +923,10 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		s.editOrSend(ctx, chatID, messageID, text, depositKeyboard())
 
 	case "deposit_5min":
+		if !settingOn("deposit_5min_enabled", true) {
+			s.editOrSend(ctx, chatID, messageID, "⚠️ <b>این روش واریز در حال حاضر غیرفعال است.</b>", backKeyboard())
+			return
+		}
 		SetUserState(user.TelegramID, "awaiting_amount", "")
 		text := "⚡ <b>کارت به کارت خودکار (شناسایی ۵ دقیقه‌ای)</b>\n\n" +
 			"لطفاً مبلغ مورد نظر خود را به تومان ارسال فرمایید:\n" +
@@ -883,10 +934,19 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 
 	case "deposit_receipt":
+		if !settingOn("deposit_receipt_enabled", true) {
+			s.editOrSend(ctx, chatID, messageID, "⚠️ <b>این روش واریز در حال حاضر غیرفعال است.</b>", backKeyboard())
+			return
+		}
 		SetUserState(user.TelegramID, "awaiting_receipt_amount", "")
 		s.promptReceipt(ctx, user)
 
 	case "deposit_crypto":
+		if !settingOn("deposit_crypto_enabled", true) ||
+			(strings.TrimSpace(GetSetting("tether_wallet", "")) == "" && strings.TrimSpace(GetSetting("ton_wallet", "")) == "") {
+			s.editOrSend(ctx, chatID, messageID, "⚠️ <b>این روش واریز در حال حاضر غیرفعال است.</b>", backKeyboard())
+			return
+		}
 		ClearUserState(user.TelegramID)
 		s.editOrSend(ctx, chatID, messageID, buildCryptoWalletsText(), backKeyboard())
 
@@ -1110,20 +1170,16 @@ func (s *Service) processChargeAmount(ctx context.Context, u *User, input string
 	}
 
 	text := fmt.Sprintf(
-		"⏱️ <b>فاکتور پرداخت موقت (مهلت ۵ دقیقه)</b>\n\n"+
-			"🔴 <b>مبلغ دقیق جهت انتقال (الزامی):</b>\n"+
-			"👉 <code>%s</code> تومان\n\n"+
-			"⚠️ <b>توجه بسیار مهم:</b>\n"+
-			"سیستم برای شناسایی خودکار واریز شما، ۳ رقم آخر را به صورت اختصاصی <b>%s</b> تنظیم کرده است. <b>دقیقاً همین مبلغ %s تومان را کارت به کارت کنید</b> تا بلافاصله شارژ شوید.\n\n"+
+		"⏱️ <b>فاکتور پرداخت (اعتبار ۵ دقیقه)</b>\n\n"+
+			"🔴 <b>مبلغ دقیق جهت انتقال:</b>\n"+
+			"<code>%s</code> تومان\n"+
+			"<i>(روی مبلغ بزنید تا کپی شود)</i>\n\n"+
 			"💳 <b>اطلاعات کارت بانکی مقصد:</b>\n"+
 			"شماره کارت: <code>%s</code>\n"+
 			"به نام: <b>%s</b>\n"+
 			"بانک: <b>%s</b>\n"+
 			"%s\n"+
-			"⏳ <b>مهلت پرداخت:</b> ۵ دقیقه\n"+
-			"پس از انتقال، پیامک بانک به صورت خودکار شناسایی شده و کیف پول شما طی چند ثانیه شارژ خواهد شد. نیازی به ارسال فیش نیست!",
-		formatCurrency(order.AmountExact),
-		order.Code,
+			"⏳ <b>مهلت پرداخت:</b> ۵ دقیقه",
 		formatCurrency(order.AmountExact),
 		cardNumber,
 		cardHolder,
