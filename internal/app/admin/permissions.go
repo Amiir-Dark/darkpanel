@@ -61,6 +61,7 @@ func RoleDefaultPermissions(role AdminRole) AdminPermissions {
 			SetFlow:              true,
 			AllowCustomKey:       true,
 		}
+		baseSections.Hosts = false
 	case RoleStandard:
 		// Defaults above intentionally match Python AdminPermissions defaults.
 	default:

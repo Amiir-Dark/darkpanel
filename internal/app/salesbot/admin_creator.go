@@ -253,9 +253,10 @@ func CreateTestAdmin(ctx context.Context, tgID int64, firstName string) (usernam
 	dataLimit := int64(5 * 1024 * 1024 * 1024) // 5 GB
 	expire := time.Now().UTC().Add(24 * time.Hour).Unix()
 
-	// 4. Role & Permissions (Reseller)
+	// 4. Role & Permissions (Reseller without hosts/inbounds access)
 	role := string(admin.RoleReseller)
 	perms := admin.RoleDefaultPermissions(admin.RoleReseller)
+	perms.Sections.Hosts = false
 	permsJSON, err := json.Marshal(perms)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to marshal permissions: %w", err)
@@ -333,12 +334,16 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 		var adminExists int
 		_ = mainDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins WHERE LOWER(username) = LOWER(?)`, existingUser.PanelUsername).Scan(&adminExists)
 		if adminExists > 0 {
-			// Upgrade admin in DarkPanel: remove data_limit and expire so it is pay-as-you-go!
+			cleanPerms := admin.RoleDefaultPermissions(admin.RoleReseller)
+			cleanPerms.Sections.Hosts = false
+			cleanPermsJSON, _ := json.Marshal(cleanPerms)
+
+			// Upgrade admin in DarkPanel: remove data_limit and expire so it is pay-as-you-go, ensure hosts section is disabled!
 			_, _ = mainDB.ExecContext(ctx, `
 				UPDATE admins
-				SET data_limit = NULL, expire = NULL, status = 'active', disabled_reason = NULL
+				SET data_limit = NULL, expire = NULL, status = 'active', disabled_reason = NULL, permissions = ?
 				WHERE LOWER(username) = LOWER(?)
-			`, existingUser.PanelUsername)
+			`, string(cleanPermsJSON), existingUser.PanelUsername)
 
 			// Ensure all services are assigned
 			var adminID int64
@@ -384,6 +389,7 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 
 	role := string(admin.RoleReseller)
 	perms := admin.RoleDefaultPermissions(admin.RoleReseller)
+	perms.Sections.Hosts = false
 	permsJSON, err := json.Marshal(perms)
 	if err != nil {
 		return "", "", "", false, fmt.Errorf("failed to marshal permissions: %w", err)
@@ -442,6 +448,9 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 	if err != nil || sqliteDB == nil {
 		return
 	}
+
+	// Sanitize existing reseller permissions in main database to ensure hosts#inbounds is not granted
+	sanitizeResellerPermissions(ctx, mainDB)
 
 	pricePerGB := GetSettingFloat("price_per_gb", 5000)
 	if pricePerGB <= 0 {
@@ -640,6 +649,41 @@ func ReactivateAdminIfPaid(tgID int64) {
 			SET service_status = 'active'
 			WHERE telegram_id = ?
 		`, tgID)
+	}
+}
+
+func sanitizeResellerPermissions(ctx context.Context, db *sql.DB) {
+	rows, err := db.QueryContext(ctx, `SELECT id, permissions FROM admins WHERE role = 'reseller' AND status != 'deleted'`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	type toUpdate struct {
+		id    int64
+		perms string
+	}
+	var list []toUpdate
+	for rows.Next() {
+		var id int64
+		var raw sql.NullString
+		if err := rows.Scan(&id, &raw); err == nil && raw.Valid && raw.String != "" {
+			var p admin.AdminPermissions
+			if err := json.Unmarshal([]byte(raw.String), &p); err == nil {
+				if p.Sections.Hosts {
+					p.Sections.Hosts = false
+					newJSON, err := json.Marshal(p)
+					if err == nil {
+						list = append(list, toUpdate{id: id, perms: string(newJSON)})
+					}
+				}
+			}
+		}
+	}
+	_ = rows.Close()
+
+	for _, item := range list {
+		_, _ = db.ExecContext(ctx, `UPDATE admins SET permissions = ? WHERE id = ?`, item.perms, item.id)
 	}
 }
 

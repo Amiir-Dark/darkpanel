@@ -31,6 +31,11 @@ func TestRoleDefaultPermissions(t *testing.T) {
 	if !full.Users.Delete || !full.Users.ResetUsage || !full.AdminManagement.CanManageSudo {
 		t.Fatalf("unexpected full-access permissions: %#v", full)
 	}
+
+	reseller := RoleDefaultPermissions(RoleReseller)
+	if reseller.Sections.Hosts {
+		t.Fatalf("unexpected reseller section permissions: hosts must be false, got %#v", reseller.Sections)
+	}
 }
 
 func TestBuildPermissionsMergesOverrides(t *testing.T) {
