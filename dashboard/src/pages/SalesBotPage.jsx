@@ -2673,9 +2673,9 @@ export const SalesBotPage = () => {
                                                 </Flex>
                                             </FormControl>
                                         </SimpleGrid>
-                                        <FormHelperText fontSize="10px" mt={2}>
+                                        <Text fontSize="10px" color={textSecondary} mt={2}>
                                             هر روش را می‌توانید مستقل فعال/غیرفعال کنید. «کارت به کارت هوشمند» پس از شناسایی پیامک بانک به‌صورت خودکار تایید و شارژ می‌شود.
-                                        </FormHelperText>
+                                        </Text>
                                     </Box>
 
                                     {/* Bank Card */}
@@ -3122,11 +3122,11 @@ export const SalesBotPage = () => {
                                                 dir="ltr"
                                                 borderRadius="md"
                                             />
+                                            <FormHelperText fontSize="10px">
+                                                تا وقتی کاربر عضو «کانال تلگرام اطلاع‌رسانی» بالا نشود، نمی‌تواند از ربات استفاده کند. ربات باید در آن کانال ادمین باشد.
+                                            </FormHelperText>
                                         </FormControl>
                                     </SimpleGrid>
-                                    <FormHelperText fontSize="10px">
-                                        تا وقتی کاربر عضو «کانال تلگرام اطلاع‌رسانی» بالا نشود، نمی‌تواند از ربات استفاده کند. ربات باید در آن کانال ادمین باشد.
-                                    </FormHelperText>
                                 </Box>
                                 </AccordionPanel>
                             </AccordionItem>
