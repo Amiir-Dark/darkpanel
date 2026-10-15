@@ -386,7 +386,7 @@ func getWelcomeText(u *User) string {
 	if strings.TrimSpace(customWelcome) != "" {
 		return customWelcome
 	}
-	brandName := GetSetting("brand_name", "گارد")
+	brandName := GetSetting("brand_name", "zonixvpn")
 	return fmt.Sprintf("درود و خوش آمدید! 🪪\n\nبرای خرید نمایندگی بدون دردسر و اذیت، با تنوع لوکیشن بالا و قیمت مناسب و سرعت کامل، مجموعه‌ی %s در خدمت شما عزیزان می‌باشد.", brandName)
 }
 
@@ -395,8 +395,7 @@ func getTermsText() string {
 	if strings.TrimSpace(customTerms) != "" {
 		return customTerms
 	}
-	brandName := GetSetting("brand_name", "گارد")
-	hourlyFee := GetSetting("hourly_fee", "۱۳۸")
+	brandName := GetSetting("brand_name", "zonixvpn")
 	minPrice := GetSetting("min_price_per_gb", "۴۱۵۰")
 	maxPrice := GetSetting("max_price_per_gb", "۵۰۰۰")
 
@@ -404,9 +403,8 @@ func getTermsText() string {
 
 در %s با مدل Pay As You Go فقط بابت ترافیک واقعی مصرف‌شده هزینه می‌پردازید؛ بدون خرید حجم از قبل و بدون هزینه پنهان.
 
-💵 <b>هزینه هر گیگابایت:</b> از %s تا %s تومان
-⏱ <b>هزینه نمایندگی:</b> %s تومان در ساعت`,
-		brandName, minPrice, maxPrice, hourlyFee)
+💵 <b>هزینه هر گیگابایت:</b> از %s تا %s تومان`,
+		brandName, minPrice, maxPrice)
 }
 
 func getWalletText(u *User) string {

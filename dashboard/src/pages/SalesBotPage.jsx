@@ -2896,7 +2896,7 @@ export const SalesBotPage = () => {
                                             size="sm"
                                             value={formSettings.brand_name || ""}
                                             onChange={(e) => handleSettingChange("brand_name", e.target.value)}
-                                            placeholder="گارد"
+                                            placeholder="zonixvpn"
                                             borderRadius="md"
                                         />
                                     </FormControl>
