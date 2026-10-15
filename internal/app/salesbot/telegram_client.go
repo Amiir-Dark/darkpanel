@@ -129,6 +129,10 @@ type ReplyKeyboardMarkup struct {
 	IsPersistent   bool               `json:"is_persistent,omitempty"`
 }
 
+type ReplyKeyboardRemove struct {
+	RemoveKeyboard bool `json:"remove_keyboard"`
+}
+
 type KeyboardButton struct {
 	Text string `json:"text"`
 }
@@ -273,6 +277,33 @@ func (c *TelegramClient) EditMessageText(ctx context.Context, token string, chat
 		_, err = c.call(ctx, token, "editMessageText", payload)
 	}
 	return err
+}
+
+func (c *TelegramClient) DeleteMessage(ctx context.Context, token string, chatID, messageID int64) error {
+	payload := map[string]any{
+		"chat_id":    chatID,
+		"message_id": messageID,
+	}
+	_, err := c.call(ctx, token, "deleteMessage", payload)
+	return err
+}
+
+func (c *TelegramClient) RemoveReplyKeyboard(ctx context.Context, token string, chatID int64) {
+	payload := map[string]any{
+		"chat_id":      chatID,
+		"text":         "🔄",
+		"reply_markup": ReplyKeyboardRemove{RemoveKeyboard: true},
+	}
+	raw, err := c.call(ctx, token, "sendMessage", payload)
+	if err != nil {
+		return
+	}
+	var res struct {
+		MessageID int64 `json:"message_id"`
+	}
+	if err := json.Unmarshal(raw, &res); err == nil && res.MessageID > 0 {
+		_ = c.DeleteMessage(ctx, token, chatID, res.MessageID)
+	}
 }
 
 

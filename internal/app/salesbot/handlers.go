@@ -285,7 +285,42 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 	switch {
 	case strings.HasPrefix(text, "/start") || text == "منوی اصلی" || text == "منو" || text == "شروع":
 		ClearUserState(userID)
+		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
 		s.sendWelcome(ctx, user)
+
+	case text == "⚡ شارژ کیف پول (پرداخت ۵ دقیقه‌ای)":
+		ClearUserState(userID)
+		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
+		text := "💳 <b>افزایش موجودی کیف پول</b>\n\nلطفاً روش واریز مورد نظر خود را انتخاب نمایید:"
+		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, text, depositKeyboard())
+
+	case text == "📊 وضعیت اشتراک و اعتبار":
+		ClearUserState(userID)
+		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
+		hasPanel := user.PanelUsername != "" && user.ServiceStatus == "active"
+		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, getMyPanelsText(user), myPanelsKeyboard(hasPanel))
+
+	case text == "💳 ارسال فیش کارت به کارت":
+		ClearUserState(userID)
+		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
+		SetUserState(user.TelegramID, "awaiting_receipt_amount", "")
+		s.promptReceipt(ctx, user)
+
+	case text == "📖 راهنمای اتصال" || text == "📞 پشتیبانی" || text == "پشتیبانی":
+		ClearUserState(userID)
+		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
+		supportUser := GetSetting("support_username", "@AdminSupport")
+		channelUser := GetSetting("channel_username", "")
+		text := fmt.Sprintf(
+			"📮 <b>پشتیبانی و ارتباط با ما:</b>\n\n"+
+				"در صورت بروز هرگونه سوال یا مشکل با آیدی زیر در ارتباط باشید:\n"+
+				"👉 <b>%s</b>\n\n",
+			supportUser,
+		)
+		if channelUser != "" {
+			text += fmt.Sprintf("📢 <b>کانال اطلاع‌رسانی:</b>\n👉 <b>%s</b>\n", channelUser)
+		}
+		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, text, backKeyboard())
 
 	case state == "awaiting_amount":
 		s.processChargeAmount(ctx, user, text)
@@ -297,6 +332,7 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 		s.processGiftCode(ctx, user, text)
 
 	default:
+		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
 		s.sendWelcome(ctx, user)
 	}
 }
@@ -462,6 +498,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 }
 
 func (s *Service) sendWelcome(ctx context.Context, u *User) {
+	s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, u.TelegramID)
 	text := getWelcomeText(u)
 	if err := s.tgClient.SendMessage(ctx, s.botToken, u.TelegramID, text, mainInlineKeyboard()); err != nil {
 		fmt.Printf("[SalesBot] Failed to send welcome message to %d: %v\n", u.TelegramID, err)
