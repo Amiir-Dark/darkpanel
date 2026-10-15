@@ -262,6 +262,16 @@ func GetDB() (*sql.DB, string, error) {
 		sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(user_id, notif_type)
 	);
+
+	CREATE TABLE IF NOT EXISTS panel_usage_tracking (
+		panel_username TEXT PRIMARY KEY,
+		user_id INTEGER NOT NULL,
+		last_synced_bytes INTEGER DEFAULT 0,
+		total_billed_bytes INTEGER DEFAULT 0,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_panel_usage_user ON panel_usage_tracking(user_id);
 	`
 	if _, err := conn.Exec(schema); err != nil {
 		_ = conn.Close()
@@ -301,6 +311,14 @@ func GetDB() (*sql.DB, string, error) {
 		       CASE WHEN has_used_test = 1 AND panel_username LIKE 'test_%' THEN 'test' ELSE 'payg' END,
 		       CASE WHEN service_status = 'disabled' THEN 'disabled' ELSE 'active' END
 		FROM users
+		WHERE panel_username != '' AND panel_username IS NOT NULL;
+	`)
+
+	// Populate panel_usage_tracking from usage_tracking if present
+	_, _ = conn.Exec(`
+		INSERT OR IGNORE INTO panel_usage_tracking (panel_username, user_id, last_synced_bytes, total_billed_bytes, updated_at)
+		SELECT panel_username, user_id, last_synced_bytes, total_billed_bytes, updated_at
+		FROM usage_tracking
 		WHERE panel_username != '' AND panel_username IS NOT NULL;
 	`)
 

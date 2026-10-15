@@ -131,7 +131,11 @@ func readEnvKey(filePath, key string) string {
 	return ""
 }
 
-func generateRandomUsername() string {
+func generateRandomUsername(prefix ...string) string {
+	pref := "user_"
+	if len(prefix) > 0 && prefix[0] != "" {
+		pref = prefix[0]
+	}
 	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, 6)
 	max := big.NewInt(int64(len(letters)))
@@ -143,7 +147,7 @@ func generateRandomUsername() string {
 			b[i] = letters[n.Int64()]
 		}
 	}
-	return fmt.Sprintf("test_%s", string(b))
+	return fmt.Sprintf("%s%s", pref, string(b))
 }
 
 func generateRandomPassword(length int) string {
@@ -239,7 +243,7 @@ func CreateTestAdmin(ctx context.Context, tgID int64, firstName string) (usernam
 	// 1. Generate unique random username
 	var chosenUser string
 	for attempts := 0; attempts < 10; attempts++ {
-		candidate := generateRandomUsername()
+		candidate := generateRandomUsername("test_")
 		var count int
 		err := mainDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins WHERE LOWER(username) = LOWER(?)`, candidate).Scan(&count)
 		if err == nil && count == 0 {
@@ -320,6 +324,18 @@ func CreateTestAdmin(ctx context.Context, tgID int64, firstName string) (usernam
 	_ = MarkUserUsedTest(tgID)
 	_ = ActivateUserPanel(tgID, chosenUser, rawPassword, panelURL, "test")
 
+	// 9. Baseline usage tracking for this test panel (test panels are NEVER billed to wallet)
+	sqliteDB, _, sErr := GetDB()
+	if sErr == nil && sqliteDB != nil {
+		var currentBytes int64
+		_ = mainDB.QueryRowContext(ctx, `SELECT COALESCE(lifetime_usage, 0) FROM admins WHERE id = ?`, adminID).Scan(&currentBytes)
+		_, _ = sqliteDB.ExecContext(ctx, `
+			INSERT INTO panel_usage_tracking (panel_username, user_id, last_synced_bytes, total_billed_bytes, updated_at)
+			VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
+			ON CONFLICT(panel_username) DO UPDATE SET last_synced_bytes = excluded.last_synced_bytes
+		`, chosenUser, tgID, currentBytes)
+	}
+
 	return chosenUser, rawPassword, panelURL, nil
 }
 
@@ -382,9 +398,14 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 			var currentBytes int64
 			_ = mainDB.QueryRowContext(ctx, `SELECT COALESCE(lifetime_usage, 0) FROM admins WHERE id = ?`, adminID).Scan(&currentBytes)
 			_, _ = sqliteDB.ExecContext(ctx, `
+				INSERT INTO panel_usage_tracking (panel_username, user_id, last_synced_bytes, total_billed_bytes, updated_at)
+				VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
+				ON CONFLICT(panel_username) DO UPDATE SET last_synced_bytes = excluded.last_synced_bytes
+			`, existingUser.PanelUsername, tgID, currentBytes)
+			_, _ = sqliteDB.ExecContext(ctx, `
 				INSERT INTO usage_tracking (user_id, panel_username, last_synced_bytes, total_billed_bytes, updated_at)
 				VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
-				ON CONFLICT(user_id) DO UPDATE SET panel_username = excluded.panel_username
+				ON CONFLICT(user_id) DO UPDATE SET panel_username = excluded.panel_username, last_synced_bytes = excluded.last_synced_bytes
 			`, tgID, existingUser.PanelUsername, currentBytes)
 
 			_ = ActivateUserPanel(tgID, existingUser.PanelUsername, existingUser.PanelPassword, panelURL, "payg")
@@ -395,7 +416,7 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 	// Create fresh reseller admin account
 	var chosenUser string
 	for attempts := 0; attempts < 10; attempts++ {
-		candidate := generateRandomUsername()
+		candidate := generateRandomUsername("user_")
 		var count int
 		err := mainDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins WHERE LOWER(username) = LOWER(?)`, candidate).Scan(&count)
 		if err == nil && count == 0 {
@@ -454,6 +475,11 @@ func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (us
 
 	// Initialize usage tracking baseline at 0
 	_, _ = sqliteDB.ExecContext(ctx, `
+		INSERT INTO panel_usage_tracking (panel_username, user_id, last_synced_bytes, total_billed_bytes, updated_at)
+		VALUES (?, ?, 0, 0, CURRENT_TIMESTAMP)
+		ON CONFLICT(panel_username) DO UPDATE SET last_synced_bytes = 0
+	`, chosenUser, tgID)
+	_, _ = sqliteDB.ExecContext(ctx, `
 		INSERT INTO usage_tracking (user_id, panel_username, last_synced_bytes, total_billed_bytes, updated_at)
 		VALUES (?, ?, 0, 0, CURRENT_TIMESTAMP)
 		ON CONFLICT(user_id) DO UPDATE SET panel_username = excluded.panel_username, last_synced_bytes = 0
@@ -483,16 +509,6 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 		pricePerGB = 5000
 	}
 
-	rows, err := sqliteDB.QueryContext(ctx, `
-		SELECT telegram_id, panel_username, panel_password, sub_url, wallet_balance, total_spent, service_status
-		FROM users
-		WHERE panel_username != '' AND service_status IN ('active', 'disabled')
-	`)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-
 	type billingTarget struct {
 		telegramID    int64
 		panelUsername string
@@ -501,16 +517,51 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 		walletBalance float64
 		totalSpent    float64
 		serviceStatus string
+		panelType     string
 	}
 
 	var targets []billingTarget
-	for rows.Next() {
-		var t billingTarget
-		if err := rows.Scan(&t.telegramID, &t.panelUsername, &t.panelPassword, &t.subURL, &t.walletBalance, &t.totalSpent, &t.serviceStatus); err == nil {
-			targets = append(targets, t)
+
+	// Query active panels from user_panels joined with users
+	rows, err := sqliteDB.QueryContext(ctx, `
+		SELECT up.user_id, up.panel_username, up.panel_password, up.panel_url, 
+		       COALESCE(u.wallet_balance, 0), COALESCE(u.total_spent, 0), up.status, COALESCE(up.panel_type, 'payg')
+		FROM user_panels up
+		JOIN users u ON u.telegram_id = up.user_id
+		WHERE up.status != 'deleted' AND up.panel_username != ''
+	`)
+	if err == nil {
+		for rows.Next() {
+			var t billingTarget
+			if err := rows.Scan(&t.telegramID, &t.panelUsername, &t.panelPassword, &t.subURL, &t.walletBalance, &t.totalSpent, &t.serviceStatus, &t.panelType); err == nil {
+				targets = append(targets, t)
+			}
+		}
+		_ = rows.Close()
+	}
+
+	// Fallback for any legacy users not yet in user_panels
+	if len(targets) == 0 {
+		legacyRows, err := sqliteDB.QueryContext(ctx, `
+			SELECT telegram_id, panel_username, panel_password, sub_url, wallet_balance, total_spent, service_status
+			FROM users
+			WHERE panel_username != '' AND service_status IN ('active', 'disabled')
+		`)
+		if err == nil {
+			for legacyRows.Next() {
+				var t billingTarget
+				if err := legacyRows.Scan(&t.telegramID, &t.panelUsername, &t.panelPassword, &t.subURL, &t.walletBalance, &t.totalSpent, &t.serviceStatus); err == nil {
+					pType := "payg"
+					if strings.HasPrefix(strings.ToLower(t.panelUsername), "test_") {
+						pType = "test"
+					}
+					t.panelType = pType
+					targets = append(targets, t)
+				}
+			}
+			_ = legacyRows.Close()
 		}
 	}
-	_ = rows.Close()
 
 	for _, target := range targets {
 		if strings.TrimSpace(target.panelUsername) == "" {
@@ -538,54 +589,142 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 			currentBytes = usersUsage
 		}
 
-		// 2. Query usage_tracking baseline
+		// Strictly identify TEST panels:
+		// 1) panel_type == 'test'
+		// 2) username starts with 'test_'
+		// 3) admin has finite data_limit and expire (test quota)
+		isTestPanel := strings.EqualFold(target.panelType, "test") ||
+			strings.HasPrefix(strings.ToLower(target.panelUsername), "test_") ||
+			(dataLimit > 0 && expire > 0)
+
+		// 2. Query usage baseline per panel username
 		var lastSyncedBytes, totalBilledBytes int64
 		err = sqliteDB.QueryRowContext(ctx, `
 			SELECT last_synced_bytes, total_billed_bytes
-			FROM usage_tracking
-			WHERE user_id = ?
-		`, target.telegramID).Scan(&lastSyncedBytes, &totalBilledBytes)
+			FROM panel_usage_tracking
+			WHERE LOWER(panel_username) = LOWER(?)
+		`, target.panelUsername).Scan(&lastSyncedBytes, &totalBilledBytes)
 
 		if err == sql.ErrNoRows {
-			// First time tracking this admin: set baseline to currentBytes without back-billing
+			// First time tracking this panel: set baseline to currentBytes without back-billing
 			_, _ = sqliteDB.ExecContext(ctx, `
-				INSERT INTO usage_tracking (user_id, panel_username, last_synced_bytes, total_billed_bytes, updated_at)
+				INSERT INTO panel_usage_tracking (panel_username, user_id, last_synced_bytes, total_billed_bytes, updated_at)
 				VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
-			`, target.telegramID, target.panelUsername, currentBytes)
+				ON CONFLICT(panel_username) DO UPDATE SET last_synced_bytes = excluded.last_synced_bytes
+			`, target.panelUsername, target.telegramID, currentBytes)
 			continue
 		} else if err != nil {
 			continue
 		}
 
-		// 3. Calculate delta usage
-		if currentBytes <= lastSyncedBytes {
+		// Calculate delta usage
+		var deltaBytes int64
+		if currentBytes > lastSyncedBytes {
+			deltaBytes = currentBytes - lastSyncedBytes
+		}
+
+		// Update panel usage tracking baseline
+		if currentBytes != lastSyncedBytes {
+			_, _ = sqliteDB.ExecContext(ctx, `
+				UPDATE panel_usage_tracking
+				SET last_synced_bytes = ?, updated_at = CURRENT_TIMESTAMP
+				WHERE LOWER(panel_username) = LOWER(?)
+			`, currentBytes, target.panelUsername)
+		}
+
+		// ======================= TEST PANELS: 100% FREE =======================
+		// NEVER calculate cost, NEVER deduct from wallet, NEVER disable for balance!
+		if isTestPanel {
+			// If test panel was mistakenly marked disabled due to wallet balance, re-activate it
+			if adminStatus == "disabled" || target.serviceStatus == "disabled" {
+				var disabledReason sql.NullString
+				_ = mainDB.QueryRowContext(ctx, `SELECT disabled_reason FROM admins WHERE id = ?`, adminID).Scan(&disabledReason)
+				if strings.Contains(disabledReason.String, "کیف پول") || strings.Contains(disabledReason.String, "موجودی") {
+					_, _ = mainDB.ExecContext(ctx, `UPDATE admins SET status = 'active', disabled_reason = NULL WHERE id = ?`, adminID)
+					_, _ = sqliteDB.ExecContext(ctx, `UPDATE user_panels SET status = 'active' WHERE LOWER(panel_username) = LOWER(?)`, target.panelUsername)
+					_, _ = sqliteDB.ExecContext(ctx, `UPDATE users SET service_status = 'active' WHERE telegram_id = ? AND LOWER(panel_username) = LOWER(?)`, target.telegramID, target.panelUsername)
+				}
+			}
+
+			// Handle low traffic & expiry warnings for test panel
+			notifyLowTraffic := GetSetting("notify_low_traffic_enabled", "true") != "false"
+			lowTrafficThresholdGB := GetSettingFloat("low_traffic_threshold_gb", 1.0)
+			notifyExpiry := GetSetting("notify_expiry_enabled", "true") != "false"
+			expiryThresholdHours := int64(GetSettingInt("expiry_threshold_hours", 12))
+
+			if notifyLowTraffic && dataLimit > 0 {
+				remainingBytes := dataLimit - currentBytes
+				remainingGB := float64(remainingBytes) / (1024.0 * 1024.0 * 1024.0)
+				if remainingBytes > 0 && remainingGB <= lowTrafficThresholdGB {
+					if CanSendUserNotification(target.telegramID, "low_traffic_"+target.panelUsername, 24) && tgClient != nil && botToken != "" {
+						alertText := fmt.Sprintf(
+							"📊 <b>هشدار حجم ترافیک پنل تست</b>\n\n"+
+								"👤 کاربر گرامی (<code>%s</code>)،\n"+
+								"تنها <b>%.2f گیگابایت</b> از حجم ترافیک پنل تست شما باقی مانده است.\n\n"+
+								"⚡️ در صورت رضایت، می‌توانید از منوی ربات اقدام به ارتقا به پنل نمایندگی دائمی فرمایید.",
+							target.panelUsername, remainingGB,
+						)
+						_ = tgClient.SendMessage(ctx, botToken, target.telegramID, alertText, myPanelsKeyboard(true, target.subURL))
+						RecordUserNotification(target.telegramID, "low_traffic_"+target.panelUsername)
+					}
+				}
+			}
+
+			if notifyExpiry && expire > 0 {
+				nowUnix := time.Now().Unix()
+				secondsLeft := expire - nowUnix
+				hoursLeft := secondsLeft / 3600
+				if secondsLeft > 0 && hoursLeft <= expiryThresholdHours {
+					if CanSendUserNotification(target.telegramID, "expiry_warning_"+target.panelUsername, 24) && tgClient != nil && botToken != "" {
+						alertText := fmt.Sprintf(
+							"⏰ <b>هشدار زمان پایان مهلت تست</b>\n\n"+
+								"👤 کاربر گرامی (<code>%s</code>)،\n"+
+								"تنها <b>%d ساعت</b> تا پایان مدت اعتبار پنل تست شما باقی مانده است.\n\n"+
+								"💡 جهت ارتقای پنل به نمایندگی دائمی به منوی ربات مراجعه فرمایید.",
+							target.panelUsername, hoursLeft,
+						)
+						_ = tgClient.SendMessage(ctx, botToken, target.telegramID, alertText, myPanelsKeyboard(true, target.subURL))
+						RecordUserNotification(target.telegramID, "expiry_warning_"+target.panelUsername)
+					}
+				}
+			}
+
+			// Bypassed completely without touching wallet balance
+			continue
+		}
+
+		// ======================= PAY-AS-YOU-GO BILLING =======================
+		// Refresh latest wallet balance directly from users table
+		var currentWalletBalance, currentTotalSpent float64
+		_ = sqliteDB.QueryRowContext(ctx, `SELECT wallet_balance, total_spent FROM users WHERE telegram_id = ?`, target.telegramID).Scan(&currentWalletBalance, &currentTotalSpent)
+
+		if deltaBytes <= 0 {
 			// No new usage
-			// If user's balance is positive and they were disabled, restore active
-			if target.walletBalance > 0 && (adminStatus == "disabled" || target.serviceStatus == "disabled") {
-				reactivateUserAndAdmin(ctx, mainDB, sqliteDB, tgClient, botToken, target.telegramID, target.panelUsername, target.subURL, target.walletBalance)
+			if currentWalletBalance > 0 && (adminStatus == "disabled" || target.serviceStatus == "disabled") {
+				reactivateUserAndAdmin(ctx, mainDB, sqliteDB, tgClient, botToken, target.telegramID, target.panelUsername, target.subURL, currentWalletBalance)
 			}
 			continue
 		}
 
-		deltaBytes := currentBytes - lastSyncedBytes
 		deltaGB := float64(deltaBytes) / (1024.0 * 1024.0 * 1024.0)
 		cost := deltaGB * pricePerGB
 
-		newBalance := target.walletBalance - cost
-		newTotalSpent := target.totalSpent + cost
+		newBalance := currentWalletBalance - cost
+		newTotalSpent := currentTotalSpent + cost
 
-		// 4. Update SQLite records
+		// Update users wallet balance
 		_, _ = sqliteDB.ExecContext(ctx, `
 			UPDATE users
 			SET wallet_balance = ?, total_spent = ?
 			WHERE telegram_id = ?
 		`, newBalance, newTotalSpent, target.telegramID)
 
+		// Record billed bytes for this panel
 		_, _ = sqliteDB.ExecContext(ctx, `
-			UPDATE usage_tracking
-			SET last_synced_bytes = ?, total_billed_bytes = total_billed_bytes + ?, updated_at = CURRENT_TIMESTAMP
-			WHERE user_id = ?
-		`, currentBytes, deltaBytes, target.telegramID)
+			UPDATE panel_usage_tracking
+			SET total_billed_bytes = total_billed_bytes + ?
+			WHERE LOWER(panel_username) = LOWER(?)
+		`, deltaBytes, target.panelUsername)
 
 		// 5. Smart Notifications (Low Balance, Low Traffic, Expiry)
 		notifyLowBalance := GetSetting("notify_low_balance_enabled", "true") != "false"
@@ -617,7 +756,7 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 			remainingBytes := dataLimit - currentBytes
 			remainingGB := float64(remainingBytes) / (1024.0 * 1024.0 * 1024.0)
 			if remainingBytes > 0 && remainingGB <= lowTrafficThresholdGB {
-				if CanSendUserNotification(target.telegramID, "low_traffic", 24) && tgClient != nil && botToken != "" {
+				if CanSendUserNotification(target.telegramID, "low_traffic_"+target.panelUsername, 24) && tgClient != nil && botToken != "" {
 					alertText := fmt.Sprintf(
 						"📊 <b>هشدار حجم ترافیک باقی‌مانده</b>\n\n"+
 							"👤 کاربر گرامی (<code>%s</code>)،\n"+
@@ -626,7 +765,7 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 						target.panelUsername, remainingGB,
 					)
 					_ = tgClient.SendMessage(ctx, botToken, target.telegramID, alertText, myPanelsKeyboard(true, target.subURL))
-					RecordUserNotification(target.telegramID, "low_traffic")
+					RecordUserNotification(target.telegramID, "low_traffic_"+target.panelUsername)
 				}
 			}
 		}
@@ -637,7 +776,7 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 			secondsLeft := expire - nowUnix
 			hoursLeft := secondsLeft / 3600
 			if secondsLeft > 0 && hoursLeft <= expiryThresholdHours {
-				if CanSendUserNotification(target.telegramID, "expiry_warning", 24) && tgClient != nil && botToken != "" {
+				if CanSendUserNotification(target.telegramID, "expiry_warning_"+target.panelUsername, 24) && tgClient != nil && botToken != "" {
 					alertText := fmt.Sprintf(
 						"⏰ <b>هشدار زمان تمدید سرویس</b>\n\n"+
 							"👤 کاربر گرامی (<code>%s</code>)،\n"+
@@ -646,18 +785,24 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 						target.panelUsername, hoursLeft,
 					)
 					_ = tgClient.SendMessage(ctx, botToken, target.telegramID, alertText, myPanelsKeyboard(true, target.subURL))
-					RecordUserNotification(target.telegramID, "expiry_warning")
+					RecordUserNotification(target.telegramID, "expiry_warning_"+target.panelUsername)
 				}
 			}
 		}
 
-		// 6. Handle Zero or Negative Balance
+		// 6. Handle Zero or Negative Balance for PAYG panel
 		if newBalance <= 0 {
 			if adminStatus != "disabled" || target.serviceStatus != "disabled" {
 				_, _ = mainDB.ExecContext(ctx, `
 					UPDATE admins
 					SET status = 'disabled', disabled_reason = 'اتمام موجودی کیف پول'
 					WHERE LOWER(username) = LOWER(?)
+				`, target.panelUsername)
+
+				_, _ = sqliteDB.ExecContext(ctx, `
+					UPDATE user_panels
+					SET status = 'disabled'
+					WHERE LOWER(panel_username) = LOWER(?)
 				`, target.panelUsername)
 
 				_, _ = sqliteDB.ExecContext(ctx, `
@@ -689,6 +834,12 @@ func reactivateUserAndAdmin(ctx context.Context, mainDB *sql.DB, sqliteDB *sql.D
 		UPDATE admins
 		SET status = 'active', disabled_reason = NULL
 		WHERE LOWER(username) = LOWER(?)
+	`, username)
+
+	_, _ = sqliteDB.ExecContext(ctx, `
+		UPDATE user_panels
+		SET status = 'active'
+		WHERE LOWER(panel_username) = LOWER(?)
 	`, username)
 
 	_, _ = sqliteDB.ExecContext(ctx, `
@@ -735,6 +886,12 @@ func ReactivateAdminIfPaid(tgID int64) {
 			SET status = 'active', disabled_reason = NULL
 			WHERE LOWER(username) = LOWER(?)
 		`, panelUser)
+
+		_, _ = sqliteDB.Exec(`
+			UPDATE user_panels
+			SET status = 'active'
+			WHERE user_id = ? AND status = 'disabled'
+		`, tgID)
 
 		_, _ = sqliteDB.Exec(`
 			UPDATE users
@@ -885,6 +1042,7 @@ func DeleteAdminPanel(ctx context.Context, tgID int64, panelID int64) (string, e
 	// Remove usage tracking & reset test panel access so user can test again
 	sqliteDB, _, err := GetDB()
 	if err == nil && sqliteDB != nil {
+		_, _ = sqliteDB.ExecContext(ctx, `DELETE FROM panel_usage_tracking WHERE LOWER(panel_username) = LOWER(?)`, panel.PanelUsername)
 		_, _ = sqliteDB.ExecContext(ctx, `DELETE FROM usage_tracking WHERE LOWER(panel_username) = LOWER(?)`, panel.PanelUsername)
 		_, _ = sqliteDB.ExecContext(ctx, `UPDATE users SET has_used_test = 0 WHERE telegram_id = ?`, tgID)
 	}

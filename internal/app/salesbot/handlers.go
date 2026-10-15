@@ -829,6 +829,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 				"🔑 <b>کلمه عبور:</b> <code>%s</code>\n\n"+
 				"📦 <b>میزان ترافیک:</b> %s گیگابایت\n"+
 				"⏳ <b>مدت اعتبار:</b> %s\n"+
+				"🎁 <b>هزینه:</b> رایگان (بدون کسر از موجودی کیف پول)\n"+
 				"🛡️ <b>نوع دسترسی:</b> نماینده (Reseller)\n\n"+
 				"💡 <i>راهنما: وارد آدرس پنل شوید و با مشخصات بالا لاگین فرمایید.</i>",
 			panelDisplay, adminUser, adminPass,
