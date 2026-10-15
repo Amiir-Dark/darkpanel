@@ -147,7 +147,7 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/build_binary.sh
-          tar -C dist -czf "dist/${ASSET_NAME}" rebecca-server rebecca-cli templates
+          tar -C dist -czf "dist/${ASSET_NAME}" rebecca-server rebecca-cli darkpanel-bot templates
           sha256sum "dist/${ASSET_NAME}"
 
       - name: Upload Linux package artifact
@@ -203,7 +203,7 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path dist/rebecca-server.exe, dist/rebecca-cli.exe, dist/templates `
+            -Path dist/rebecca-server.exe, dist/rebecca-cli.exe, dist/darkpanel-bot.exe, dist/templates `
             -DestinationPath dist/rebecca-windows-amd64.zip `
             -Force
 

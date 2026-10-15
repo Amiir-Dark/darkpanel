@@ -44,3 +44,4 @@ fi
 echo "Rebecca Go gateway built at $gateway_output"
 
 bash scripts/build_go_cli.sh
+bash scripts/build_bot.sh

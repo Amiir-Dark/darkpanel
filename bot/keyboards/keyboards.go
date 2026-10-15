@@ -75,18 +75,23 @@ func AdminReceiptApprovalInline(receiptID int64, amount float64) tgbotapi.Inline
 func AdminMenuInline() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 گزارش مالی و تراکنش‌ها", "adm_transactions"),
+			tgbotapi.NewInlineKeyboardButtonData("📶 آمار اینباندها و سرور", "adm_inbounds"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📩 فیش‌های در انتظار بررسی", "adm_pending_receipts"),
 			tgbotapi.NewInlineKeyboardButtonData("💰 تنظیم قیمت هر گیگابایت", "adm_set_price"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("💳 تنظیم شماره کارت", "adm_set_card"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("💎 تنظیم آدرس ولت تتر", "adm_set_crypto"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🎁 تنظیم تست رایگان", "adm_set_trial"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📢 ارسال پیام همگانی", "adm_broadcast"),
-			tgbotapi.NewInlineKeyboardButtonData("📊 آمار و گزارش کلی", "adm_stats"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📊 آمار و خلاصه کلی", "adm_stats"),
 			tgbotapi.NewInlineKeyboardButtonData("👥 لیست کاربران", "adm_users"),
 		),
 	)

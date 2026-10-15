@@ -280,3 +280,100 @@ func (d *DB) GetStats() (*Stats, error) {
 
 	return &s, nil
 }
+
+type ReceiptWithUser struct {
+	ID        int64
+	UserID    int64
+	Username  string
+	FirstName string
+	Amount    float64
+	FileID    string
+	Status    string
+	CreatedAt time.Time
+}
+
+type FinancialStats struct {
+	TotalApproved        float64
+	TodayApproved        float64
+	WeekApproved         float64
+	TotalPendingCount    int64
+	TotalPendingAmount   float64
+	TotalRejectedCount   int64
+	TotalBilledTrafficGB float64
+	TotalBilledRevenue   float64
+}
+
+func (d *DB) GetFinancialStats(pricePerGB float64) (*FinancialStats, error) {
+	var s FinancialStats
+
+	// Total approved
+	_ = d.db.QueryRow(`SELECT COALESCE(SUM(amount), 0) FROM receipts WHERE status = 'approved'`).Scan(&s.TotalApproved)
+
+	// Today approved
+	_ = d.db.QueryRow(`SELECT COALESCE(SUM(amount), 0) FROM receipts WHERE status = 'approved' AND date(created_at) = date('now')`).Scan(&s.TodayApproved)
+
+	// Week approved
+	_ = d.db.QueryRow(`SELECT COALESCE(SUM(amount), 0) FROM receipts WHERE status = 'approved' AND created_at >= datetime('now', '-7 days')`).Scan(&s.WeekApproved)
+
+	// Pending
+	_ = d.db.QueryRow(`SELECT COUNT(*), COALESCE(SUM(amount), 0) FROM receipts WHERE status = 'pending'`).Scan(&s.TotalPendingCount, &s.TotalPendingAmount)
+
+	// Rejected
+	_ = d.db.QueryRow(`SELECT COUNT(*) FROM receipts WHERE status = 'rejected'`).Scan(&s.TotalRejectedCount)
+
+	// Billed traffic & revenue
+	var totalBytes int64
+	_ = d.db.QueryRow(`SELECT COALESCE(SUM(total_billed_bytes), 0) FROM usage_tracking`).Scan(&totalBytes)
+	s.TotalBilledTrafficGB = float64(totalBytes) / (1024 * 1024 * 1024)
+	s.TotalBilledRevenue = s.TotalBilledTrafficGB * pricePerGB
+
+	return &s, nil
+}
+
+func (d *DB) GetRecentTransactions(limit int) ([]ReceiptWithUser, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := d.db.Query(`
+		SELECT r.id, r.user_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), r.amount, r.file_id, r.status, r.created_at
+		FROM receipts r
+		LEFT JOIN users u ON r.user_id = u.telegram_id
+		ORDER BY r.created_at DESC
+		LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []ReceiptWithUser
+	for rows.Next() {
+		var item ReceiptWithUser
+		if err := rows.Scan(&item.ID, &item.UserID, &item.Username, &item.FirstName, &item.Amount, &item.FileID, &item.Status, &item.CreatedAt); err == nil {
+			list = append(list, item)
+		}
+	}
+	return list, nil
+}
+
+func (d *DB) GetPendingReceipts() ([]ReceiptWithUser, error) {
+	rows, err := d.db.Query(`
+		SELECT r.id, r.user_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), r.amount, r.file_id, r.status, r.created_at
+		FROM receipts r
+		LEFT JOIN users u ON r.user_id = u.telegram_id
+		WHERE r.status = 'pending'
+		ORDER BY r.created_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []ReceiptWithUser
+	for rows.Next() {
+		var item ReceiptWithUser
+		if err := rows.Scan(&item.ID, &item.UserID, &item.Username, &item.FirstName, &item.Amount, &item.FileID, &item.Status, &item.CreatedAt); err == nil {
+			list = append(list, item)
+		}
+	}
+	return list, nil
+}
+

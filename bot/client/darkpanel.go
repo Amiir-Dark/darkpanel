@@ -245,3 +245,42 @@ func (c *PanelClient) SetUserStatus(ctx context.Context, username, status string
 
 	return fmt.Errorf("failed to set user %q status to %q: %w", username, status, lastErr)
 }
+
+func (c *PanelClient) GetInbounds(ctx context.Context) (map[string]any, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, "/api/inbounds", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get inbounds (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *PanelClient) GetSystemStats(ctx context.Context) (map[string]any, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, "/api/system", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get system stats (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
