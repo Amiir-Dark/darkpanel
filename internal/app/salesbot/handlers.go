@@ -119,18 +119,45 @@ func walletKeyboard() InlineKeyboardMarkup {
 	}
 }
 
-func emptyPanelsKeyboard() InlineKeyboardMarkup {
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"},
-				{Text: "🧪 دریافت پنل تست", CallbackData: "test_panel"},
-			},
-			{
-				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-			},
-		},
+func canUserTakeTest(user *User) bool {
+	if user == nil {
+		return false
 	}
+	testEnabled := GetSetting("test_panel_enabled", "true")
+	if testEnabled == "false" || testEnabled == "0" {
+		return false
+	}
+	maxTests := GetSettingInt("test_limit_per_user", 1)
+	if maxTests <= 0 {
+		return true
+	}
+	if user.HasUsedTest || user.TestUsageCount >= maxTests {
+		return false
+	}
+	return true
+}
+
+func getEmptyPanelsText(canTakeTest bool) string {
+	if canTakeTest {
+		return "📦 هنوز پنلی نداری.\n\nاز دکمه‌های زیر می‌تونی پنل تست یا پنل جدید بگیری."
+	}
+	return "📦 هنوز پنلی نداری.\n\nاز دکمه «دریافت پنل جدید» می‌تونی پنل جدید بگیری."
+}
+
+func emptyPanelsKeyboard(canTakeTest bool) InlineKeyboardMarkup {
+	var rows [][]InlineKeyboardButton
+	if canTakeTest {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "🧪 دریافت پنل تست", CallbackData: "test_panel"},
+		})
+	}
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"},
+	})
+	rows = append(rows, []InlineKeyboardButton{
+		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+	})
+	return InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
 func panelDetailKeyboard(panel UserPanel, canCreateMore bool, totalPanels int) InlineKeyboardMarkup {
@@ -227,9 +254,13 @@ func confirmDeleteKeyboard(panelID int64) InlineKeyboardMarkup {
 	}
 }
 
-func myPanelsKeyboard(hasPanel bool, panelURL string) InlineKeyboardMarkup {
+func myPanelsKeyboard(hasPanel bool, panelURL string, canTakeTest ...bool) InlineKeyboardMarkup {
 	if !hasPanel {
-		return emptyPanelsKeyboard()
+		canTest := false
+		if len(canTakeTest) > 0 {
+			canTest = canTakeTest[0]
+		}
+		return emptyPanelsKeyboard(canTest)
 	}
 	var rows [][]InlineKeyboardButton
 	if panelURL != "" && (strings.HasPrefix(panelURL, "http://") || strings.HasPrefix(panelURL, "https://")) {
@@ -486,14 +517,15 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 		text := "💳 <b>افزایش موجودی کیف پول</b>\n\nلطفاً روش واریز مورد نظر خود را انتخاب نمایید:"
 		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, text, depositKeyboard())
 
-	case text == "📊 وضعیت اشتراک و اعتبار":
+	case text == "📊 وضعیت اشتراک و اعتبار" || text == "🌐 پنل‌های من" || text == "پنل‌های من":
 		ClearUserState(userID)
 		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
 		panels, _ := GetUserPanels(user.TelegramID)
 		if len(panels) == 0 {
+			canTest := canUserTakeTest(user)
 			_ = s.tgClient.SendMessage(ctx, s.botToken, userID,
-				"🌐 <b>پنل‌های من</b>\n\n📦 <b>شما هنوز هیچ پنلی ثبت نکرده‌اید.</b>\n\nاز گزینه‌های زیر می‌توانید جهت دریافت پنل تست یا خرید پنل نمایندگی اقدام فرمایید.",
-				emptyPanelsKeyboard())
+				getEmptyPanelsText(canTest),
+				emptyPanelsKeyboard(canTest))
 		} else if len(panels) == 1 {
 			maxPanels := GetMaxPanelsPerUser()
 			canCreate := maxPanels == 0 || len(panels) < maxPanels
@@ -694,10 +726,8 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		ClearUserState(user.TelegramID)
 		panels, err := GetUserPanels(user.TelegramID)
 		if err != nil || len(panels) == 0 {
-			text := "🌐 <b>پنل‌های من</b>\n\n" +
-				"📦 <b>شما هنوز هیچ پنلی ثبت نکرده‌اید.</b>\n\n" +
-				"از دکمه‌های زیر می‌توانید جهت دریافت پنل تست رایگان یا خرید پنل نمایندگی جدید اقدام فرمایید."
-			s.editOrSend(ctx, chatID, messageID, text, emptyPanelsKeyboard())
+			canTest := canUserTakeTest(user)
+			s.editOrSend(ctx, chatID, messageID, getEmptyPanelsText(canTest), emptyPanelsKeyboard(canTest))
 			return
 		}
 
@@ -961,16 +991,11 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 				}
 				text := fmt.Sprintf(
 					"✅ <b>پنل <code>%s</code> با موفقیت حذف گردید.</b>\n\n"+
-						"کلیه دسترسی‌های این پنل پاک شدند و اکنون در صورت تمایل می‌توانید پنل تست رایگان یا پنل جدید دریافت فرمایید.",
+						"کلیه دسترسی‌های این پنل پاک شدند.",
 					delUsername,
 				)
-				s.editOrSend(ctx, chatID, messageID, text, InlineKeyboardMarkup{
-					InlineKeyboard: [][]InlineKeyboardButton{
-						{{Text: "🧪 دریافت پنل تست", CallbackData: "test_panel"}},
-						{{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"}},
-						{{Text: "🏠 منوی اصلی", CallbackData: "main_menu"}},
-					},
-				})
+				canTest := canUserTakeTest(user)
+				s.editOrSend(ctx, chatID, messageID, text, emptyPanelsKeyboard(canTest))
 			}
 		}
 	}
