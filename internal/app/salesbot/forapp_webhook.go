@@ -226,8 +226,8 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(`
 		UPDATE users 
-		SET wallet_balance = wallet_balance + ?, total_spent = total_spent + ?
-		WHERE telegram_id = ?`, exactAmountToman, exactAmountToman, userID)
+		SET wallet_balance = wallet_balance + ?
+		WHERE telegram_id = ?`, exactAmountToman, userID)
 	if err != nil {
 		http.Error(w, `{"error":"failed to credit user wallet"}`, http.StatusInternalServerError)
 		return
@@ -237,6 +237,8 @@ func (s *Service) HandleForAppWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to commit transaction"}`, http.StatusInternalServerError)
 		return
 	}
+
+	ReactivateAdminIfPaid(userID)
 
 	_ = RecordWebhookLog(WebhookLog{
 		Sender:          payload.Sender,

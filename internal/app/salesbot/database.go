@@ -568,6 +568,8 @@ func RedeemGiftCode(userID int64, rawCode string) (float64, error) {
 		return 0, err
 	}
 
+	ReactivateAdminIfPaid(userID)
+
 	return amount, nil
 }
 

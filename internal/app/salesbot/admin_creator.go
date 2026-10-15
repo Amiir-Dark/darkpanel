@@ -304,6 +304,345 @@ func CreateTestAdmin(ctx context.Context, tgID int64, firstName string) (usernam
 	return chosenUser, rawPassword, panelURL, nil
 }
 
+// CreatePurchasedAdmin creates a Pay-As-You-Go reseller admin account, or upgrades an existing test panel
+func CreatePurchasedAdmin(ctx context.Context, tgID int64, firstName string) (username, password, panelURL string, isUpgrade bool, err error) {
+	mainDB, _, err := GetMainDB()
+	if err != nil {
+		return "", "", "", false, fmt.Errorf("database connection error: %w", err)
+	}
+	sqliteDB, _, err := GetDB()
+	if err != nil {
+		return "", "", "", false, fmt.Errorf("sqlite connection error: %w", err)
+	}
+
+	var existingUser User
+	var uPanelUsername, uPanelPassword, uSubURL sql.NullString
+	_ = sqliteDB.QueryRowContext(ctx, `
+		SELECT panel_username, panel_password, sub_url
+		FROM users WHERE telegram_id = ?
+	`, tgID).Scan(&uPanelUsername, &uPanelPassword, &uSubURL)
+
+	existingUser.PanelUsername = uPanelUsername.String
+	existingUser.PanelPassword = uPanelPassword.String
+	existingUser.SubURL = uSubURL.String
+
+	panelURL = resolvePanelURL(mainDB)
+
+	// If user already has an admin account (e.g. from test panel), upgrade it to Pay-As-You-Go!
+	if existingUser.PanelUsername != "" {
+		var adminExists int
+		_ = mainDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins WHERE LOWER(username) = LOWER(?)`, existingUser.PanelUsername).Scan(&adminExists)
+		if adminExists > 0 {
+			// Upgrade admin in DarkPanel: remove data_limit and expire so it is pay-as-you-go!
+			_, _ = mainDB.ExecContext(ctx, `
+				UPDATE admins
+				SET data_limit = NULL, expire = NULL, status = 'active', disabled_reason = NULL
+				WHERE LOWER(username) = LOWER(?)
+			`, existingUser.PanelUsername)
+
+			// Ensure all services are assigned
+			var adminID int64
+			_ = mainDB.QueryRowContext(ctx, `SELECT id FROM admins WHERE LOWER(username) = LOWER(?)`, existingUser.PanelUsername).Scan(&adminID)
+			if adminID > 0 {
+				assignAllServicesToAdmin(ctx, mainDB, adminID)
+			}
+
+			// Ensure usage_tracking baseline
+			var currentBytes int64
+			_ = mainDB.QueryRowContext(ctx, `SELECT COALESCE(lifetime_usage, 0) FROM admins WHERE id = ?`, adminID).Scan(&currentBytes)
+			_, _ = sqliteDB.ExecContext(ctx, `
+				INSERT INTO usage_tracking (user_id, panel_username, last_synced_bytes, total_billed_bytes, updated_at)
+				VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
+				ON CONFLICT(user_id) DO UPDATE SET panel_username = excluded.panel_username
+			`, tgID, existingUser.PanelUsername, currentBytes)
+
+			_ = ActivateUserPanel(tgID, existingUser.PanelUsername, existingUser.PanelPassword, panelURL)
+			return existingUser.PanelUsername, existingUser.PanelPassword, panelURL, true, nil
+		}
+	}
+
+	// Create fresh reseller admin account
+	var chosenUser string
+	for attempts := 0; attempts < 10; attempts++ {
+		candidate := generateRandomUsername()
+		var count int
+		err := mainDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM admins WHERE LOWER(username) = LOWER(?)`, candidate).Scan(&count)
+		if err == nil && count == 0 {
+			chosenUser = candidate
+			break
+		}
+	}
+	if chosenUser == "" {
+		chosenUser = fmt.Sprintf("user_%d_%d", tgID, time.Now().Unix()%1000)
+	}
+
+	rawPassword := generateRandomPassword(10)
+	hash, err := admin.HashPassword(rawPassword)
+	if err != nil {
+		return "", "", "", false, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	role := string(admin.RoleReseller)
+	perms := admin.RoleDefaultPermissions(admin.RoleReseller)
+	permsJSON, err := json.Marshal(perms)
+	if err != nil {
+		return "", "", "", false, fmt.Errorf("failed to marshal permissions: %w", err)
+	}
+
+	// Insert admin with data_limit = NULL and expire = NULL (Pay As You Go)
+	res, err := mainDB.ExecContext(ctx, `
+		INSERT INTO admins (
+			username, created_by, hashed_password, role, permissions, status,
+			telegram_id, subscription_domain, subscription_settings, users_usage,
+			lifetime_usage, created_traffic, deleted_users_usage, data_limit,
+			traffic_limit_mode, use_service_traffic_limits, show_user_traffic,
+			delete_user_usage_limit_enabled, delete_user_usage_limit, expire,
+			users_limit, require_2fa
+		) VALUES (?, 'salesbot', ?, ?, ?, 'active', ?, NULL, '{}', 0, 0, 0, 0, NULL, 'used_traffic', 0, 1, 0, NULL, NULL, NULL, 0)
+	`, chosenUser, hash, role, string(permsJSON), tgID)
+	if err != nil {
+		// Fallback in case of older schema
+		res, err = mainDB.ExecContext(ctx, `
+			INSERT INTO admins (
+				username, hashed_password, role, permissions, status,
+				telegram_id, subscription_settings, users_usage, lifetime_usage,
+				created_traffic, deleted_users_usage, data_limit, traffic_limit_mode,
+				show_user_traffic, expire
+			) VALUES (?, ?, ?, ?, 'active', ?, '{}', 0, 0, 0, 0, NULL, 'used_traffic', 1, NULL)
+		`, chosenUser, hash, role, string(permsJSON), tgID)
+		if err != nil {
+			return "", "", "", false, fmt.Errorf("failed to insert admin into database: %w", err)
+		}
+	}
+
+	adminID, _ := res.LastInsertId()
+	if adminID > 0 {
+		assignAllServicesToAdmin(ctx, mainDB, adminID)
+	}
+
+	// Initialize usage tracking baseline at 0
+	_, _ = sqliteDB.ExecContext(ctx, `
+		INSERT INTO usage_tracking (user_id, panel_username, last_synced_bytes, total_billed_bytes, updated_at)
+		VALUES (?, ?, 0, 0, CURRENT_TIMESTAMP)
+		ON CONFLICT(user_id) DO UPDATE SET panel_username = excluded.panel_username, last_synced_bytes = 0
+	`, tgID, chosenUser)
+
+	_ = ActivateUserPanel(tgID, chosenUser, rawPassword, panelURL)
+
+	return chosenUser, rawPassword, panelURL, false, nil
+}
+
+// SyncAdminUsageBilling computes the delta traffic used by each reseller and bills the difference from their wallet
+func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botToken string) {
+	mainDB, _, err := GetMainDB()
+	if err != nil || mainDB == nil {
+		return
+	}
+	sqliteDB, _, err := GetDB()
+	if err != nil || sqliteDB == nil {
+		return
+	}
+
+	pricePerGB := GetSettingFloat("price_per_gb", 5000)
+	if pricePerGB <= 0 {
+		pricePerGB = 5000
+	}
+
+	rows, err := sqliteDB.QueryContext(ctx, `
+		SELECT telegram_id, panel_username, panel_password, sub_url, wallet_balance, total_spent, service_status
+		FROM users
+		WHERE panel_username != '' AND service_status IN ('active', 'disabled')
+	`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	type billingTarget struct {
+		telegramID    int64
+		panelUsername string
+		panelPassword string
+		subURL        string
+		walletBalance float64
+		totalSpent    float64
+		serviceStatus string
+	}
+
+	var targets []billingTarget
+	for rows.Next() {
+		var t billingTarget
+		if err := rows.Scan(&t.telegramID, &t.panelUsername, &t.panelPassword, &t.subURL, &t.walletBalance, &t.totalSpent, &t.serviceStatus); err == nil {
+			targets = append(targets, t)
+		}
+	}
+	_ = rows.Close()
+
+	for _, target := range targets {
+		if strings.TrimSpace(target.panelUsername) == "" {
+			continue
+		}
+
+		// 1. Get current usage from primary database
+		var adminID int64
+		var lifetimeUsage, usersUsage int64
+		var adminStatus string
+		err := mainDB.QueryRowContext(ctx, `
+			SELECT id, COALESCE(lifetime_usage, 0), COALESCE(users_usage, 0), status
+			FROM admins
+			WHERE LOWER(username) = LOWER(?) AND status != 'deleted'
+			LIMIT 1
+		`, target.panelUsername).Scan(&adminID, &lifetimeUsage, &usersUsage, &adminStatus)
+		if err != nil {
+			continue
+		}
+
+		currentBytes := lifetimeUsage
+		if currentBytes == 0 && usersUsage > 0 {
+			currentBytes = usersUsage
+		}
+
+		// 2. Query usage_tracking baseline
+		var lastSyncedBytes, totalBilledBytes int64
+		err = sqliteDB.QueryRowContext(ctx, `
+			SELECT last_synced_bytes, total_billed_bytes
+			FROM usage_tracking
+			WHERE user_id = ?
+		`, target.telegramID).Scan(&lastSyncedBytes, &totalBilledBytes)
+
+		if err == sql.ErrNoRows {
+			// First time tracking this admin: set baseline to currentBytes without back-billing
+			_, _ = sqliteDB.ExecContext(ctx, `
+				INSERT INTO usage_tracking (user_id, panel_username, last_synced_bytes, total_billed_bytes, updated_at)
+				VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
+			`, target.telegramID, target.panelUsername, currentBytes)
+			continue
+		} else if err != nil {
+			continue
+		}
+
+		// 3. Calculate delta usage
+		if currentBytes <= lastSyncedBytes {
+			// No new usage
+			// If user's balance is positive and they were disabled, restore active
+			if target.walletBalance > 0 && (adminStatus == "disabled" || target.serviceStatus == "disabled") {
+				reactivateUserAndAdmin(ctx, mainDB, sqliteDB, tgClient, botToken, target.telegramID, target.panelUsername, target.subURL, target.walletBalance)
+			}
+			continue
+		}
+
+		deltaBytes := currentBytes - lastSyncedBytes
+		deltaGB := float64(deltaBytes) / (1024.0 * 1024.0 * 1024.0)
+		cost := deltaGB * pricePerGB
+
+		newBalance := target.walletBalance - cost
+		newTotalSpent := target.totalSpent + cost
+
+		// 4. Update SQLite records
+		_, _ = sqliteDB.ExecContext(ctx, `
+			UPDATE users
+			SET wallet_balance = ?, total_spent = ?
+			WHERE telegram_id = ?
+		`, newBalance, newTotalSpent, target.telegramID)
+
+		_, _ = sqliteDB.ExecContext(ctx, `
+			UPDATE usage_tracking
+			SET last_synced_bytes = ?, total_billed_bytes = total_billed_bytes + ?, updated_at = CURRENT_TIMESTAMP
+			WHERE user_id = ?
+		`, currentBytes, deltaBytes, target.telegramID)
+
+		// 5. Handle low or negative balance
+		if newBalance <= 0 {
+			if adminStatus != "disabled" || target.serviceStatus != "disabled" {
+				_, _ = mainDB.ExecContext(ctx, `
+					UPDATE admins
+					SET status = 'disabled', disabled_reason = 'اتمام موجودی کیف پول'
+					WHERE LOWER(username) = LOWER(?)
+				`, target.panelUsername)
+
+				_, _ = sqliteDB.ExecContext(ctx, `
+					UPDATE users
+					SET service_status = 'disabled'
+					WHERE telegram_id = ?
+				`, target.telegramID)
+
+				if tgClient != nil && botToken != "" {
+					alertText := fmt.Sprintf(
+						"⚠️ <b>هشدار اتمام موجودی کیف پول</b>\n\n"+
+							"👤 نماینده گرامی (<code>%s</code>)،\n"+
+							"به دلیل مصرف ترافیک، موجودی کیف پول شما به پایان رسید (<code>%s تومان</code>) و پنل شما موقتاً غیرفعال شد.\n\n"+
+							"💡 جهت اتصال مجدد سرویس‌ها، لطفاً از دکمه زیر نسبت به افزایش موجودی اقدام فرمایید.",
+						target.panelUsername, formatCurrency(newBalance),
+					)
+					_ = tgClient.SendMessage(ctx, botToken, target.telegramID, alertText, depositOnlyKeyboard())
+				}
+			}
+		} else if adminStatus == "disabled" || target.serviceStatus == "disabled" {
+			// Balance is positive, re-enable!
+			reactivateUserAndAdmin(ctx, mainDB, sqliteDB, tgClient, botToken, target.telegramID, target.panelUsername, target.subURL, newBalance)
+		}
+	}
+}
+
+func reactivateUserAndAdmin(ctx context.Context, mainDB *sql.DB, sqliteDB *sql.DB, tgClient *TelegramClient, botToken string, tgID int64, username, panelURL string, balance float64) {
+	_, _ = mainDB.ExecContext(ctx, `
+		UPDATE admins
+		SET status = 'active', disabled_reason = NULL
+		WHERE LOWER(username) = LOWER(?)
+	`, username)
+
+	_, _ = sqliteDB.ExecContext(ctx, `
+		UPDATE users
+		SET service_status = 'active'
+		WHERE telegram_id = ?
+	`, tgID)
+
+	if tgClient != nil && botToken != "" {
+		resumedText := fmt.Sprintf(
+			"✅ <b>پنل نمایندگی شما مجدداً فعال شد</b>\n\n"+
+				"👤 نماینده گرامی (<code>%s</code>)، با توجه به موجودی کیف پول شما (<code>%s تومان</code>)، پنل نمایندگی و کلیه اتصالات مجدداً فعال گردید.",
+			username, formatCurrency(balance),
+		)
+		_ = tgClient.SendMessage(ctx, botToken, tgID, resumedText, myPanelsKeyboard(true, panelURL))
+	}
+}
+
+// ReactivateAdminIfPaid re-enables a suspended admin if user's wallet is credited
+func ReactivateAdminIfPaid(tgID int64) {
+	sqliteDB, _, err := GetDB()
+	if err != nil || sqliteDB == nil {
+		return
+	}
+	mainDB, _, err := GetMainDB()
+	if err != nil || mainDB == nil {
+		return
+	}
+
+	var panelUser string
+	var balance float64
+	var status string
+	err = sqliteDB.QueryRow(`
+		SELECT panel_username, wallet_balance, service_status
+		FROM users WHERE telegram_id = ?
+	`, tgID).Scan(&panelUser, &balance, &status)
+	if err != nil || panelUser == "" {
+		return
+	}
+
+	if balance > 0 && status == "disabled" {
+		_, _ = mainDB.Exec(`
+			UPDATE admins
+			SET status = 'active', disabled_reason = NULL
+			WHERE LOWER(username) = LOWER(?)
+		`, panelUser)
+
+		_, _ = sqliteDB.Exec(`
+			UPDATE users
+			SET service_status = 'active'
+			WHERE telegram_id = ?
+		`, tgID)
+	}
+}
+
 func assignAllServicesToAdmin(ctx context.Context, db *sql.DB, adminID int64) {
 	rows, err := db.QueryContext(ctx, `SELECT id FROM services`)
 	if err != nil {

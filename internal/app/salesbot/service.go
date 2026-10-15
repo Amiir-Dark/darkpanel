@@ -145,6 +145,9 @@ func (s *Service) Start(ctx context.Context) error {
 	// 3. Start Telegram Long Polling Loop
 	go s.runTelegramPollingLoop(subCtx, token)
 
+	// 4. Start Pay-As-You-Go Usage Billing Loop
+	go s.runUsageBillingLoop(subCtx)
+
 	s.status = "running"
 	s.uptime = time.Now()
 	s.lastError = ""
@@ -290,5 +293,30 @@ func (s *Service) checkExpiredOrders(ctx context.Context) {
 			)
 			_ = s.tgClient.SendMessage(notifyCtx, s.botToken, exp.userID, text, mainKeyboard())
 		}(item)
+	}
+}
+
+func (s *Service) runUsageBillingLoop(ctx context.Context) {
+	intervalSec := GetSettingInt("sync_interval", 60)
+	if intervalSec < 15 {
+		intervalSec = 15
+	}
+	ticker := time.NewTicker(time.Duration(intervalSec) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("[SalesBot] Panic recovered in runUsageBillingLoop: %v\n", r)
+					}
+				}()
+				SyncAdminUsageBilling(ctx, s.tgClient, s.botToken)
+			}()
+		}
 	}
 }

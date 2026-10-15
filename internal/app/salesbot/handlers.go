@@ -160,6 +160,19 @@ func testPanelSuccessKeyboard(panelURL string) InlineKeyboardMarkup {
 	return InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
+func depositOnlyKeyboard() InlineKeyboardMarkup {
+	return InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "➕ افزایش موجودی", CallbackData: "deposit"},
+			},
+			{
+				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+			},
+		},
+	}
+}
+
 func depositKeyboard() InlineKeyboardMarkup {
 	return InlineKeyboardMarkup{
 		InlineKeyboard: [][]InlineKeyboardButton{
@@ -242,8 +255,12 @@ func getMyPanelsText(u *User) string {
 	if u.SubURL != "" {
 		urlLine = fmt.Sprintf("🌐 <b>آدرس پنل:</b> <code>%s</code>\n", u.SubURL)
 	}
-	return fmt.Sprintf("🌐 <b>پنل‌های من</b>\n\n👤 <b>نام کاربری:</b> <code>%s</code>\n%s%s⚡ <b>وضعیت:</b> فعال ✅\n💰 <b>موجودی کیف پول:</b> <code>%s تومان</code>",
-		u.PanelUsername, passLine, urlLine, formatCurrency(u.WalletBalance))
+	statusText := "فعال ✅"
+	if u.ServiceStatus == "disabled" {
+		statusText = "غیرفعال (اتمام موجودی) ⚠️"
+	}
+	return fmt.Sprintf("🌐 <b>پنل‌های من</b>\n\n👤 <b>نام کاربری:</b> <code>%s</code>\n%s%s⚡ <b>وضعیت:</b> %s\n💰 <b>موجودی کیف پول:</b> <code>%s تومان</code>",
+		u.PanelUsername, passLine, urlLine, statusText, formatCurrency(u.WalletBalance))
 }
 
 // -------------------------------------------------------------
@@ -401,47 +418,68 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 	case "confirm_buy_panel":
 		ClearUserState(user.TelegramID)
 		minBalance := GetSettingFloat("min_balance_to_start", 5000)
+		if minBalance <= 0 {
+			minBalance = 5000
+		}
+
 		if user.WalletBalance < minBalance {
 			text := fmt.Sprintf(
-				"⚠️ <b>موجودی کیف پول شما کافی نیست!</b>\n\n"+
-					"حداقل موجودی مورد نیاز برای دریافت پنل: <b>%s تومان</b>\n"+
-					"موجودی فعلی شما: <b>%s تومان</b>\n\n"+
-					"لطفاً ابتدا از بخش زیر کیف پول خود را شارژ کنید.",
-				formatCurrency(minBalance),
-				formatCurrency(user.WalletBalance),
+				"⚠️ <b>موجودی کیف پول شما کافی نیست.</b>\n\n"+
+					"برای راه‌اندازی و فعال‌سازی پنل نمایندگی، حداقل موجودی اولیه <code>%s تومان</code> مورد نیاز است.\n\n"+
+					"💵 <b>موجودی فعلی شما:</b> <code>%s تومان</code>\n\n"+
+					"لطفاً ابتدا از دکمه «افزایش موجودی» نسبت به شارژ کیف پول خود اقدام فرمایید.",
+				formatCurrency(minBalance), formatCurrency(user.WalletBalance),
 			)
-			s.editOrSend(ctx, chatID, messageID, text, depositKeyboard())
+			s.editOrSend(ctx, chatID, messageID, text, depositOnlyKeyboard())
 			return
 		}
 
-		// Activate/create panel for user
-		panelUser := user.PanelUsername
-		if panelUser == "" {
-			panelUser = fmt.Sprintf("user_%d", user.TelegramID)
+		adminUser, adminPass, panelURL, isUpgrade, err := CreatePurchasedAdmin(ctx, user.TelegramID, user.FirstName)
+		if err != nil {
+			fmt.Printf("[SalesBot] ERROR CreatePurchasedAdmin for tgID %d: %v\n", user.TelegramID, err)
+			text := "❌ <b>خطا در راه‌اندازی پنل نمایندگی</b>\n\nمتأسفانه در اتصال به سیستم یا ساخت اکانت خطایی رخ داد. لطفاً چند لحظه بعد مجدداً تلاش فرمایید یا با پشتیبانی در ارتباط باشید."
+			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
+			return
 		}
-		subURL := user.SubURL
-		if subURL == "" {
-			host := GetSetting("sub_domain", "")
-			if host == "" {
-				host = "https://sub.darkpanel.link"
-			}
-			subURL = fmt.Sprintf("%s/sub/%s", strings.TrimRight(host, "/"), panelUser)
+
+		user.PanelUsername = adminUser
+		if adminPass != "" {
+			user.PanelPassword = adminPass
 		}
-		_ = ActivateUserPanel(user.TelegramID, panelUser, "", subURL)
-		user.PanelUsername = panelUser
-		user.SubURL = subURL
+		user.SubURL = panelURL
 		user.ServiceStatus = "active"
 
+		panelDisplay := panelURL
+		if panelDisplay == "" {
+			panelDisplay = "پنل مدیریت DarkPanel"
+		}
+
+		pricePerGB := GetSettingFloat("price_per_gb", 5000)
+
+		passLine := ""
+		if user.PanelPassword != "" {
+			passLine = fmt.Sprintf("🔑 <b>کلمه عبور:</b> <code>%s</code>\n", user.PanelPassword)
+		}
+
+		title := "🎉 <b>پنل نمایندگی شما با موفقیت راه‌اندازی شد!</b>"
+		if isUpgrade {
+			title = "🎉 <b>پنل شما با موفقیت به پلن دائمی (Pay As You Go) ارتقا یافت!</b>"
+		}
+
 		text := fmt.Sprintf(
-			"🎉 <b>پنل نمایندگی شما با موفقیت فعال شد!</b>\n\n"+
-				"👤 <b>نام کاربری پنل:</b> <code>%s</code>\n"+
-				"⚡ <b>وضعیت:</b> فعال ✅\n"+
-				"💰 <b>موجودی کیف پول:</b> <code>%s تومان</code>\n\n"+
-				"🔗 <b>لینک سابسکریپشن اختصاصی:</b>\n<code>%s</code>\n\n"+
-				"<i>می‌توانید این لینک را در نرم‌افزارهای کلاینت ایمپورت کرده و متصل شوید.</i>",
-			panelUser, formatCurrency(user.WalletBalance), subURL,
+			"%s\n\n"+
+				"📋 <b>مشخصات ورود به پنل مدیریت:</b>\n"+
+				"🌐 <b>آدرس پنل:</b> <code>%s</code>\n"+
+				"👤 <b>نام کاربری:</b> <code>%s</code>\n"+
+				"%s\n"+
+				"💰 <b>موجودی فعلی کیف پول:</b> <code>%s تومان</code>\n"+
+				"⚡ <b>مدل تعرفه:</b> پرداخت به اندازه مصرف (Pay As You Go)\n"+
+				"💵 <b>هزینه هر گیگابایت:</b> %s تومان\n\n"+
+				"💡 <i>راهنما: ترافیک مصرفی کاربران شما به‌صورت خودکار و دقیق محاسبه شده و متناسب با مصرف از کیف پول کسر می‌شود.</i>",
+			title, panelDisplay, adminUser, passLine,
+			formatCurrency(user.WalletBalance), formatCurrency(pricePerGB),
 		)
-		s.editOrSend(ctx, chatID, messageID, text, myPanelsKeyboard(true, subURL))
+		s.editOrSend(ctx, chatID, messageID, text, myPanelsKeyboard(true, panelURL))
 
 	case "wallet":
 		ClearUserState(user.TelegramID)

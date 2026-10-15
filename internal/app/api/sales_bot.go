@@ -612,9 +612,9 @@ func (s *Server) handleSalesBotReceiptAction(w http.ResponseWriter, r *http.Requ
 
 		_, err = tx.Exec(`
 			UPDATE users 
-			SET wallet_balance = wallet_balance + ?, total_spent = total_spent + ?
+			SET wallet_balance = wallet_balance + ?
 			WHERE telegram_id = ?
-		`, amount, amount, userID)
+		`, amount, userID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -624,6 +624,8 @@ func (s *Server) handleSalesBotReceiptAction(w http.ResponseWriter, r *http.Requ
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+
+		salesbot.ReactivateAdminIfPaid(userID)
 
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "فیش با موفقیت تایید و کیف پول شارژ شد"})
 
