@@ -874,3 +874,87 @@ func parseTimeStr(s string) time.Time {
 	}
 	return time.Time{}
 }
+
+type GiftCodeItem struct {
+	ID        int64     `json:"id"`
+	Code      string    `json:"code"`
+	Amount    float64   `json:"amount"`
+	MaxUses   int       `json:"max_uses"`
+	UsedCount int       `json:"used_count"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func ListGiftCodes() ([]GiftCodeItem, error) {
+	db, _, err := GetDB()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := db.Query(`SELECT id, code, amount, max_uses, used_count, created_at FROM gift_codes ORDER BY id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []GiftCodeItem
+	for rows.Next() {
+		var item GiftCodeItem
+		var crStr sql.NullString
+		if err := rows.Scan(&item.ID, &item.Code, &item.Amount, &item.MaxUses, &item.UsedCount, &crStr); err == nil {
+			if crStr.Valid {
+				item.CreatedAt = parseTimeStr(crStr.String)
+			}
+			list = append(list, item)
+		}
+	}
+	return list, nil
+}
+
+func CreateGiftCode(code string, amount float64, maxUses int) error {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if code == "" {
+		return fmt.Errorf("کد هدیه الزامی است")
+	}
+	if amount <= 0 {
+		return fmt.Errorf("مبلغ کد هدیه باید بیشتر از صفر باشد")
+	}
+	if maxUses <= 0 {
+		maxUses = 1
+	}
+	db, _, err := GetDB()
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`INSERT INTO gift_codes (code, amount, max_uses, used_count) VALUES (?, ?, ?, 0)`, code, amount, maxUses)
+	return err
+}
+
+func DeleteGiftCode(id int64) error {
+	db, _, err := GetDB()
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`DELETE FROM gift_codes WHERE id = ?`, id)
+	return err
+}
+
+func ResetAllUsersTestAccess() (int64, error) {
+	db, _, err := GetDB()
+	if err != nil {
+		return 0, err
+	}
+	res, err := db.Exec(`UPDATE users SET has_used_test = 0, test_usage_count = 0`)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+func ResetUserTestAccess(telegramID int64) error {
+	db, _, err := GetDB()
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`UPDATE users SET has_used_test = 0, test_usage_count = 0 WHERE telegram_id = ?`, telegramID)
+	return err
+}
+

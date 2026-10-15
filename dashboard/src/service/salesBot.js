@@ -113,3 +113,42 @@ export const simulateSalesBotWebhook = async (payload) => {
         body: JSON.stringify(payload),
     });
 };
+
+export const broadcastMessage = async (message) => {
+    return apiFetch("/sales-bot/broadcast", {
+        method: "POST",
+        body: JSON.stringify({ message }),
+    });
+};
+
+export const getGiftCodes = async () => {
+    return apiFetch("/sales-bot/gift-codes");
+};
+
+export const createGiftCode = async (payload) => {
+    return apiFetch("/sales-bot/gift-codes", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+};
+
+export const deleteGiftCode = async (id) => {
+    return apiFetch(`/sales-bot/gift-codes/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+    });
+};
+
+export const resetAllTestAccess = async () => {
+    return apiFetch("/sales-bot/test-resets/all", {
+        method: "POST",
+        body: JSON.stringify({}),
+    });
+};
+
+export const resetUserTestAccess = async (telegramId) => {
+    return apiFetch(`/sales-bot/users/${encodeURIComponent(telegramId)}/reset-test`, {
+        method: "POST",
+        body: JSON.stringify({}),
+    });
+};
+

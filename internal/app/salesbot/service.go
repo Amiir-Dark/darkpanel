@@ -320,3 +320,55 @@ func (s *Service) runUsageBillingLoop(ctx context.Context) {
 		}
 	}
 }
+
+// BroadcastMessage sends a text message to all registered users in sales bot
+func (s *Service) BroadcastMessage(ctx context.Context, text string) (int, int, error) {
+	s.mu.RLock()
+	token := s.botToken
+	client := s.tgClient
+	s.mu.RUnlock()
+
+	if token == "" {
+		token = GetSetting("bot_token", "")
+	}
+	if token == "" {
+		return 0, 0, fmt.Errorf("ربات فعال نیست یا توکن تلگرام تنظیم نشده است")
+	}
+
+	db, _, err := GetDB()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	rows, err := db.QueryContext(ctx, `SELECT telegram_id FROM users WHERE status != 'banned'`)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer rows.Close()
+
+	var userIDs []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err == nil && id > 0 {
+			userIDs = append(userIDs, id)
+		}
+	}
+
+	if client == nil {
+		client = NewTelegramClient()
+	}
+
+	var sent, failed int
+	for _, id := range userIDs {
+		err := client.SendMessage(ctx, token, id, text, nil)
+		if err == nil {
+			sent++
+		} else {
+			failed++
+		}
+		time.Sleep(35 * time.Millisecond) // smooth broadcast under Telegram rate limits
+	}
+
+	return sent, failed, nil
+}
+

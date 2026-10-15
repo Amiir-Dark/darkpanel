@@ -133,7 +133,7 @@ func emptyPanelsKeyboard() InlineKeyboardMarkup {
 	}
 }
 
-func panelDetailKeyboard(panel UserPanel, canCreateMore bool) InlineKeyboardMarkup {
+func panelDetailKeyboard(panel UserPanel, canCreateMore bool, totalPanels int) InlineKeyboardMarkup {
 	var rows [][]InlineKeyboardButton
 	if panel.PanelURL != "" && (strings.HasPrefix(panel.PanelURL, "http://") || strings.HasPrefix(panel.PanelURL, "https://")) {
 		rows = append(rows, []InlineKeyboardButton{
@@ -149,10 +149,16 @@ func panelDetailKeyboard(panel UserPanel, canCreateMore bool) InlineKeyboardMark
 			{Text: "➕ ساخت پنل جدید", CallbackData: "buy_panel"},
 		})
 	}
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "🔙 لیست پنل‌ها", CallbackData: "my_panels"},
-		{Text: "🏠 منوی اصلی", CallbackData: "main_menu"},
-	})
+	if totalPanels > 1 {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "🔙 لیست پنل‌ها", CallbackData: "my_panels"},
+			{Text: "🏠 منوی اصلی", CallbackData: "main_menu"},
+		})
+	} else {
+		rows = append(rows, []InlineKeyboardButton{
+			{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
+		})
+	}
 	return InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
@@ -491,7 +497,7 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 		} else if len(panels) == 1 {
 			maxPanels := GetMaxPanelsPerUser()
 			canCreate := maxPanels == 0 || len(panels) < maxPanels
-			_ = s.tgClient.SendMessage(ctx, s.botToken, userID, formatPanelDetail(user, &panels[0]), panelDetailKeyboard(panels[0], canCreate))
+			_ = s.tgClient.SendMessage(ctx, s.botToken, userID, formatPanelDetail(user, &panels[0]), panelDetailKeyboard(panels[0], canCreate, len(panels)))
 		} else {
 			maxPanels := GetMaxPanelsPerUser()
 			canCreate := maxPanels == 0 || len(panels) < maxPanels
@@ -699,7 +705,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		canCreateMore := maxPanels == 0 || len(panels) < maxPanels
 
 		if len(panels) == 1 {
-			s.editOrSend(ctx, chatID, messageID, formatPanelDetail(user, &panels[0]), panelDetailKeyboard(panels[0], canCreateMore))
+			s.editOrSend(ctx, chatID, messageID, formatPanelDetail(user, &panels[0]), panelDetailKeyboard(panels[0], canCreateMore, len(panels)))
 			return
 		}
 
@@ -707,6 +713,12 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 	case "test_panel":
 		ClearUserState(user.TelegramID)
+		testEnabled := GetSetting("test_panel_enabled", "true")
+		if testEnabled == "false" || testEnabled == "0" {
+			s.editOrSend(ctx, chatID, messageID, "⚠️ <b>دریافت پنل تست در حال حاضر توسط مدیریت غیرفعال شده است.</b>\n\nجهت دریافت پنل می‌توانید از گزینه خرید پنل نمایندگی استفاده فرمایید.", backKeyboard())
+			return
+		}
+
 		maxPanels := GetMaxPanelsPerUser()
 		activeCount := GetUserActivePanelCount(user.TelegramID)
 		if maxPanels > 0 && activeCount >= maxPanels {
@@ -844,7 +856,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 				maxPanels := GetMaxPanelsPerUser()
 				count := GetUserActivePanelCount(user.TelegramID)
 				canCreateMore := maxPanels == 0 || count < maxPanels
-				s.editOrSend(ctx, chatID, messageID, formatPanelDetail(user, panel), panelDetailKeyboard(*panel, canCreateMore))
+				s.editOrSend(ctx, chatID, messageID, formatPanelDetail(user, panel), panelDetailKeyboard(*panel, canCreateMore, count))
 			}
 
 		case strings.HasPrefix(data, "chpass:"):
@@ -949,12 +961,13 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 				}
 				text := fmt.Sprintf(
 					"✅ <b>پنل <code>%s</code> با موفقیت حذف گردید.</b>\n\n"+
-						"کلیه کانفیگ‌ها و دسترسی‌های این پنل پاک شدند.",
+						"کلیه دسترسی‌های این پنل پاک شدند و اکنون در صورت تمایل می‌توانید پنل تست رایگان یا پنل جدید دریافت فرمایید.",
 					delUsername,
 				)
 				s.editOrSend(ctx, chatID, messageID, text, InlineKeyboardMarkup{
 					InlineKeyboard: [][]InlineKeyboardButton{
-						{{Text: "🌐 پنل‌های من", CallbackData: "my_panels"}},
+						{{Text: "🧪 دریافت پنل تست", CallbackData: "test_panel"}},
+						{{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"}},
 						{{Text: "🏠 منوی اصلی", CallbackData: "main_menu"}},
 					},
 				})

@@ -31,6 +31,10 @@ func (s *Server) registerSalesBotRoutes(r chi.Router) {
 	r.HandleFunc("/sales-bot/orders", s.requireAdmin(s.handleSalesBotOrders))
 	r.HandleFunc("/sales-bot/receipts/*", s.requireAdmin(s.handleSalesBotReceiptAction))
 	r.HandleFunc("/sales-bot/receipts", s.requireAdmin(s.handleSalesBotReceipts))
+	r.HandleFunc("/sales-bot/broadcast", s.requireAdmin(s.handleSalesBotBroadcast))
+	r.HandleFunc("/sales-bot/gift-codes/*", s.requireAdmin(s.handleSalesBotGiftCodeAction))
+	r.HandleFunc("/sales-bot/gift-codes", s.requireAdmin(s.handleSalesBotGiftCodes))
+	r.HandleFunc("/sales-bot/test-resets/all", s.requireAdmin(s.handleSalesBotResetAllTests))
 	r.HandleFunc("/sales-bot/users/*", s.requireAdmin(s.handleSalesBotUserAction))
 	r.HandleFunc("/sales-bot/users", s.requireAdmin(s.handleSalesBotUsers))
 	r.HandleFunc("/sales-bot/webhook/test", s.requireAdmin(s.handleSalesBotWebhookTest))
@@ -201,6 +205,7 @@ func (s *Server) handleSalesBotSettings(w http.ResponseWriter, r *http.Request) 
 			"min_balance_to_start":  "5000",
 			"panel_url":             "",
 			"allowed_services":      "",
+			"test_panel_enabled":   "true",
 			"test_traffic_gb":       "5",
 			"test_duration_hours":   "24",
 			"test_limit_per_user":   "1",
@@ -652,15 +657,17 @@ func (s *Server) handleSalesBotReceiptAction(w http.ResponseWriter, r *http.Requ
 // -------------------------------------------------------------
 
 type BotUserResponse struct {
-	TelegramID    int64   `json:"telegram_id"`
-	Username      string  `json:"username"`
-	FirstName     string  `json:"first_name"`
-	WalletBalance float64 `json:"wallet_balance"`
-	PanelUsername string  `json:"panel_username"`
-	SubURL        string  `json:"sub_url"`
-	ServiceStatus string  `json:"service_status"`
-	TotalSpent    float64 `json:"total_spent"`
-	CreatedAt     string  `json:"created_at"`
+	TelegramID     int64   `json:"telegram_id"`
+	Username       string  `json:"username"`
+	FirstName      string  `json:"first_name"`
+	WalletBalance  float64 `json:"wallet_balance"`
+	PanelUsername  string  `json:"panel_username"`
+	SubURL         string  `json:"sub_url"`
+	ServiceStatus  string  `json:"service_status"`
+	TotalSpent     float64 `json:"total_spent"`
+	HasUsedTest    bool    `json:"has_used_test"`
+	TestUsageCount int     `json:"test_usage_count"`
+	CreatedAt      string  `json:"created_at"`
 }
 
 func (s *Server) handleSalesBotUsers(w http.ResponseWriter, r *http.Request) {
@@ -686,7 +693,8 @@ func (s *Server) handleSalesBotUsers(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT telegram_id, username, first_name, wallet_balance,
-		       panel_username, sub_url, service_status, total_spent, created_at
+		       panel_username, sub_url, service_status, total_spent,
+		       COALESCE(has_used_test, 0), COALESCE(test_usage_count, 0), created_at
 		FROM users
 		WHERE 1=1
 	`
@@ -716,10 +724,14 @@ func (s *Server) handleSalesBotUsers(w http.ResponseWriter, r *http.Request) {
 	var users []BotUserResponse
 	for rows.Next() {
 		var u BotUserResponse
+		var hasTestInt, testCountInt sql.NullInt64
 		if err := rows.Scan(
 			&u.TelegramID, &u.Username, &u.FirstName, &u.WalletBalance,
-			&u.PanelUsername, &u.SubURL, &u.ServiceStatus, &u.TotalSpent, &u.CreatedAt,
+			&u.PanelUsername, &u.SubURL, &u.ServiceStatus, &u.TotalSpent,
+			&hasTestInt, &testCountInt, &u.CreatedAt,
 		); err == nil {
+			u.HasUsedTest = hasTestInt.Int64 == 1
+			u.TestUsageCount = int(testCountInt.Int64)
 			users = append(users, u)
 		}
 	}
@@ -739,6 +751,31 @@ func (s *Server) handleSalesBotUserAction(w http.ResponseWriter, r *http.Request
 
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/sales-bot/users/"), "/")
 	parts := strings.Split(path, "/")
+
+	if len(parts) == 1 && parts[0] == "reset-all-tests" {
+		affected, err := salesbot.ResetAllUsersTestAccess()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": fmt.Sprintf("دسترسی تست برای %d کاربر با موفقیت ریست شد", affected)})
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "reset-test" {
+		telegramID, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid telegram id")
+			return
+		}
+		if err := salesbot.ResetUserTestAccess(telegramID); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "دسترسی تست کاربر با موفقیت ریست شد"})
+		return
+	}
+
 	if len(parts) != 2 || parts[1] != "wallet" {
 		writeError(w, http.StatusBadRequest, "invalid url pattern; expected /api/sales-bot/users/{id}/wallet")
 		return
@@ -922,4 +959,111 @@ func (s *Server) handleSalesBotWebhookSimulate(w http.ResponseWriter, r *http.Re
 	}
 	salesbot.GetService().HandleForAppWebhook(w, r)
 }
+
+// -------------------------------------------------------------
+// 7. Broadcast, Gift Codes & Test Resets
+// -------------------------------------------------------------
+
+func (s *Server) handleSalesBotResetAllTests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	affected, err := salesbot.ResetAllUsersTestAccess()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": fmt.Sprintf("دسترسی تست برای %d کاربر با موفقیت ریست شد", affected)})
+}
+
+func (s *Server) handleSalesBotBroadcast(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var payload struct {
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json: "+err.Error())
+		return
+	}
+
+	msg := strings.TrimSpace(payload.Message)
+	if msg == "" {
+		writeError(w, http.StatusBadRequest, "متن پیام نمی‌تواند خالی باشد")
+		return
+	}
+
+	sent, failed, err := salesbot.GetService().BroadcastMessage(r.Context(), msg)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":      true,
+		"sent":    sent,
+		"failed":  failed,
+		"message": fmt.Sprintf("پیام به %d کاربر ارسال شد (%d خطا)", sent, failed),
+	})
+}
+
+func (s *Server) handleSalesBotGiftCodes(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		list, err := salesbot.ListGiftCodes()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if list == nil {
+			list = []salesbot.GiftCodeItem{}
+		}
+		writeJSON(w, http.StatusOK, list)
+
+	case http.MethodPost:
+		var payload struct {
+			Code    string  `json:"code"`
+			Amount  float64 `json:"amount"`
+			MaxUses int     `json:"max_uses"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json: "+err.Error())
+			return
+		}
+		if err := salesbot.CreateGiftCode(payload.Code, payload.Amount, payload.MaxUses); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "کد هدیه با موفقیت ایجاد شد"})
+
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (s *Server) handleSalesBotGiftCodeAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete && r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/sales-bot/gift-codes/"), "/")
+	id, err := strconv.ParseInt(path, 10, 64)
+	if err != nil || id <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid gift code id")
+		return
+	}
+
+	if err := salesbot.DeleteGiftCode(id); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "کد هدیه با موفقیت حذف شد"})
+}
+
 

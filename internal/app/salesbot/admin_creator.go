@@ -808,17 +808,19 @@ func DeleteAdminPanel(ctx context.Context, tgID int64, panelID int64) (string, e
 		var adminID int64
 		_ = mainDB.QueryRowContext(ctx, `SELECT id FROM admins WHERE LOWER(username) = LOWER(?)`, panel.PanelUsername).Scan(&adminID)
 		if adminID > 0 {
-			// Soft-delete users belonging to this admin
-			_, _ = mainDB.ExecContext(ctx, `UPDATE users SET status = 'deleted' WHERE admin_id = ?`, adminID)
-			// Soft-delete admin
-			_, _ = mainDB.ExecContext(ctx, `UPDATE admins SET status = 'deleted' WHERE id = ?`, adminID)
+			// Delete users belonging to this admin
+			_, _ = mainDB.ExecContext(ctx, `DELETE FROM users WHERE admin_id = ?`, adminID)
+			_, _ = mainDB.ExecContext(ctx, `DELETE FROM admin_permissions WHERE admin_id = ?`, adminID)
+			_, _ = mainDB.ExecContext(ctx, `DELETE FROM admin_services WHERE admin_id = ?`, adminID)
+			_, _ = mainDB.ExecContext(ctx, `DELETE FROM admins WHERE id = ?`, adminID)
 		}
 	}
 
-	// Remove usage tracking
+	// Remove usage tracking & reset test panel access so user can test again
 	sqliteDB, _, err := GetDB()
 	if err == nil && sqliteDB != nil {
 		_, _ = sqliteDB.ExecContext(ctx, `DELETE FROM usage_tracking WHERE LOWER(panel_username) = LOWER(?)`, panel.PanelUsername)
+		_, _ = sqliteDB.ExecContext(ctx, `UPDATE users SET has_used_test = 0 WHERE telegram_id = ?`, tgID)
 	}
 
 	_, _ = DeleteUserPanel(tgID, panelID)

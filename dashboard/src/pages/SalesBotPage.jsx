@@ -82,6 +82,9 @@ import {
     TrashIcon,
     ExclamationTriangleIcon,
     XMarkIcon,
+    GiftIcon,
+    MegaphoneIcon,
+    SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { fetch } from "service/http";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -105,6 +108,12 @@ import {
     getSalesBotWebhookLogs,
     clearSalesBotWebhookLogs,
     simulateSalesBotWebhook,
+    broadcastMessage,
+    getGiftCodes,
+    createGiftCode,
+    deleteGiftCode,
+    resetAllTestAccess,
+    resetUserTestAccess,
 } from "service/salesBot";
 
 const formatToman = (val) => {
@@ -494,6 +503,125 @@ export const SalesBotPage = () => {
     const { hasCopied: hasCopiedPort, onCopy: onCopyPort } = useClipboard(portWebhookUrl);
     const { hasCopied: hasCopiedSecret, onCopy: onCopySecret } = useClipboard(overviewQuery.data?.webhook_secret || "");
 
+    // Gift Codes query & mutations
+    const giftCodesQuery = useQuery("sales-bot-gift-codes", getGiftCodes, {
+        refetchOnWindowFocus: false,
+    });
+    const [newGiftCode, setNewGiftCode] = useState({ code: "", amount: "", max_uses: 1 });
+    const createGiftCodeMutation = useMutation(createGiftCode, {
+        onSuccess: (res) => {
+            toast({
+                title: "کد هدیه ایجاد شد",
+                description: res?.message,
+                status: "success",
+                duration: 4000,
+                isClosable: true,
+            });
+            setNewGiftCode({ code: "", amount: "", max_uses: 1 });
+            queryClient.invalidateQueries("sales-bot-gift-codes");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا در ساخت کد هدیه",
+                description: err?.message || String(err),
+                status: "error",
+                duration: 5000,
+                isClosable: true,
+            });
+        },
+    });
+
+    const deleteGiftCodeMutation = useMutation(deleteGiftCode, {
+        onSuccess: (res) => {
+            toast({
+                title: "کد هدیه حذف شد",
+                description: res?.message,
+                status: "info",
+                duration: 3000,
+                isClosable: true,
+            });
+            queryClient.invalidateQueries("sales-bot-gift-codes");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا در حذف کد هدیه",
+                description: err?.message || String(err),
+                status: "error",
+                duration: 5000,
+                isClosable: true,
+            });
+        },
+    });
+
+    // Broadcast mutation
+    const [broadcastText, setBroadcastText] = useState("");
+    const broadcastMutation = useMutation(broadcastMessage, {
+        onSuccess: (res) => {
+            toast({
+                title: "ارسال همگانی انجام شد",
+                description: res?.message,
+                status: "success",
+                duration: 6000,
+                isClosable: true,
+            });
+            setBroadcastText("");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا در ارسال پیام",
+                description: err?.message || String(err),
+                status: "error",
+                duration: 5000,
+                isClosable: true,
+            });
+        },
+    });
+
+    // Test access reset mutations
+    const resetUserTestMutation = useMutation(resetUserTestAccess, {
+        onSuccess: (res) => {
+            toast({
+                title: "دسترسی تست بازنشانی شد",
+                description: res?.message,
+                status: "success",
+                duration: 4000,
+                isClosable: true,
+            });
+            queryClient.invalidateQueries("sales-bot-users");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا",
+                description: err?.message || String(err),
+                status: "error",
+                duration: 5000,
+                isClosable: true,
+            });
+        },
+    });
+
+    const resetAllTestsMutation = useMutation(resetAllTestAccess, {
+        onSuccess: (res) => {
+            toast({
+                title: "بازنشانی همگانی انجام شد",
+                description: res?.message,
+                status: "success",
+                duration: 5000,
+                isClosable: true,
+            });
+            queryClient.invalidateQueries("sales-bot-users");
+        },
+        onError: (err) => {
+            toast({
+                title: "خطا",
+                description: err?.message || String(err),
+                status: "error",
+                duration: 5000,
+                isClosable: true,
+            });
+        },
+    });
+
     const refreshAll = () => {
         overviewQuery.refetch();
         serviceStatusQuery.refetch();
@@ -501,6 +629,7 @@ export const SalesBotPage = () => {
         ordersQuery.refetch();
         receiptsQuery.refetch();
         usersQuery.refetch();
+        giftCodesQuery.refetch();
     };
 
     const isGlobalLoading =
@@ -697,6 +826,17 @@ export const SalesBotPage = () => {
                     </Tab>
                     <Tab fontWeight="medium" fontSize="sm">
                         👥 مشتریان و کیف‌پول‌ها
+                    </Tab>
+                    <Tab fontWeight="medium" fontSize="sm">
+                        🎁 کدهای هدیه
+                        {giftCodesQuery.data?.length > 0 && (
+                            <Badge ml={2} colorScheme="green" borderRadius="full">
+                                {giftCodesQuery.data.length}
+                            </Badge>
+                        )}
+                    </Tab>
+                    <Tab fontWeight="medium" fontSize="sm">
+                        📢 ارسال همگانی
                     </Tab>
                     <Tab fontWeight="medium" fontSize="sm">
                         ⚙️ تنظیمات نرخ و درگاه‌ها
@@ -913,6 +1053,222 @@ export const SalesBotPage = () => {
                                         ارسال درخواست پینگ تستی به وب‌هوک
                                     </Button>
                                 </HStack>
+                            </Box>
+                        </VStack>
+                    </TabPanel>
+
+                    {/* TAB 5: GIFT CODES */}
+                    <TabPanel p={0}>
+                        <VStack spacing={6} align="stretch">
+                            {/* Create Gift Code Box */}
+                            <Box
+                                p={5}
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                            >
+                                <Heading size="sm" mb={4} color="purple.400">
+                                    🎁 ایجاد کد هدیه جدید
+                                </Heading>
+                                <Grid templateColumns={{ base: "1fr", md: "2fr 2fr 1.5fr auto" }} gap={3} alignItems="end">
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">کد هدیه (اختیاری یا سفارشی)</FormLabel>
+                                        <Input
+                                            size="sm"
+                                            placeholder="مثال: NOROOZ1403 (خالی = خودکار)"
+                                            value={newGiftCode.code}
+                                            onChange={(e) => setNewGiftCode({ ...newGiftCode, code: e.target.value.toUpperCase() })}
+                                            borderRadius="lg"
+                                        />
+                                    </FormControl>
+
+                                    <FormControl isRequired>
+                                        <FormLabel fontSize="xs">مبلغ شارژ هدیه (تومان)</FormLabel>
+                                        <Input
+                                            type="number"
+                                            size="sm"
+                                            placeholder="50000"
+                                            value={newGiftCode.amount}
+                                            onChange={(e) => setNewGiftCode({ ...newGiftCode, amount: e.target.value })}
+                                            borderRadius="lg"
+                                        />
+                                    </FormControl>
+
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">حداکثر دفعات مجاز استفاده</FormLabel>
+                                        <Input
+                                            type="number"
+                                            size="sm"
+                                            placeholder="1"
+                                            value={newGiftCode.max_uses}
+                                            onChange={(e) => setNewGiftCode({ ...newGiftCode, max_uses: parseInt(e.target.value, 10) || 1 })}
+                                            borderRadius="lg"
+                                        />
+                                    </FormControl>
+
+                                    <Button
+                                        size="sm"
+                                        colorScheme="purple"
+                                        leftIcon={<PlusIcon width={16} height={16} />}
+                                        isLoading={createGiftCodeMutation.isLoading}
+                                        onClick={() => {
+                                            const amt = parseFloat(newGiftCode.amount);
+                                            if (!amt || amt <= 0) {
+                                                toast({ title: "مبلغ نامعتبر است", status: "warning", duration: 3000 });
+                                                return;
+                                            }
+                                            createGiftCodeMutation.mutate({
+                                                code: newGiftCode.code,
+                                                amount: amt,
+                                                max_uses: newGiftCode.max_uses || 1,
+                                            });
+                                        }}
+                                    >
+                                        ساخت کد هدیه
+                                    </Button>
+                                </Grid>
+                            </Box>
+
+                            {/* Gift Codes List */}
+                            <Box
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                                overflowX="auto"
+                            >
+                                <Table size="sm" variant="simple">
+                                    <Thead bg={bgElevated}>
+                                        <Tr>
+                                            <Th>شناسه</Th>
+                                            <Th>کد هدیه</Th>
+                                            <Th>مبلغ هدیه</Th>
+                                            <Th>سقف استفاده</Th>
+                                            <Th>تعداد دفعات مصرف‌شده</Th>
+                                            <Th>تاریخ ایجاد</Th>
+                                            <Th textAlign="center">عملیات</Th>
+                                        </Tr>
+                                    </Thead>
+                                    <Tbody>
+                                        {giftCodesQuery.isLoading ? (
+                                            <Tr>
+                                                <Td colSpan={7} textAlign="center" py={8}>
+                                                    <Spinner size="sm" color="purple.500" />
+                                                </Td>
+                                            </Tr>
+                                        ) : (giftCodesQuery.data?.length ?? 0) === 0 ? (
+                                            <Tr>
+                                                <Td colSpan={7} textAlign="center" py={8} color={textSecondary}>
+                                                    هیچ کد هدیه‌ای ایجاد نشده است.
+                                                </Td>
+                                            </Tr>
+                                        ) : (
+                                            giftCodesQuery.data.map((item) => (
+                                                <Tr key={item.id} _hover={{ bg: bgElevated }}>
+                                                    <Td fontSize="xs" fontWeight="mono">#{item.id}</Td>
+                                                    <Td>
+                                                        <Code colorScheme="purple" fontSize="xs" fontWeight="bold">
+                                                            {item.code}
+                                                        </Code>
+                                                    </Td>
+                                                    <Td fontWeight="bold" color="green.400">
+                                                        {formatToman(item.amount)} تومان
+                                                    </Td>
+                                                    <Td fontSize="xs">
+                                                        {item.max_uses} بار
+                                                    </Td>
+                                                    <Td fontSize="xs">
+                                                        <Badge colorScheme={item.used_count >= item.max_uses ? "red" : "green"}>
+                                                            {item.used_count} از {item.max_uses}
+                                                        </Badge>
+                                                    </Td>
+                                                    <Td fontSize="10px" color={textSecondary}>
+                                                        {item.created_at}
+                                                    </Td>
+                                                    <Td textAlign="center">
+                                                        <IconButton
+                                                            size="xs"
+                                                            colorScheme="red"
+                                                            variant="ghost"
+                                                            icon={<TrashIcon width={14} height={14} />}
+                                                            isLoading={deleteGiftCodeMutation.isLoading}
+                                                            onClick={() => {
+                                                                if (window.confirm(`آیا از حذف کد هدیه ${item.code} مطمئن هستید؟`)) {
+                                                                    deleteGiftCodeMutation.mutate(item.id);
+                                                                }
+                                                            }}
+                                                            aria-label="حذف کد هدیه"
+                                                        />
+                                                    </Td>
+                                                </Tr>
+                                            ))
+                                        )}
+                                    </Tbody>
+                                </Table>
+                            </Box>
+                        </VStack>
+                    </TabPanel>
+
+                    {/* TAB 6: BROADCAST */}
+                    <TabPanel p={0}>
+                        <VStack spacing={6} align="stretch">
+                            <Box
+                                p={5}
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                            >
+                                <HStack spacing={3} mb={3}>
+                                    <Box p={2} bg="purple.500" color="white" borderRadius="lg">
+                                        <MegaphoneIcon width={22} height={22} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="sm">
+                                            📢 ارسال پیام همگانی به تمام کاربران ربات
+                                        </Heading>
+                                        <Text fontSize="xs" color={textSecondary}>
+                                            پیام شما به صورت اختصاصی برای تمامی کاربران ثبت‌نام شده در ربات ارسال خواهد شد.
+                                        </Text>
+                                    </Box>
+                                </HStack>
+
+                                <Alert status="info" borderRadius="lg" mb={4} fontSize="xs">
+                                    <AlertIcon />
+                                    شما می‌توانید در متن پیام از فرمت‌های HTML تلگرام (مانند <code>&lt;b&gt;بولد&lt;/b&gt;</code> یا <code>&lt;code&gt;کد&lt;/code&gt;</code>) و اموجی‌ها استفاده فرمایید.
+                                </Alert>
+
+                                <FormControl isRequired mb={4}>
+                                    <FormLabel fontSize="xs">متن پیام ارسالی</FormLabel>
+                                    <Textarea
+                                        rows={8}
+                                        placeholder="متن پیام خود را اینجا وارد کنید..."
+                                        value={broadcastText}
+                                        onChange={(e) => setBroadcastText(e.target.value)}
+                                        borderRadius="lg"
+                                        fontSize="sm"
+                                    />
+                                </FormControl>
+
+                                <Flex justify="flex-end">
+                                    <Button
+                                        colorScheme="purple"
+                                        leftIcon={<MegaphoneIcon width={16} height={16} />}
+                                        isLoading={broadcastMutation.isLoading}
+                                        onClick={() => {
+                                            if (!broadcastText.trim()) {
+                                                toast({ title: "متن پیام خالی است", status: "warning", duration: 3000 });
+                                                return;
+                                            }
+                                            if (window.confirm("آیا مطمئن هستید که می‌خواهید این پیام برای تمام کاربران ارسال شود؟")) {
+                                                broadcastMutation.mutate(broadcastText.trim());
+                                            }
+                                        }}
+                                    >
+                                        ارسال همگانی پیام
+                                    </Button>
+                                </Flex>
                             </Box>
                         </VStack>
                     </TabPanel>
@@ -1264,14 +1620,30 @@ export const SalesBotPage = () => {
                                     </Select>
                                 </HStack>
 
-                                <Button
-                                    size="sm"
-                                    leftIcon={<ArrowPathIcon width={14} height={14} />}
-                                    isLoading={usersQuery.isFetching}
-                                    onClick={() => usersQuery.refetch()}
-                                >
-                                    بروزرسانی لیست
-                                </Button>
+                                <HStack spacing={2}>
+                                    <Button
+                                        size="sm"
+                                        colorScheme="orange"
+                                        variant="outline"
+                                        leftIcon={<ArrowPathIcon width={14} height={14} />}
+                                        isLoading={resetAllTestsMutation.isLoading}
+                                        onClick={() => {
+                                            if (window.confirm("آیا مطمئن هستید که می‌خواهید دسترسی دریافت پنل تست را برای کلیه کاربران ریست کنید؟")) {
+                                                resetAllTestsMutation.mutate();
+                                            }
+                                        }}
+                                    >
+                                        ریست تست همگانی
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        leftIcon={<ArrowPathIcon width={14} height={14} />}
+                                        isLoading={usersQuery.isFetching}
+                                        onClick={() => usersQuery.refetch()}
+                                    >
+                                        بروزرسانی لیست
+                                    </Button>
+                                </HStack>
                             </Flex>
 
                             <Box
@@ -1289,21 +1661,22 @@ export const SalesBotPage = () => {
                                             <Th>موجودی کیف پول</Th>
                                             <Th>نام کانفیگ پنل</Th>
                                             <Th>وضعیت سرویس</Th>
+                                            <Th>پنل تست</Th>
                                             <Th>کل دریافتی</Th>
                                             <Th>تاریخ عضویت</Th>
-                                            <Th textAlign="center">مدیریت کیف پول</Th>
+                                            <Th textAlign="center">مدیریت</Th>
                                         </Tr>
                                     </Thead>
                                     <Tbody>
                                         {usersQuery.isLoading ? (
                                             <Tr>
-                                                <Td colSpan={8} textAlign="center" py={8}>
+                                                <Td colSpan={9} textAlign="center" py={8}>
                                                     <Spinner size="sm" color="purple.500" />
                                                 </Td>
                                             </Tr>
                                         ) : (usersQuery.data?.length ?? 0) === 0 ? (
                                             <Tr>
-                                                <Td colSpan={8} textAlign="center" py={8} color={textSecondary}>
+                                                <Td colSpan={9} textAlign="center" py={8} color={textSecondary}>
                                                     هیچ کاربری یافت نشد.
                                                 </Td>
                                             </Tr>
@@ -1341,18 +1714,43 @@ export const SalesBotPage = () => {
                                                     <Td fontSize="xs">
                                                         {formatToman(user.total_spent)} تومان
                                                     </Td>
+                                                    <Td>
+                                                        {user.has_used_test ? (
+                                                            <Badge colorScheme="purple">دریافت کرده ({user.test_usage_count || 1})</Badge>
+                                                        ) : (
+                                                            <Badge colorScheme="green">دریافت نکرده</Badge>
+                                                        )}
+                                                    </Td>
+                                                    <Td fontSize="xs">
+                                                        {formatToman(user.total_spent)} تومان
+                                                    </Td>
                                                     <Td fontSize="10px" color={textSecondary}>
                                                         {user.created_at}
                                                     </Td>
                                                     <Td textAlign="center">
-                                                        <Button
-                                                            size="xs"
-                                                            colorScheme="purple"
-                                                            variant="outline"
-                                                            onClick={() => handleOpenWalletModal(user)}
-                                                        >
-                                                            تغییر موجودی
-                                                        </Button>
+                                                        <HStack spacing={1} justify="center">
+                                                            <Button
+                                                                size="xs"
+                                                                colorScheme="purple"
+                                                                variant="outline"
+                                                                onClick={() => handleOpenWalletModal(user)}
+                                                            >
+                                                                کیف پول
+                                                            </Button>
+                                                            {user.has_used_test && (
+                                                                <Tooltip label="ریست دسترسی پنل تست برای این کاربر">
+                                                                    <IconButton
+                                                                        size="xs"
+                                                                        colorScheme="orange"
+                                                                        variant="ghost"
+                                                                        icon={<ArrowPathIcon width={13} height={13} />}
+                                                                        isLoading={resetUserTestMutation.isLoading}
+                                                                        onClick={() => resetUserTestMutation.mutate(user.telegram_id)}
+                                                                        aria-label="ریست تست کاربر"
+                                                                    />
+                                                                </Tooltip>
+                                                            )}
+                                                        </HStack>
                                                     </Td>
                                                 </Tr>
                                             ))
@@ -1477,9 +1875,21 @@ export const SalesBotPage = () => {
                                 border="1px solid"
                                 borderColor={borderColor}
                             >
-                                <Heading size="sm" mb={4} color="purple.400">
-                                    🧪 تنظیمات پنل نمایندگی تست (Test Panel)
-                                </Heading>
+                                <Flex justify="space-between" align="center" mb={4}>
+                                    <Heading size="sm" color="purple.400">
+                                        🧪 تنظیمات پنل نمایندگی تست (Test Panel)
+                                    </Heading>
+                                    <HStack spacing={3}>
+                                        <Text fontSize="xs" fontWeight="medium">
+                                            {formSettings.test_panel_enabled !== "false" ? "فعال" : "غیرفعال"}
+                                        </Text>
+                                        <Switch
+                                            colorScheme="purple"
+                                            isChecked={formSettings.test_panel_enabled !== "false"}
+                                            onChange={(e) => handleSettingChange("test_panel_enabled", e.target.checked ? "true" : "false")}
+                                        />
+                                    </HStack>
+                                </Flex>
                                 <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
                                     <FormControl>
                                         <FormLabel fontSize="xs">حجم ترافیک تست (گیگابایت)</FormLabel>
@@ -1980,13 +2390,13 @@ export const SalesBotPage = () => {
                                     <Tbody>
                                         {webhookLogsQuery.isLoading ? (
                                             <Tr>
-                                                <Td colSpan={8} textAlign="center" py={8}>
+                                                <Td colSpan={9} textAlign="center" py={8}>
                                                     <Spinner size="sm" color="purple.500" />
                                                 </Td>
                                             </Tr>
                                         ) : (webhookLogsQuery.data?.length ?? 0) === 0 ? (
                                             <Tr>
-                                                <Td colSpan={8} textAlign="center" py={12} color={textSecondary}>
+                                                <Td colSpan={9} textAlign="center" py={12} color={textSecondary}>
                                                     <VStack spacing={2}>
                                                         <InboxArrowDownIcon width={32} height={32} />
                                                         <Text fontWeight="medium">هنوز هیچ پیامکی به وب‌هوک ارسال نشده است.</Text>
