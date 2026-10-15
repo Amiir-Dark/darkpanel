@@ -679,8 +679,6 @@ export const IntegrationSettingsPage = () => {
             return "client_apps";
         if (hash === "config_remarks" || hash === "remarks")
             return "config_remarks";
-        if (hash === "telegram" || hash === "reseller_telegram")
-            return "telegram";
         return "sub_access";
     });
     useEffect(() => {
@@ -690,8 +688,6 @@ export const IntegrationSettingsPage = () => {
                 setResellerTab("client_apps");
             else if (hash === "config_remarks" || hash === "remarks")
                 setResellerTab("config_remarks");
-            else if (hash === "telegram" || hash === "reseller_telegram")
-                setResellerTab("telegram");
             else if (hash === "sub_access" || hash === "subscriptions")
                 setResellerTab("sub_access");
         };
@@ -1609,16 +1605,6 @@ export const IntegrationSettingsPage = () => {
                             },
                             label: "Config Remarks",
                         },
-                        {
-                            value: "telegram",
-                            isActive: activeIntegrationTab === 2 && resellerTab === "telegram",
-                            onClick: () => {
-                                setActiveIntegrationTab(2);
-                                setResellerTab("telegram");
-                                window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#telegram`);
-                            },
-                            label: "Telegram Bot",
-                        },
                     ]
                     : []),
                 ...(canManagePlaceholders
@@ -2301,64 +2287,6 @@ export const IntegrationSettingsPage = () => {
 
 											{/* Tab 3: Custom Config Remarks */}
 											{resellerTab === "config_remarks" && (<CustomConfigRemarksSection adminId={admin.id} remarks={settings.inbound_remarks || {}} onChangeRemarks={(nextRemarks) => handleAdminTemplateChange(admin.id, "inbound_remarks", nextRemarks)} subscriptionInbounds={subscriptionBundle?.inbounds || []} borderColor={borderColor} subCardBg={subCardBg} fieldBg={fieldBg} onRefresh={() => refetchSubscriptionSettings()}/>)}
-
-											{/* Tab 4: Telegram Bot Backup Section */}
-											{resellerTab === "telegram" && (<VStack spacing={4} align="stretch">
-													<Flex justify="space-between" align="center" p={3.5} borderRadius="xl" borderWidth="1px" borderColor={borderColor} bg={colorMode === "dark" ? "whiteAlpha.50" : "white"}>
-														<Box>
-															<Text fontWeight="semibold" fontSize="sm">
-																{t("settings.subscriptions.telegramBackupTitle", "Telegram Bot Backup")}
-															</Text>
-															<Text fontSize="xs" color="gray.500" mt={0.5}>
-																{t("settings.subscriptions.telegramBackupDesc", "Configure a dedicated Telegram bot to receive automatic and manual panel backup files.")}
-															</Text>
-														</Box>
-														<HStack spacing={3}>
-															<Text fontSize="xs" fontWeight="semibold" color="gray.500">
-																{Boolean(settings.telegram_backup_enabled) ? "Enabled" : "Disabled"}
-															</Text>
-															<Switch colorScheme="primary" isChecked={Boolean(settings.telegram_backup_enabled)} onChange={(e) => handleAdminTemplateChange(admin.id, "telegram_backup_enabled", e.target.checked)}/>
-														</HStack>
-													</Flex>
-
-													<SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-														<FormControl>
-															<FormLabel fontSize="xs">Telegram Bot Token</FormLabel>
-															<Input type="password" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" value={settings.telegram_bot_token ?? ""} onChange={(e) => handleAdminTemplateChange(admin.id, "telegram_bot_token", e.target.value)}/>
-														</FormControl>
-														<FormControl>
-															<FormLabel fontSize="xs">Chat ID / User ID</FormLabel>
-															<Input placeholder="123456789 or -100..." value={settings.telegram_chat_id ?? ""} onChange={(e) => handleAdminTemplateChange(admin.id, "telegram_chat_id", e.target.value)}/>
-														</FormControl>
-														<FormControl>
-															<FormLabel fontSize="xs">Backup Interval</FormLabel>
-															<Select value={settings.telegram_backup_interval || "daily"} onChange={(e) => handleAdminTemplateChange(admin.id, "telegram_backup_interval", e.target.value)}>
-																<option value="12h">Every 12 Hours</option>
-																<option value="daily">Daily</option>
-																<option value="weekly">Weekly</option>
-															</Select>
-														</FormControl>
-													</SimpleGrid>
-
-													<Flex justify="space-between" align={{ base: "flex-start", sm: "center" }} flexDirection={{ base: "column", sm: "row" }} gap={3} mt={4} pt={3} borderTopWidth="1px" borderColor={borderColor}>
-														<Box>
-															{settings.telegram_backup_last_sent_at ? (<Text fontSize="xs" color="gray.500">
-																	Last backup sent:{" "}
-																	{new Date(settings.telegram_backup_last_sent_at).toLocaleString("en-US")}
-																</Text>) : (<Text fontSize="xs" color="gray.500">
-																	No backup sent yet
-																</Text>)}
-														</Box>
-														<HStack spacing={2}>
-															<Button size="sm" variant="outline" isLoading={isTestingResellerBot} onClick={() => handleTestResellerBot(admin.id)}>
-																Test Bot Connection
-															</Button>
-															<Button size="sm" colorScheme="blue" leftIcon={<ArrowUpTrayIcon style={{ width: 15, height: 15 }}/>} isLoading={isBackingUpReseller} onClick={() => handleTriggerResellerBackup(admin.id)}>
-																Send Backup Now
-															</Button>
-														</HStack>
-													</Flex>
-												</VStack>)}
 
 											{/* Save Button for current view */}
 											<Flex justify="flex-end" mt={2}>
