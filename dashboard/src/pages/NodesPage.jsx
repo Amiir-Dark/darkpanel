@@ -126,14 +126,46 @@ const protocolColorScheme = (state) => {
             return "gray";
     }
 };
-const ProtocolStatusList = ({ statuses, }) => (<Flex gap={2} wrap="wrap">
-		{statuses?.length ? (statuses.map((status) => (<Tag key={status.protocol} size="sm" colorScheme={protocolColorScheme(status.state)} title={status.detail}>
-					{status.protocol} · {status.state}
-					{status.inbounds > 0 ? ` (${status.inbounds})` : ""}
-				</Tag>))) : (<Text fontSize="sm" color="panel.textMuted">
-				-
-			</Text>)}
-	</Flex>);
+const EXCLUDED_PROTOCOLS = new Set([
+	"haproxy",
+	"l2tp",
+	"pptp",
+	"wireguard",
+	"ikev2",
+	"anyconnect",
+	"ssh",
+	"web",
+	"sstp",
+	"amneziawg",
+	"gre",
+]);
+
+const ProtocolStatusList = ({ statuses, }) => {
+	const visibleStatuses = (statuses || []).filter((status) => {
+		if (!status?.protocol) return false;
+		const proto = String(status.protocol).toLowerCase();
+		if (EXCLUDED_PROTOCOLS.has(proto)) return false;
+		if (status.state === "idle" && (!status.inbounds || status.inbounds === 0)) return false;
+		return true;
+	});
+
+	return (
+		<Flex gap={2} wrap="wrap">
+			{visibleStatuses.length ? (
+				visibleStatuses.map((status) => (
+					<Tag key={status.protocol} size="sm" colorScheme={protocolColorScheme(status.state)} title={status.detail}>
+						{status.protocol} · {status.state}
+						{status.inbounds > 0 ? ` (${status.inbounds})` : ""}
+					</Tag>
+				))
+			) : (
+				<Text fontSize="sm" color="panel.textMuted">
+					-
+				</Text>
+			)}
+		</Flex>
+	);
+};
 const NodeDetail = ({ label, value }) => (<Box minW={0}>
 		<Text fontSize="xs" color="panel.textMuted" mb={1}>
 			{label}
