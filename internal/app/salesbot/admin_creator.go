@@ -521,12 +521,14 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 		var adminID int64
 		var lifetimeUsage, usersUsage int64
 		var adminStatus string
+		var dataLimit, expire int64
 		err := mainDB.QueryRowContext(ctx, `
-			SELECT id, COALESCE(lifetime_usage, 0), COALESCE(users_usage, 0), status
+			SELECT id, COALESCE(lifetime_usage, 0), COALESCE(users_usage, 0), status,
+			       COALESCE(data_limit, 0), COALESCE(expire, 0)
 			FROM admins
 			WHERE LOWER(username) = LOWER(?) AND status != 'deleted'
 			LIMIT 1
-		`, target.panelUsername).Scan(&adminID, &lifetimeUsage, &usersUsage, &adminStatus)
+		`, target.panelUsername).Scan(&adminID, &lifetimeUsage, &usersUsage, &adminStatus, &dataLimit, &expire)
 		if err != nil {
 			continue
 		}
@@ -585,7 +587,71 @@ func SyncAdminUsageBilling(ctx context.Context, tgClient *TelegramClient, botTok
 			WHERE user_id = ?
 		`, currentBytes, deltaBytes, target.telegramID)
 
-		// 5. Handle low or negative balance
+		// 5. Smart Notifications (Low Balance, Low Traffic, Expiry)
+		notifyLowBalance := GetSetting("notify_low_balance_enabled", "true") != "false"
+		lowBalanceThreshold := GetSettingFloat("low_balance_threshold", 10000)
+
+		notifyLowTraffic := GetSetting("notify_low_traffic_enabled", "true") != "false"
+		lowTrafficThresholdGB := GetSettingFloat("low_traffic_threshold_gb", 1.0)
+
+		notifyExpiry := GetSetting("notify_expiry_enabled", "true") != "false"
+		expiryThresholdHours := int64(GetSettingInt("expiry_threshold_hours", 12))
+
+		// 5.1 Low Balance Notification
+		if newBalance > 0 && notifyLowBalance && newBalance <= lowBalanceThreshold {
+			if CanSendUserNotification(target.telegramID, "low_balance", 24) && tgClient != nil && botToken != "" {
+				alertText := fmt.Sprintf(
+					"⚠️ <b>هشدار کمبود موجودی کیف پول</b>\n\n"+
+						"👤 کاربر گرامی (<code>%s</code>)،\n"+
+						"موجودی کیف پول شما به <b>%s تومان</b> کاهش یافته است.\n\n"+
+						"💡 جهت جلوگیری از قطع خودکار سرویس‌ها، لطفاً نسبت به افزایش موجودی اقدام فرمایید.",
+					target.panelUsername, formatCurrency(newBalance),
+				)
+				_ = tgClient.SendMessage(ctx, botToken, target.telegramID, alertText, depositOnlyKeyboard())
+				RecordUserNotification(target.telegramID, "low_balance")
+			}
+		}
+
+		// 5.2 Low Traffic Notification
+		if notifyLowTraffic && dataLimit > 0 {
+			remainingBytes := dataLimit - currentBytes
+			remainingGB := float64(remainingBytes) / (1024.0 * 1024.0 * 1024.0)
+			if remainingBytes > 0 && remainingGB <= lowTrafficThresholdGB {
+				if CanSendUserNotification(target.telegramID, "low_traffic", 24) && tgClient != nil && botToken != "" {
+					alertText := fmt.Sprintf(
+						"📊 <b>هشدار حجم ترافیک باقی‌مانده</b>\n\n"+
+							"👤 کاربر گرامی (<code>%s</code>)،\n"+
+							"تنها <b>%.2f گیگابایت</b> از حجم ترافیک سرویس شما باقی مانده است.\n\n"+
+							"⚡️ جهت تمدید یا ارتقای سرویس از منوی ربات اقدام فرمایید.",
+						target.panelUsername, remainingGB,
+					)
+					_ = tgClient.SendMessage(ctx, botToken, target.telegramID, alertText, myPanelsKeyboard(true, target.subURL))
+					RecordUserNotification(target.telegramID, "low_traffic")
+				}
+			}
+		}
+
+		// 5.3 Expiry / Renewal Time Warning
+		if notifyExpiry && expire > 0 {
+			nowUnix := time.Now().Unix()
+			secondsLeft := expire - nowUnix
+			hoursLeft := secondsLeft / 3600
+			if secondsLeft > 0 && hoursLeft <= expiryThresholdHours {
+				if CanSendUserNotification(target.telegramID, "expiry_warning", 24) && tgClient != nil && botToken != "" {
+					alertText := fmt.Sprintf(
+						"⏰ <b>هشدار زمان تمدید سرویس</b>\n\n"+
+							"👤 کاربر گرامی (<code>%s</code>)،\n"+
+							"تنها <b>%d ساعت</b> تا پایان مدت اعتبار سرویس شما باقی مانده است.\n\n"+
+							"💡 جهت تمدید سرویس و جلوگیری از قطع شدن دسترسی، به منوی ربات مراجعه فرمایید.",
+						target.panelUsername, hoursLeft,
+					)
+					_ = tgClient.SendMessage(ctx, botToken, target.telegramID, alertText, myPanelsKeyboard(true, target.subURL))
+					RecordUserNotification(target.telegramID, "expiry_warning")
+				}
+			}
+		}
+
+		// 6. Handle Zero or Negative Balance
 		if newBalance <= 0 {
 			if adminStatus != "disabled" || target.serviceStatus != "disabled" {
 				_, _ = mainDB.ExecContext(ctx, `

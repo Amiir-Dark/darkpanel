@@ -87,6 +87,11 @@ import {
     GiftIcon,
     MegaphoneIcon,
     SparklesIcon,
+    PaperAirplaneIcon,
+    InformationCircleIcon,
+    NoSymbolIcon,
+    BellAlertIcon,
+    KeyIcon,
 } from "@heroicons/react/24/outline";
 import { fetch } from "service/http";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -119,11 +124,24 @@ import {
     deleteGiftCode,
     resetAllTestAccess,
     resetUserTestAccess,
+    getUserDetails,
+    sendUserMessage,
+    toggleUserStatus,
 } from "service/salesBot";
 
 const formatToman = (val) => {
     if (val === null || val === undefined || isNaN(val)) return "0";
     return Math.round(val).toLocaleString("fa-IR");
+};
+
+const formatTraffic = (bytes) => {
+    if (!bytes || bytes <= 0) return "۰ مگابایت";
+    const gb = bytes / (1024 * 1024 * 1024);
+    if (gb >= 1) {
+        return `${gb.toFixed(2)} گیگ`;
+    }
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(0)} مگابایت`;
 };
 
 export const SalesBotPage = () => {
@@ -274,12 +292,82 @@ export const SalesBotPage = () => {
     // Users state
     const [userSearch, setUserSearch] = useState("");
     const [userServiceFilter, setUserServiceFilter] = useState("all");
+    const [userTestFilter, setUserTestFilter] = useState("all");
     const usersQuery = useQuery(
-        ["sales-bot-users", userSearch, userServiceFilter],
-        () => getSalesBotUsers({ search: userSearch, status: userServiceFilter }),
+        ["sales-bot-users", userSearch, userServiceFilter, userTestFilter],
+        () => getSalesBotUsers({ search: userSearch, status: userServiceFilter, test: userTestFilter }),
         {
             refetchInterval: 15000,
             refetchOnWindowFocus: false,
+        }
+    );
+
+    // User details modal state
+    const [selectedUserDetailsUser, setSelectedUserDetailsUser] = useState(null);
+    const userDetailsQuery = useQuery(
+        ["sales-bot-user-details", selectedUserDetailsUser?.telegram_id],
+        () => getUserDetails(selectedUserDetailsUser.telegram_id),
+        {
+            enabled: Boolean(selectedUserDetailsUser?.telegram_id),
+            refetchOnWindowFocus: false,
+        }
+    );
+
+    // Direct message modal state
+    const [directMessageUser, setDirectMessageUser] = useState(null);
+    const [directMessageText, setDirectMessageText] = useState("");
+    const sendDirectMessageMutation = useMutation(
+        ({ id, message }) => sendUserMessage(id, message),
+        {
+            onSuccess: (res) => {
+                toast({
+                    title: "پیام ارسال شد",
+                    description: res?.message || "پیام با موفقیت به تلگرام کاربر ارسال گردید.",
+                    status: "success",
+                    duration: 4000,
+                    isClosable: true,
+                });
+                setDirectMessageUser(null);
+                setDirectMessageText("");
+            },
+            onError: (err) => {
+                toast({
+                    title: "خطا در ارسال پیام",
+                    description: err?.message || String(err),
+                    status: "error",
+                    duration: 5000,
+                    isClosable: true,
+                });
+            },
+        }
+    );
+
+    // Toggle user status mutation
+    const toggleStatusMutation = useMutation(
+        (id) => toggleUserStatus(id),
+        {
+            onSuccess: (res) => {
+                toast({
+                    title: "تغییر وضعیت کاربر",
+                    description: res?.message,
+                    status: res?.status === "blocked" ? "warning" : "success",
+                    duration: 4000,
+                    isClosable: true,
+                });
+                queryClient.invalidateQueries("sales-bot-users");
+                if (selectedUserDetailsUser) {
+                    queryClient.invalidateQueries(["sales-bot-user-details", selectedUserDetailsUser.telegram_id]);
+                }
+            },
+            onError: (err) => {
+                toast({
+                    title: "خطا در تغییر وضعیت",
+                    description: err?.message || String(err),
+                    status: "error",
+                    duration: 5000,
+                    isClosable: true,
+                });
+            },
         }
     );
 
@@ -1459,11 +1547,23 @@ export const SalesBotPage = () => {
                                         w="150px"
                                         value={userServiceFilter}
                                         onChange={(e) => setUserServiceFilter(e.target.value)}
+                                        borderRadius="lg"
                                     >
-                                        <option value="all">همه کاربران</option>
+                                        <option value="all">همه وضعیت‌ها</option>
                                         <option value="active">سرویس فعال</option>
                                         <option value="suspended">معلق / اتمام شارژ</option>
                                         <option value="none">بدون سرویس</option>
+                                    </Select>
+                                    <Select
+                                        size="sm"
+                                        w="160px"
+                                        value={userTestFilter}
+                                        onChange={(e) => setUserTestFilter(e.target.value)}
+                                        borderRadius="lg"
+                                    >
+                                        <option value="all">همه کاربران تست</option>
+                                        <option value="used">تست دریافت کرده</option>
+                                        <option value="not_used">تست دریافت نکرده</option>
                                     </Select>
                                 </HStack>
 
@@ -1510,20 +1610,21 @@ export const SalesBotPage = () => {
                                             <Th>وضعیت سرویس</Th>
                                             <Th>پنل تست</Th>
                                             <Th>کل دریافتی</Th>
+                                            <Th>مصرف ترافیک</Th>
                                             <Th>تاریخ عضویت</Th>
-                                            <Th textAlign="center">مدیریت</Th>
+                                            <Th textAlign="center">مدیریت و امکانات</Th>
                                         </Tr>
                                     </Thead>
                                     <Tbody>
                                         {usersQuery.isLoading ? (
                                             <Tr>
-                                                <Td colSpan={9} textAlign="center" py={8}>
+                                                <Td colSpan={10} textAlign="center" py={8}>
                                                     <Spinner size="sm" color="purple.500" />
                                                 </Td>
                                             </Tr>
                                         ) : (usersQuery.data?.length ?? 0) === 0 ? (
                                             <Tr>
-                                                <Td colSpan={9} textAlign="center" py={8} color={textSecondary}>
+                                                <Td colSpan={10} textAlign="center" py={8} color={textSecondary}>
                                                     هیچ کاربری یافت نشد.
                                                 </Td>
                                             </Tr>
@@ -1533,6 +1634,9 @@ export const SalesBotPage = () => {
                                                     <Td fontWeight="mono" fontSize="xs">
                                                         <HStack spacing={1}>
                                                             <Text>{user.telegram_id}</Text>
+                                                            {user.status === "blocked" && (
+                                                                <Badge colorScheme="red" fontSize="9px">مسدود</Badge>
+                                                            )}
                                                             <Tooltip label="کپی آیدی عددی تلگرام">
                                                                 <IconButton
                                                                     size="xs"
@@ -1573,7 +1677,14 @@ export const SalesBotPage = () => {
                                                         {formatToman(user.wallet_balance)} تومان
                                                     </Td>
                                                     <Td fontSize="xs" fontWeight="mono">
-                                                        {user.panel_username || "-"}
+                                                        <HStack spacing={1}>
+                                                            <Text>{user.panel_username || "-"}</Text>
+                                                            {user.panels_count > 1 && (
+                                                                <Badge colorScheme="purple" fontSize="9px">
+                                                                    {user.panels_count} پنل
+                                                                </Badge>
+                                                            )}
+                                                        </HStack>
                                                     </Td>
                                                     <Td>
                                                         {user.service_status === "active" && (
@@ -1596,6 +1707,9 @@ export const SalesBotPage = () => {
                                                     <Td fontSize="xs" fontWeight="bold">
                                                         {formatToman(user.total_spent)} تومان
                                                     </Td>
+                                                    <Td fontSize="xs" color="purple.300" fontWeight="medium">
+                                                        {formatTraffic(user.total_billed_bytes)}
+                                                    </Td>
                                                     <Td fontSize="10px" color={textSecondary}>
                                                         {user.created_at}
                                                     </Td>
@@ -1609,6 +1723,28 @@ export const SalesBotPage = () => {
                                                             >
                                                                 کیف پول
                                                             </Button>
+                                                            <Button
+                                                                size="xs"
+                                                                colorScheme="blue"
+                                                                variant="solid"
+                                                                leftIcon={<InformationCircleIcon width={12} height={12} />}
+                                                                onClick={() => setSelectedUserDetailsUser(user)}
+                                                            >
+                                                                جزئیات
+                                                            </Button>
+                                                            <Tooltip label="ارسال پیام مستقیم به تلگرام کاربر">
+                                                                <IconButton
+                                                                    size="xs"
+                                                                    colorScheme="teal"
+                                                                    variant="ghost"
+                                                                    icon={<PaperAirplaneIcon width={13} height={13} />}
+                                                                    onClick={() => {
+                                                                        setDirectMessageUser(user);
+                                                                        setDirectMessageText("");
+                                                                    }}
+                                                                    aria-label="ارسال پیام مستقیم"
+                                                                />
+                                                            </Tooltip>
                                                             {user.has_used_test && (
                                                                 <Tooltip label="ریست دسترسی پنل تست برای این کاربر">
                                                                     <IconButton
@@ -1622,6 +1758,17 @@ export const SalesBotPage = () => {
                                                                     />
                                                                 </Tooltip>
                                                             )}
+                                                            <Tooltip label={user.status === "blocked" ? "کاربر مسدود است - کلیک جهت فعال‌سازی" : "مسدود کردن دسترسی کاربر در ربات"}>
+                                                                <IconButton
+                                                                    size="xs"
+                                                                    colorScheme={user.status === "blocked" ? "green" : "red"}
+                                                                    variant="ghost"
+                                                                    icon={<NoSymbolIcon width={13} height={13} />}
+                                                                    isLoading={toggleStatusMutation.isLoading}
+                                                                    onClick={() => toggleStatusMutation.mutate(user.telegram_id)}
+                                                                    aria-label="تغییر وضعیت مسدودی"
+                                                                />
+                                                            </Tooltip>
                                                         </HStack>
                                                     </Td>
                                                 </Tr>
@@ -1934,10 +2081,10 @@ export const SalesBotPage = () => {
                         </VStack>
                     </TabPanel>
 
-                    {/* TAB 7: PRICING & PAYMENT SETTINGS */}
+                    {/* TAB 7: PRICING, ALERTS & SETTINGS */}
                     <TabPanel p={0}>
                         <VStack spacing={6} align="stretch">
-                            {/* Pay-As-You-Go Section */}
+                            {/* SECTION 1: BILLING & SMART EXPIRY ALERTS */}
                             <Box
                                 p={5}
                                 bg={bgCard}
@@ -1945,173 +2092,202 @@ export const SalesBotPage = () => {
                                 border="1px solid"
                                 borderColor={borderColor}
                             >
-                                <Heading size="sm" mb={4} color="purple.400">
-                                    ⚡ نرخ‌گذاری سیستم Pay-As-You-Go
-                                </Heading>
-                                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">قیمت هر گیگابایت (تومان)</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            value={formSettings.price_per_gb || ""}
-                                            onChange={(e) => handleSettingChange("price_per_gb", e.target.value)}
-                                            placeholder="5000"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            مبلغ کسر شده از کیف پول به ازای هر ۱ گیگ مصرف
-                                        </FormHelperText>
-                                    </FormControl>
-
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">حداقل شارژ جهت شروع سرویس (تومان)</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            value={formSettings.min_balance_to_start || ""}
-                                            onChange={(e) => handleSettingChange("min_balance_to_start", e.target.value)}
-                                            placeholder="5000"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            موجودی اولیه مورد نیاز برای باز شدن دسترسی
-                                        </FormHelperText>
-                                    </FormControl>
-
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">دوره زمانی سینک و محاسبه مصرف (ثانیه)</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            value={formSettings.sync_interval || ""}
-                                            onChange={(e) => handleSettingChange("sync_interval", e.target.value)}
-                                            placeholder="120"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            فاصله بین هر بار بررسی مصرف و کسر اعتبار
-                                        </FormHelperText>
-                                    </FormControl>
-                                </SimpleGrid>
-                            </Box>
-
-                            {/* Panel URL Section */}
-                            <Box
-                                p={5}
-                                bg={bgCard}
-                                borderRadius="xl"
-                                border="1px solid"
-                                borderColor={borderColor}
-                            >
-                                <Heading size="sm" mb={4} color="purple.400">
-                                    🌐 تنظیمات پنل نمایندگان (Panel Settings)
-                                </Heading>
-                                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">آدرس یا دامنه پنل دارک‌پنل جهت ورود نمایندگان</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            value={formSettings.panel_url || ""}
-                                            onChange={(e) => handleSettingChange("panel_url", e.target.value)}
-                                            placeholder="https://panel.example.com یا http://1.2.3.4:8000"
-                                            dir="ltr"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            این آدرس در دکمه شیشه‌ای «ورود به درگاه پنل» قرار می‌گیرد. در صورت خالی بودن، از آدرس پیش‌فرض سرور استفاده می‌شود.
-                                        </FormHelperText>
-                                    </FormControl>
-
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">سقف تعداد پنل مجاز برای هر کاربر</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            value={formSettings.max_panels_per_user || ""}
-                                            onChange={(e) => handleSettingChange("max_panels_per_user", e.target.value)}
-                                            placeholder="1"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            حداکثر تعداد پنل نمایندگی فعال برای هر کاربر (پیش‌فرض: ۱، عدد ۰ = بدون محدودیت)
-                                        </FormHelperText>
-                                    </FormControl>
-                                </SimpleGrid>
-                            </Box>
-
-                            {/* Test Panel Section */}
-                            <Box
-                                p={5}
-                                bg={bgCard}
-                                borderRadius="xl"
-                                border="1px solid"
-                                borderColor={borderColor}
-                            >
-                                <Flex justify="space-between" align="center" mb={4}>
+                                <Flex align="center" gap={2} mb={4}>
+                                    <BanknotesIcon width={22} height={22} color="#9F7AEA" />
                                     <Heading size="sm" color="purple.400">
-                                        🧪 تنظیمات پنل نمایندگی تست (Test Panel)
+                                        ⚡ بخش ۱: نرخ‌گذاری و هشدارهای هوشمند تمدید و موجودی
                                     </Heading>
-                                    <HStack spacing={3}>
-                                        <Text fontSize="xs" fontWeight="medium">
-                                            {formSettings.test_panel_enabled !== "false" ? "فعال" : "غیرفعال"}
-                                        </Text>
-                                        <Switch
-                                            colorScheme="purple"
-                                            isChecked={formSettings.test_panel_enabled !== "false"}
-                                            onChange={(e) => handleSettingChange("test_panel_enabled", e.target.checked ? "true" : "false")}
-                                        />
-                                    </HStack>
                                 </Flex>
-                                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">حجم ترافیک تست (گیگابایت)</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            value={formSettings.test_traffic_gb || ""}
-                                            onChange={(e) => handleSettingChange("test_traffic_gb", e.target.value)}
-                                            placeholder="5"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            سقف ترافیک اختصاص داده شده به اکانت تست (پیش‌فرض: ۵ گیگابایت)
-                                        </FormHelperText>
-                                    </FormControl>
 
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">مدت اعتبار پنل تست (ساعت)</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            value={formSettings.test_duration_hours || ""}
-                                            onChange={(e) => handleSettingChange("test_duration_hours", e.target.value)}
-                                            placeholder="24"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            مدت زمان انقضای اکانت تست به ساعت (۲۴ ساعت = ۱ روز)
-                                        </FormHelperText>
-                                    </FormControl>
+                                <VStack spacing={5} align="stretch">
+                                    {/* Pay-As-You-Go Rates */}
+                                    <Box p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                                        <Text fontSize="xs" fontWeight="bold" color="purple.300" mb={3}>
+                                            نرخ‌گذاری مصرف Pay-As-You-Go
+                                        </Text>
+                                        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                                            <FormControl>
+                                                <FormLabel fontSize="xs">قیمت هر گیگابایت (تومان)</FormLabel>
+                                                <Input
+                                                    type="number"
+                                                    size="sm"
+                                                    value={formSettings.price_per_gb || ""}
+                                                    onChange={(e) => handleSettingChange("price_per_gb", e.target.value)}
+                                                    placeholder="5000"
+                                                    borderRadius="md"
+                                                />
+                                                <FormHelperText fontSize="10px">
+                                                    مبلغ کسر شده از کیف پول به ازای هر ۱ گیگ مصرف
+                                                </FormHelperText>
+                                            </FormControl>
 
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">سقف دریافت تست برای هر کاربر (تعداد بار)</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            value={formSettings.test_limit_per_user || ""}
-                                            onChange={(e) => handleSettingChange("test_limit_per_user", e.target.value)}
-                                            placeholder="1"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            هر کاربر تلگرام حداکثر چند بار می‌تواند پنل تست دریافت کند (پیش‌فرض: ۱)
-                                        </FormHelperText>
-                                    </FormControl>
-                                </SimpleGrid>
+                                            <FormControl>
+                                                <FormLabel fontSize="xs">حداقل شارژ جهت شروع سرویس (تومان)</FormLabel>
+                                                <Input
+                                                    type="number"
+                                                    size="sm"
+                                                    value={formSettings.min_balance_to_start || ""}
+                                                    onChange={(e) => handleSettingChange("min_balance_to_start", e.target.value)}
+                                                    placeholder="5000"
+                                                    borderRadius="md"
+                                                />
+                                                <FormHelperText fontSize="10px">
+                                                    موجودی اولیه مورد نیاز برای فعال ماندن سرویس
+                                                </FormHelperText>
+                                            </FormControl>
+
+                                            <FormControl>
+                                                <FormLabel fontSize="xs">دوره زمانی بررسی مصرف (ثانیه)</FormLabel>
+                                                <Input
+                                                    type="number"
+                                                    size="sm"
+                                                    value={formSettings.sync_interval || ""}
+                                                    onChange={(e) => handleSettingChange("sync_interval", e.target.value)}
+                                                    placeholder="120"
+                                                    borderRadius="md"
+                                                />
+                                                <FormHelperText fontSize="10px">
+                                                    فاصله بین هر بار همگام‌سازی و کسر اعتبار
+                                                </FormHelperText>
+                                            </FormControl>
+                                        </SimpleGrid>
+                                    </Box>
+
+                                    {/* Smart Alerts & Notifications */}
+                                    <Box
+                                        p={4}
+                                        bg={bgElevated}
+                                        borderRadius="lg"
+                                        border="1px solid"
+                                        borderColor="purple.500"
+                                    >
+                                        <Flex justify="space-between" align="center" mb={2} wrap="wrap" gap={2}>
+                                            <HStack spacing={2}>
+                                                <BellAlertIcon width={18} height={18} color="#D6BCFA" />
+                                                <Text fontSize="xs" fontWeight="bold" color="purple.200">
+                                                    اعلان‌های هوشمند ربات (هشدار پایان حجم، انقضا و موجودی)
+                                                </Text>
+                                            </HStack>
+                                            <Badge colorScheme="purple" fontSize="9px">
+                                                نوتیفیکیشن تلگرام با وقفه ۲۴ ساعته
+                                            </Badge>
+                                        </Flex>
+                                        <Text fontSize="11px" color={textSecondary} mb={4}>
+                                            هر کدام از هشدارهای زیر را می‌توانید فعال یا غیرفعال کنید و سقف بحرانی آن را جهت ارسال پیام هشدار به کاربر در تلگرام مشخص نمایید.
+                                        </Text>
+
+                                        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                                            {/* Low Balance Alert */}
+                                            <Box
+                                                p={3}
+                                                bg={bgCard}
+                                                borderRadius="md"
+                                                border="1px solid"
+                                                borderColor={formSettings.notify_low_balance_enabled !== "false" ? "yellow.500" : borderColor}
+                                            >
+                                                <Flex justify="space-between" align="center" mb={2}>
+                                                    <Text fontSize="xs" fontWeight="semibold" color="yellow.400">
+                                                        ⚠️ کمبود موجودی
+                                                    </Text>
+                                                    <Switch
+                                                        size="sm"
+                                                        colorScheme="yellow"
+                                                        isChecked={formSettings.notify_low_balance_enabled !== "false"}
+                                                        onChange={(e) => handleSettingChange("notify_low_balance_enabled", e.target.checked ? "true" : "false")}
+                                                    />
+                                                </Flex>
+                                                <FormControl isDisabled={formSettings.notify_low_balance_enabled === "false"}>
+                                                    <FormLabel fontSize="10px">آستانه هشدار (تومان)</FormLabel>
+                                                    <Input
+                                                        type="number"
+                                                        size="xs"
+                                                        value={formSettings.low_balance_threshold ?? ""}
+                                                        onChange={(e) => handleSettingChange("low_balance_threshold", e.target.value)}
+                                                        placeholder="10000"
+                                                        borderRadius="md"
+                                                    />
+                                                    <FormHelperText fontSize="9px">
+                                                        اگر موجودی کمتر از این رقم شد پیام اخطار می‌رود.
+                                                    </FormHelperText>
+                                                </FormControl>
+                                            </Box>
+
+                                            {/* Low Traffic Alert */}
+                                            <Box
+                                                p={3}
+                                                bg={bgCard}
+                                                borderRadius="md"
+                                                border="1px solid"
+                                                borderColor={formSettings.notify_low_traffic_enabled !== "false" ? "cyan.500" : borderColor}
+                                            >
+                                                <Flex justify="space-between" align="center" mb={2}>
+                                                    <Text fontSize="xs" fontWeight="semibold" color="cyan.400">
+                                                        📊 رو به اتمام بودن ترافیک
+                                                    </Text>
+                                                    <Switch
+                                                        size="sm"
+                                                        colorScheme="cyan"
+                                                        isChecked={formSettings.notify_low_traffic_enabled !== "false"}
+                                                        onChange={(e) => handleSettingChange("notify_low_traffic_enabled", e.target.checked ? "true" : "false")}
+                                                    />
+                                                </Flex>
+                                                <FormControl isDisabled={formSettings.notify_low_traffic_enabled === "false"}>
+                                                    <FormLabel fontSize="10px">آستانه حجم باقیمانده (GB)</FormLabel>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.5"
+                                                        size="xs"
+                                                        value={formSettings.low_traffic_threshold_gb ?? ""}
+                                                        onChange={(e) => handleSettingChange("low_traffic_threshold_gb", e.target.value)}
+                                                        placeholder="1.0"
+                                                        borderRadius="md"
+                                                    />
+                                                    <FormHelperText fontSize="9px">
+                                                        اگر حجم باقیمانده زیر این مقدار رسید هشدار ارسال می‌شود.
+                                                    </FormHelperText>
+                                                </FormControl>
+                                            </Box>
+
+                                            {/* Expiry Alert */}
+                                            <Box
+                                                p={3}
+                                                bg={bgCard}
+                                                borderRadius="md"
+                                                border="1px solid"
+                                                borderColor={formSettings.notify_expiry_enabled !== "false" ? "red.500" : borderColor}
+                                            >
+                                                <Flex justify="space-between" align="center" mb={2}>
+                                                    <Text fontSize="xs" fontWeight="semibold" color="red.400">
+                                                        ⏳ نزدیک شدن به زمان انقضا
+                                                    </Text>
+                                                    <Switch
+                                                        size="sm"
+                                                        colorScheme="red"
+                                                        isChecked={formSettings.notify_expiry_enabled !== "false"}
+                                                        onChange={(e) => handleSettingChange("notify_expiry_enabled", e.target.checked ? "true" : "false")}
+                                                    />
+                                                </Flex>
+                                                <FormControl isDisabled={formSettings.notify_expiry_enabled === "false"}>
+                                                    <FormLabel fontSize="10px">آستانه زمان باقیمانده (ساعت)</FormLabel>
+                                                    <Input
+                                                        type="number"
+                                                        size="xs"
+                                                        value={formSettings.expiry_threshold_hours ?? ""}
+                                                        onChange={(e) => handleSettingChange("expiry_threshold_hours", e.target.value)}
+                                                        placeholder="12"
+                                                        borderRadius="md"
+                                                    />
+                                                    <FormHelperText fontSize="9px">
+                                                        پیش از پایان مهلت زمانی پنل، نوتیف تمدید ارسال می‌شود.
+                                                    </FormHelperText>
+                                                </FormControl>
+                                            </Box>
+                                        </SimpleGrid>
+                                    </Box>
+                                </VStack>
                             </Box>
 
-                            {/* Allowed Services Section */}
+                            {/* SECTION 2: PAYMENT GATEWAYS & WALLETS */}
                             <Box
                                 p={5}
                                 bg={bgCard}
@@ -2119,73 +2295,148 @@ export const SalesBotPage = () => {
                                 border="1px solid"
                                 borderColor={borderColor}
                             >
-                                <Heading size="sm" mb={2} color="purple.400">
-                                    🛡️ سرویس‌های مجاز برای نمایندگان (اختصاص سرویس موقع ساخت اکانت)
-                                </Heading>
-                                <Text fontSize="xs" color="gray.400" mb={4}>
-                                    مشخص کنید موقع ساخت اکانت نماینده (تست یا خرید)، چه سرویس‌هایی به او اختصاص داده شود. در صورت عدم انتخاب، نماینده به <b>تمام سرویس‌های فعال سرور</b> دسترسی خواهد داشت.
-                                </Text>
+                                <Flex align="center" gap={2} mb={4}>
+                                    <CreditCardIcon width={22} height={22} color="#48BB78" />
+                                    <Heading size="sm" color="green.400">
+                                        💳 بخش ۲: درگاه‌های پرداخت، کارت به کارت و رمزارز
+                                    </Heading>
+                                </Flex>
 
-                                {servicesQuery.isLoading ? (
-                                    <HStack spacing={2} py={2}>
-                                        <Spinner size="xs" color="purple.400" />
-                                        <Text fontSize="xs" color="gray.400">در حال دریافت لیست سرویس‌ها...</Text>
-                                    </HStack>
-                                ) : availableServices.length === 0 ? (
-                                    <Text fontSize="xs" color="gray.500">هیچ سرویسی در سرور تعریف نشده است.</Text>
-                                ) : (
-                                    <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={3}>
-                                        {availableServices.map((srv) => {
-                                            const selectedIds = (formSettings.allowed_services || "")
-                                                .split(",")
-                                                .map((s) => s.trim())
-                                                .filter(Boolean);
-                                            const isChecked = selectedIds.includes(String(srv.id));
+                                <VStack spacing={4} align="stretch">
+                                    {/* Bank Card */}
+                                    <Box p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                                        <Text fontSize="xs" fontWeight="bold" color="green.300" mb={3}>
+                                            مشخصات کارت بانکی (کارت به کارت ۵ دقیقه‌ای)
+                                        </Text>
+                                        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={3}>
+                                            <FormControl>
+                                                <FormLabel fontSize="xs">شماره کارت (۱۶ رقم)</FormLabel>
+                                                <Input
+                                                    size="sm"
+                                                    value={formSettings.card_number || ""}
+                                                    onChange={(e) => handleSettingChange("card_number", e.target.value)}
+                                                    placeholder="603799..."
+                                                    dir="ltr"
+                                                    borderRadius="md"
+                                                />
+                                            </FormControl>
 
-                                            return (
-                                                <Box
-                                                    key={srv.id}
-                                                    p={3}
-                                                    borderRadius="lg"
-                                                    border="1px solid"
-                                                    borderColor={isChecked ? "purple.500" : borderColor}
-                                                    bg={isChecked ? "purple.900" : "transparent"}
-                                                    opacity={isChecked ? 1 : 0.85}
-                                                    cursor="pointer"
-                                                    onClick={() => {
-                                                        const idStr = String(srv.id);
-                                                        let nextIds;
-                                                        if (isChecked) {
-                                                            nextIds = selectedIds.filter((x) => x !== idStr);
-                                                        } else {
-                                                            nextIds = [...selectedIds, idStr];
-                                                        }
-                                                        handleSettingChange("allowed_services", nextIds.join(","));
-                                                    }}
-                                                >
-                                                    <Checkbox
-                                                        isChecked={isChecked}
-                                                        colorScheme="purple"
-                                                        pointerEvents="none"
-                                                    >
-                                                        <Text fontSize="xs" fontWeight="semibold">
-                                                            {srv.name || `سرویس #${srv.id}`}
-                                                        </Text>
-                                                    </Checkbox>
-                                                </Box>
-                                            );
-                                        })}
+                                            <FormControl>
+                                                <FormLabel fontSize="xs">نام صاحب حساب</FormLabel>
+                                                <Input
+                                                    size="sm"
+                                                    value={formSettings.card_holder || ""}
+                                                    onChange={(e) => handleSettingChange("card_holder", e.target.value)}
+                                                    placeholder="امیر ..."
+                                                    borderRadius="md"
+                                                />
+                                            </FormControl>
+
+                                            <FormControl>
+                                                <FormLabel fontSize="xs">نام بانک</FormLabel>
+                                                <Input
+                                                    size="sm"
+                                                    value={formSettings.bank_name || ""}
+                                                    onChange={(e) => handleSettingChange("bank_name", e.target.value)}
+                                                    placeholder="بانک سامان / ملت"
+                                                    borderRadius="md"
+                                                />
+                                            </FormControl>
+
+                                            <FormControl>
+                                                <FormLabel fontSize="xs">شماره شبا (اختیاری)</FormLabel>
+                                                <Input
+                                                    size="sm"
+                                                    value={formSettings.shaba_number || ""}
+                                                    onChange={(e) => handleSettingChange("shaba_number", e.target.value)}
+                                                    placeholder="IR..."
+                                                    dir="ltr"
+                                                    borderRadius="md"
+                                                />
+                                            </FormControl>
+                                        </SimpleGrid>
+                                    </Box>
+
+                                    {/* Webhook & Crypto */}
+                                    <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
+                                        {/* ForApp Webhook */}
+                                        <Box p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                                            <Text fontSize="xs" fontWeight="bold" color="blue.300" mb={3}>
+                                                وب‌هوک خوانش پیامک ForApp
+                                            </Text>
+                                            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3}>
+                                                <FormControl>
+                                                    <FormLabel fontSize="11px">پورت لیسنر</FormLabel>
+                                                    <Input
+                                                        type="number"
+                                                        size="xs"
+                                                        value={formSettings.forapp_port || ""}
+                                                        onChange={(e) => handleSettingChange("forapp_port", e.target.value)}
+                                                        placeholder="8085"
+                                                        dir="ltr"
+                                                        borderRadius="md"
+                                                    />
+                                                </FormControl>
+                                                <FormControl>
+                                                    <FormLabel fontSize="11px">مسیر اندپوینت</FormLabel>
+                                                    <Input
+                                                        size="xs"
+                                                        value={formSettings.forapp_path || ""}
+                                                        onChange={(e) => handleSettingChange("forapp_path", e.target.value)}
+                                                        placeholder="/webhook/forapp"
+                                                        dir="ltr"
+                                                        borderRadius="md"
+                                                    />
+                                                </FormControl>
+                                                <FormControl>
+                                                    <FormLabel fontSize="11px">توکن امنیتی</FormLabel>
+                                                    <Input
+                                                        size="xs"
+                                                        value={formSettings.forapp_secret || ""}
+                                                        onChange={(e) => handleSettingChange("forapp_secret", e.target.value)}
+                                                        placeholder="Secret Token"
+                                                        dir="ltr"
+                                                        borderRadius="md"
+                                                    />
+                                                </FormControl>
+                                            </SimpleGrid>
+                                        </Box>
+
+                                        {/* Crypto Wallets */}
+                                        <Box p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                                            <Text fontSize="xs" fontWeight="bold" color="yellow.300" mb={3}>
+                                                کیف پول‌های ارز دیجیتال
+                                            </Text>
+                                            <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={3}>
+                                                <FormControl>
+                                                    <FormLabel fontSize="11px">تتر TRC-20 (USDT)</FormLabel>
+                                                    <Input
+                                                        size="xs"
+                                                        value={formSettings.tether_wallet || ""}
+                                                        onChange={(e) => handleSettingChange("tether_wallet", e.target.value)}
+                                                        placeholder="T..."
+                                                        dir="ltr"
+                                                        borderRadius="md"
+                                                    />
+                                                </FormControl>
+                                                <FormControl>
+                                                    <FormLabel fontSize="11px">کیف پول تون (TON)</FormLabel>
+                                                    <Input
+                                                        size="xs"
+                                                        value={formSettings.ton_wallet || ""}
+                                                        onChange={(e) => handleSettingChange("ton_wallet", e.target.value)}
+                                                        placeholder="EQ..."
+                                                        dir="ltr"
+                                                        borderRadius="md"
+                                                    />
+                                                </FormControl>
+                                            </SimpleGrid>
+                                        </Box>
                                     </SimpleGrid>
-                                )}
-
-                                {(!formSettings.allowed_services || formSettings.allowed_services.trim() === "") && (
-                                    <Badge colorScheme="blue" variant="subtle" mt={3} p={1} borderRadius="md" fontSize="10px">
-                                        ✓ دسترسی پیش‌فرض: اتصال خودکار به تمام سرویس‌های فعال سرور
-                                    </Badge>
-                                )}
+                                </VStack>
                             </Box>
 
-                            {/* Bank Card Section */}
+                            {/* SECTION 3: PANEL SETTINGS, TEST & PERMISSIONS */}
                             <Box
                                 p={5}
                                 bg={bgCard}
@@ -2193,59 +2444,170 @@ export const SalesBotPage = () => {
                                 border="1px solid"
                                 borderColor={borderColor}
                             >
-                                <Heading size="sm" mb={4} color="purple.400">
-                                    💳 مشخصات کارت بانکی (جهت کارت به کارت ۵ دقیقه‌ای)
-                                </Heading>
-                                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">شماره کارت بانکی (۱۶ رقم)</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            value={formSettings.card_number || ""}
-                                            onChange={(e) => handleSettingChange("card_number", e.target.value)}
-                                            placeholder="603799..."
-                                            dir="ltr"
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
+                                <Flex align="center" gap={2} mb={4}>
+                                    <ShoppingBagIcon width={22} height={22} color="#4299E1" />
+                                    <Heading size="sm" color="blue.400">
+                                        🌐 بخش ۳: پنل نمایندگان، تست رایگان و سرویس‌های مجاز
+                                    </Heading>
+                                </Flex>
 
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">نام صاحب حساب</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            value={formSettings.card_holder || ""}
-                                            onChange={(e) => handleSettingChange("card_holder", e.target.value)}
-                                            placeholder="امیر ..."
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
+                                <VStack spacing={4} align="stretch">
+                                    {/* Panel URL & Limit */}
+                                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                                        <FormControl>
+                                            <FormLabel fontSize="xs">آدرس یا دامنه پنل دارک‌پنل جهت ورود نمایندگان</FormLabel>
+                                            <Input
+                                                size="sm"
+                                                value={formSettings.panel_url || ""}
+                                                onChange={(e) => handleSettingChange("panel_url", e.target.value)}
+                                                placeholder="https://panel.example.com یا http://1.2.3.4:8000"
+                                                dir="ltr"
+                                                borderRadius="md"
+                                            />
+                                            <FormHelperText fontSize="10px">
+                                                این آدرس در دکمه شیشه‌ای «ورود به درگاه پنل» قرار می‌گیرد.
+                                            </FormHelperText>
+                                        </FormControl>
 
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">نام بانک</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            value={formSettings.bank_name || ""}
-                                            onChange={(e) => handleSettingChange("bank_name", e.target.value)}
-                                            placeholder="بانک ملی / سامان / ملت"
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
+                                        <FormControl>
+                                            <FormLabel fontSize="xs">سقف تعداد پنل مجاز برای هر کاربر</FormLabel>
+                                            <Input
+                                                type="number"
+                                                size="sm"
+                                                value={formSettings.max_panels_per_user || ""}
+                                                onChange={(e) => handleSettingChange("max_panels_per_user", e.target.value)}
+                                                placeholder="1"
+                                                borderRadius="md"
+                                            />
+                                            <FormHelperText fontSize="10px">
+                                                حداکثر تعداد پنل نمایندگی همزمان برای هر کاربر (پیش‌فرض: ۱، عدد ۰ = نامحدود)
+                                            </FormHelperText>
+                                        </FormControl>
+                                    </SimpleGrid>
 
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">شماره شبا (اختیاری)</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            value={formSettings.shaba_number || ""}
-                                            onChange={(e) => handleSettingChange("shaba_number", e.target.value)}
-                                            placeholder="IR..."
-                                            dir="ltr"
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
-                                </SimpleGrid>
+                                    {/* Test Panel Configuration */}
+                                    <Box p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                                        <Flex justify="space-between" align="center" mb={3}>
+                                            <Text fontSize="xs" fontWeight="bold" color="purple.300">
+                                                🧪 تنظیمات پنل نمایندگی تست (Test Panel)
+                                            </Text>
+                                            <HStack spacing={2}>
+                                                <Text fontSize="xs">
+                                                    {formSettings.test_panel_enabled !== "false" ? "فعال" : "غیرفعال"}
+                                                </Text>
+                                                <Switch
+                                                    size="sm"
+                                                    colorScheme="purple"
+                                                    isChecked={formSettings.test_panel_enabled !== "false"}
+                                                    onChange={(e) => handleSettingChange("test_panel_enabled", e.target.checked ? "true" : "false")}
+                                                />
+                                            </HStack>
+                                        </Flex>
+                                        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                                            <FormControl isDisabled={formSettings.test_panel_enabled === "false"}>
+                                                <FormLabel fontSize="xs">حجم ترافیک تست (GB)</FormLabel>
+                                                <Input
+                                                    type="number"
+                                                    size="sm"
+                                                    value={formSettings.test_traffic_gb || ""}
+                                                    onChange={(e) => handleSettingChange("test_traffic_gb", e.target.value)}
+                                                    placeholder="5"
+                                                    borderRadius="md"
+                                                />
+                                            </FormControl>
+
+                                            <FormControl isDisabled={formSettings.test_panel_enabled === "false"}>
+                                                <FormLabel fontSize="xs">مدت اعتبار تست (ساعت)</FormLabel>
+                                                <Input
+                                                    type="number"
+                                                    size="sm"
+                                                    value={formSettings.test_duration_hours || ""}
+                                                    onChange={(e) => handleSettingChange("test_duration_hours", e.target.value)}
+                                                    placeholder="24"
+                                                    borderRadius="md"
+                                                />
+                                            </FormControl>
+
+                                            <FormControl isDisabled={formSettings.test_panel_enabled === "false"}>
+                                                <FormLabel fontSize="xs">سقف دریافت تست برای هر کاربر</FormLabel>
+                                                <Input
+                                                    type="number"
+                                                    size="sm"
+                                                    value={formSettings.test_limit_per_user || ""}
+                                                    onChange={(e) => handleSettingChange("test_limit_per_user", e.target.value)}
+                                                    placeholder="1"
+                                                    borderRadius="md"
+                                                />
+                                            </FormControl>
+                                        </SimpleGrid>
+                                    </Box>
+
+                                    {/* Allowed Services */}
+                                    <Box p={4} bg={bgElevated} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                                        <Text fontSize="xs" fontWeight="bold" color="blue.300" mb={1}>
+                                            🛡️ سرویس‌های مجاز برای نمایندگان (اختصاص سرویس موقع ساخت اکانت)
+                                        </Text>
+                                        <Text fontSize="10px" color={textSecondary} mb={3}>
+                                            مشخص کنید موقع ساخت اکانت نماینده چه سرویس‌هایی اختصاص داده شود. در صورت عدم انتخاب، به تمام سرویس‌ها دسترسی خواهد داشت.
+                                        </Text>
+
+                                        {servicesQuery.isLoading ? (
+                                            <HStack spacing={2} py={2}>
+                                                <Spinner size="xs" color="purple.400" />
+                                                <Text fontSize="xs" color="gray.400">در حال دریافت لیست سرویس‌ها...</Text>
+                                            </HStack>
+                                        ) : availableServices.length === 0 ? (
+                                            <Text fontSize="xs" color="gray.500">هیچ سرویسی در سرور تعریف نشده است.</Text>
+                                        ) : (
+                                            <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={2}>
+                                                {availableServices.map((srv) => {
+                                                    const selectedIds = (formSettings.allowed_services || "")
+                                                        .split(",")
+                                                        .map((s) => s.trim())
+                                                        .filter(Boolean);
+                                                    const isChecked = selectedIds.includes(String(srv.id));
+
+                                                    return (
+                                                        <Box
+                                                            key={srv.id}
+                                                            p={2.5}
+                                                            borderRadius="md"
+                                                            border="1px solid"
+                                                            borderColor={isChecked ? "purple.500" : borderColor}
+                                                            bg={isChecked ? "purple.900" : "transparent"}
+                                                            opacity={isChecked ? 1 : 0.85}
+                                                            cursor="pointer"
+                                                            onClick={() => {
+                                                                const idStr = String(srv.id);
+                                                                let nextIds;
+                                                                if (isChecked) {
+                                                                    nextIds = selectedIds.filter((x) => x !== idStr);
+                                                                } else {
+                                                                    nextIds = [...selectedIds, idStr];
+                                                                }
+                                                                handleSettingChange("allowed_services", nextIds.join(","));
+                                                            }}
+                                                        >
+                                                            <Checkbox
+                                                                isChecked={isChecked}
+                                                                colorScheme="purple"
+                                                                size="sm"
+                                                                pointerEvents="none"
+                                                            >
+                                                                <Text fontSize="xs" fontWeight="medium">
+                                                                    {srv.name || `سرویس #${srv.id}`}
+                                                                </Text>
+                                                            </Checkbox>
+                                                        </Box>
+                                                    );
+                                                })}
+                                            </SimpleGrid>
+                                        )}
+                                    </Box>
+                                </VStack>
                             </Box>
 
-                            {/* ForApp Webhook Section */}
+                            {/* SECTION 4: TELEGRAM BOT CORE & SUPPORT */}
                             <Box
                                 p={5}
                                 bg={bgCard}
@@ -2253,104 +2615,13 @@ export const SalesBotPage = () => {
                                 border="1px solid"
                                 borderColor={borderColor}
                             >
-                                <Heading size="sm" mb={4} color="purple.400">
-                                    🔗 تنظیمات سرور وب‌هوک ForApp (خواندن پیامک بانک)
-                                </Heading>
-                                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">پورت لیسنر وب‌هوک</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            value={formSettings.forapp_port || ""}
-                                            onChange={(e) => handleSettingChange("forapp_port", e.target.value)}
-                                            placeholder="8085"
-                                            dir="ltr"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            پیش‌فرض 8085 (مطمئن شوید در فایروال سرور باز است)
-                                        </FormHelperText>
-                                    </FormControl>
+                                <Flex align="center" gap={2} mb={4}>
+                                    <CommandLineIcon width={22} height={22} color="#ED8936" />
+                                    <Heading size="sm" color="orange.400">
+                                        🤖 بخش ۴: هسته ربات تلگرام و تنظیمات ارتباطی
+                                    </Heading>
+                                </Flex>
 
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">مسیر اندپوینت وب‌هوک</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            value={formSettings.forapp_path || ""}
-                                            onChange={(e) => handleSettingChange("forapp_path", e.target.value)}
-                                            placeholder="/webhook/forapp"
-                                            dir="ltr"
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
-
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">توکن امنیتی وب‌هوک (Secret Token)</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            value={formSettings.forapp_secret || ""}
-                                            onChange={(e) => handleSettingChange("forapp_secret", e.target.value)}
-                                            placeholder="کلید تصادفی اختیاری"
-                                            dir="ltr"
-                                            borderRadius="lg"
-                                        />
-                                        <FormHelperText fontSize="10px">
-                                            جهت بررسی هدر Authorization یا X-Webhook-Secret
-                                        </FormHelperText>
-                                    </FormControl>
-                                </SimpleGrid>
-                            </Box>
-
-                            {/* Crypto Wallets Section */}
-                            <Box
-                                p={5}
-                                bg={bgCard}
-                                borderRadius="xl"
-                                border="1px solid"
-                                borderColor={borderColor}
-                            >
-                                <Heading size="sm" mb={4} color="purple.400">
-                                    🪙 آدرس کیف پول‌های ارز دیجیتال
-                                </Heading>
-                                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">آدرس تتر شبکه TRC-20 (USDT)</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            value={formSettings.tether_wallet || ""}
-                                            onChange={(e) => handleSettingChange("tether_wallet", e.target.value)}
-                                            placeholder="T..."
-                                            dir="ltr"
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
-
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">آدرس کیف پول شبکه تون (TON)</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            value={formSettings.ton_wallet || ""}
-                                            onChange={(e) => handleSettingChange("ton_wallet", e.target.value)}
-                                            placeholder="EQ..."
-                                            dir="ltr"
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
-                                </SimpleGrid>
-                            </Box>
-
-                            {/* Telegram & Support Section */}
-                            <Box
-                                p={5}
-                                bg={bgCard}
-                                borderRadius="xl"
-                                border="1px solid"
-                                borderColor={borderColor}
-                            >
-                                <Heading size="sm" mb={4} color="purple.400">
-                                    🤖 تنظیمات ربات تلگرام و پشتیبانی
-                                </Heading>
                                 <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                                     <FormControl>
                                         <FormLabel fontSize="xs">توکن ربات تلگرام (Bot Token)</FormLabel>
@@ -2361,7 +2632,7 @@ export const SalesBotPage = () => {
                                             onChange={(e) => handleSettingChange("bot_token", e.target.value)}
                                             placeholder="123456789:ABCdefGhI..."
                                             dir="ltr"
-                                            borderRadius="lg"
+                                            borderRadius="md"
                                         />
                                     </FormControl>
 
@@ -2373,7 +2644,7 @@ export const SalesBotPage = () => {
                                             onChange={(e) => handleSettingChange("admin_ids", e.target.value)}
                                             placeholder="12345678, 87654321"
                                             dir="ltr"
-                                            borderRadius="lg"
+                                            borderRadius="md"
                                         />
                                     </FormControl>
 
@@ -2385,7 +2656,7 @@ export const SalesBotPage = () => {
                                             onChange={(e) => handleSettingChange("support_username", e.target.value)}
                                             placeholder="@AdminSupport"
                                             dir="ltr"
-                                            borderRadius="lg"
+                                            borderRadius="md"
                                         />
                                     </FormControl>
 
@@ -2397,7 +2668,7 @@ export const SalesBotPage = () => {
                                             onChange={(e) => handleSettingChange("channel_username", e.target.value)}
                                             placeholder="@MyChannel"
                                             dir="ltr"
-                                            borderRadius="lg"
+                                            borderRadius="md"
                                         />
                                     </FormControl>
 
@@ -2408,26 +2679,20 @@ export const SalesBotPage = () => {
                                             value={formSettings.brand_name || ""}
                                             onChange={(e) => handleSettingChange("brand_name", e.target.value)}
                                             placeholder="گارد"
-                                            borderRadius="lg"
+                                            borderRadius="md"
                                         />
-                                        <FormHelperText fontSize="10px">
-                                            این نام در متن خوش‌آمدگویی، فاکتورها و اعلان‌های ربات قرار می‌گیرد (پیش‌فرض: گارد)
-                                        </FormHelperText>
                                     </FormControl>
 
                                     <FormControl>
-                                        <FormLabel fontSize="xs">پروکسی تلگرام (اختیاری - سرورهای ایران)</FormLabel>
+                                        <FormLabel fontSize="xs">پروکسی تلگرام (جهت سرور ایران)</FormLabel>
                                         <Input
                                             size="sm"
                                             value={formSettings.telegram_proxy || ""}
                                             onChange={(e) => handleSettingChange("telegram_proxy", e.target.value)}
-                                            placeholder="socks5://127.0.0.1:1080 یا http://127.0.0.1:8080"
+                                            placeholder="socks5://127.0.0.1:1080"
                                             dir="ltr"
-                                            borderRadius="lg"
+                                            borderRadius="md"
                                         />
-                                        <FormHelperText fontSize="10px">
-                                            در صورتی که سرور شما در ایران است، آدرس پروکسی جهت اتصال ربات به تلگرام
-                                        </FormHelperText>
                                     </FormControl>
 
                                     <FormControl gridColumn={{ md: "span 2" }}>
@@ -2436,13 +2701,10 @@ export const SalesBotPage = () => {
                                             size="sm"
                                             value={formSettings.telegram_api_base || ""}
                                             onChange={(e) => handleSettingChange("telegram_api_base", e.target.value)}
-                                            placeholder="https://api.telegram.org یا http://127.0.0.1:8081"
+                                            placeholder="https://api.telegram.org"
                                             dir="ltr"
-                                            borderRadius="lg"
+                                            borderRadius="md"
                                         />
-                                        <FormHelperText fontSize="10px">
-                                            آدرس سفارشی سرور تلگرام در صورت استفاده از Local Bot API Server یا Reverse Proxy
-                                        </FormHelperText>
                                     </FormControl>
                                 </SimpleGrid>
                             </Box>
@@ -2926,6 +3188,317 @@ export const SalesBotPage = () => {
                             }}
                         >
                             ثبت تغییر موجودی
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* User Details & Panels Inspection Modal */}
+            <Modal
+                isOpen={Boolean(selectedUserDetailsUser)}
+                onClose={() => setSelectedUserDetailsUser(null)}
+                size="2xl"
+                isCentered
+                dir="rtl"
+            >
+                <ModalOverlay />
+                <ModalContent bg={bgCard} border="1px solid" borderColor={borderColor}>
+                    <ModalHeader fontSize="md" fontWeight="bold">
+                        <HStack spacing={2}>
+                            <InformationCircleIcon width={20} height={20} color="#63B3ED" />
+                            <Text>مشخصات و پنل‌های کاربر: {selectedUserDetailsUser?.first_name || "کاربر"} ({selectedUserDetailsUser?.telegram_id})</Text>
+                        </HStack>
+                    </ModalHeader>
+                    <ModalCloseButton left={3} right="auto" />
+                    <ModalBody maxH="75vh" overflowY="auto">
+                        {userDetailsQuery.isLoading ? (
+                            <Flex justify="center" py={12}>
+                                <Spinner size="lg" color="purple.500" />
+                            </Flex>
+                        ) : (
+                            <VStack spacing={5} align="stretch">
+                                {/* User Summary Card */}
+                                <SimpleGrid columns={{ base: 2, sm: 4 }} spacing={3} p={4} bg={bgElevated} borderRadius="lg">
+                                    <Box>
+                                        <Text fontSize="10px" color={textSecondary}>آیدی تلگرام</Text>
+                                        <Text fontSize="xs" fontWeight="mono" mt={1}>{selectedUserDetailsUser?.telegram_id}</Text>
+                                    </Box>
+                                    <Box>
+                                        <Text fontSize="10px" color={textSecondary}>موجودی کیف پول</Text>
+                                        <Text fontSize="xs" fontWeight="bold" color="green.400" mt={1}>
+                                            {formatToman(selectedUserDetailsUser?.wallet_balance)} تومان
+                                        </Text>
+                                    </Box>
+                                    <Box>
+                                        <Text fontSize="10px" color={textSecondary}>مجموع شارژ / خرید</Text>
+                                        <Text fontSize="xs" fontWeight="bold" mt={1}>
+                                            {formatToman(selectedUserDetailsUser?.total_spent)} تومان
+                                        </Text>
+                                    </Box>
+                                    <Box>
+                                        <Text fontSize="10px" color={textSecondary}>وضعیت حساب</Text>
+                                        <Badge
+                                            mt={1}
+                                            colorScheme={selectedUserDetailsUser?.status === "blocked" ? "red" : "green"}
+                                        >
+                                            {selectedUserDetailsUser?.status === "blocked" ? "مسدود شده" : "فعال"}
+                                        </Badge>
+                                    </Box>
+                                </SimpleGrid>
+
+                                {/* Panels Section */}
+                                <Box>
+                                    <Flex justify="space-between" align="center" mb={2}>
+                                        <Heading size="xs" color="purple.300">
+                                            🖥️ پنل‌های نمایندگی کاربر ({userDetailsQuery.data?.panels?.length || 0})
+                                        </Heading>
+                                    </Flex>
+                                    {(!userDetailsQuery.data?.panels || userDetailsQuery.data.panels.length === 0) ? (
+                                        <Box p={4} bg={bgElevated} borderRadius="md" textAlign="center" color={textSecondary} fontSize="xs">
+                                            این کاربر هنوز هیچ پنل کاربری در دارک‌پنل ثبت نکرده است.
+                                        </Box>
+                                    ) : (
+                                        <Box border="1px solid" borderColor={borderColor} borderRadius="lg" overflow="hidden">
+                                            <Table size="sm" variant="simple">
+                                                <Thead bg={bgElevated}>
+                                                    <Tr>
+                                                        <Th>نام کاربری پنل</Th>
+                                                        <Th>رمز عبور</Th>
+                                                        <Th>نوع پنل</Th>
+                                                        <Th>وضعیت</Th>
+                                                        <Th>تاریخ ساخت</Th>
+                                                    </Tr>
+                                                </Thead>
+                                                <Tbody>
+                                                    {userDetailsQuery.data.panels.map((p) => (
+                                                        <Tr key={p.id}>
+                                                            <Td fontWeight="mono" fontSize="xs">
+                                                                <HStack spacing={1}>
+                                                                    <Text>{p.panel_username}</Text>
+                                                                    <Tooltip label="کپی نام کاربری">
+                                                                        <IconButton
+                                                                            size="xs"
+                                                                            variant="ghost"
+                                                                            icon={<DocumentDuplicateIcon width={10} height={10} />}
+                                                                            onClick={() => {
+                                                                                navigator.clipboard.writeText(p.panel_username);
+                                                                                toast({ title: "نام کاربری کپی شد", status: "info", duration: 1500 });
+                                                                            }}
+                                                                            aria-label="کپی"
+                                                                        />
+                                                                    </Tooltip>
+                                                                </HStack>
+                                                            </Td>
+                                                            <Td fontWeight="mono" fontSize="xs">
+                                                                <HStack spacing={1}>
+                                                                    <Text>{p.panel_password || "(تعیین نشده)"}</Text>
+                                                                    {p.panel_password && (
+                                                                        <Tooltip label="کپی رمز عبور">
+                                                                            <IconButton
+                                                                                size="xs"
+                                                                                variant="ghost"
+                                                                                icon={<DocumentDuplicateIcon width={10} height={10} />}
+                                                                                onClick={() => {
+                                                                                    navigator.clipboard.writeText(p.panel_password);
+                                                                                    toast({ title: "رمز عبور کپی شد", status: "info", duration: 1500 });
+                                                                                }}
+                                                                                aria-label="کپی رمز"
+                                                                            />
+                                                                        </Tooltip>
+                                                                    )}
+                                                                </HStack>
+                                                            </Td>
+                                                            <Td>
+                                                                <Badge colorScheme={p.panel_type === "test" ? "purple" : "blue"} fontSize="10px">
+                                                                    {p.panel_type === "test" ? "تست رایگان" : "پنل اصلی"}
+                                                                </Badge>
+                                                            </Td>
+                                                            <Td>
+                                                                <Badge colorScheme={p.status === "active" ? "green" : "red"} fontSize="10px">
+                                                                    {p.status}
+                                                                </Badge>
+                                                            </Td>
+                                                            <Td fontSize="10px" color={textSecondary}>
+                                                                {p.created_at || "-"}
+                                                            </Td>
+                                                        </Tr>
+                                                    ))}
+                                                </Tbody>
+                                            </Table>
+                                        </Box>
+                                    )}
+                                </Box>
+
+                                {/* Recent Orders Section */}
+                                <Box>
+                                    <Heading size="xs" color="purple.300" mb={2}>
+                                        🧾 تراکنش‌ها و سفارش‌های اخیر
+                                    </Heading>
+                                    {(!userDetailsQuery.data?.orders || userDetailsQuery.data.orders.length === 0) ? (
+                                        <Box p={3} bg={bgElevated} borderRadius="md" textAlign="center" color={textSecondary} fontSize="xs">
+                                            سابقه تراکنشی یافت نشد.
+                                        </Box>
+                                    ) : (
+                                        <Box border="1px solid" borderColor={borderColor} borderRadius="lg" overflow="hidden">
+                                            <Table size="sm" variant="simple">
+                                                <Thead bg={bgElevated}>
+                                                    <Tr>
+                                                        <Th>شناسه</Th>
+                                                        <Th>مبلغ</Th>
+                                                        <Th>روش پرداخت</Th>
+                                                        <Th>وضعیت</Th>
+                                                        <Th>تاریخ</Th>
+                                                    </Tr>
+                                                </Thead>
+                                                <Tbody>
+                                                    {userDetailsQuery.data.orders.map((ord) => (
+                                                        <Tr key={ord.id}>
+                                                            <Td fontSize="xs" fontWeight="mono">#{ord.id}</Td>
+                                                            <Td fontSize="xs" fontWeight="bold" color="green.400">
+                                                                {formatToman(ord.amount)} تومان
+                                                            </Td>
+                                                            <Td fontSize="xs">{ord.payment_method}</Td>
+                                                            <Td>
+                                                                <Badge
+                                                                    colorScheme={ord.status === "paid" ? "green" : ord.status === "pending" ? "yellow" : "red"}
+                                                                    fontSize="10px"
+                                                                >
+                                                                    {ord.status}
+                                                                </Badge>
+                                                            </Td>
+                                                            <Td fontSize="10px" color={textSecondary}>{ord.created_at}</Td>
+                                                        </Tr>
+                                                    ))}
+                                                </Tbody>
+                                            </Table>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </VStack>
+                        )}
+                    </ModalBody>
+                    <ModalFooter>
+                        <HStack spacing={2}>
+                            <Button
+                                size="sm"
+                                colorScheme="teal"
+                                leftIcon={<PaperAirplaneIcon width={14} height={14} />}
+                                onClick={() => {
+                                    const target = selectedUserDetailsUser;
+                                    setSelectedUserDetailsUser(null);
+                                    setDirectMessageUser(target);
+                                    setDirectMessageText("");
+                                }}
+                            >
+                                ارسال پیام تلگرام
+                            </Button>
+                            <Button
+                                size="sm"
+                                colorScheme="purple"
+                                variant="outline"
+                                onClick={() => {
+                                    const target = selectedUserDetailsUser;
+                                    setSelectedUserDetailsUser(null);
+                                    handleOpenWalletModal(target);
+                                }}
+                            >
+                                تغییر موجودی کیف پول
+                            </Button>
+                            <Button
+                                size="sm"
+                                colorScheme={selectedUserDetailsUser?.status === "blocked" ? "green" : "red"}
+                                variant="ghost"
+                                isLoading={toggleStatusMutation.isLoading}
+                                onClick={() => {
+                                    toggleStatusMutation.mutate(selectedUserDetailsUser.telegram_id);
+                                }}
+                            >
+                                {selectedUserDetailsUser?.status === "blocked" ? "فعال‌سازی کاربر" : "مسدود کردن کاربر"}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setSelectedUserDetailsUser(null)}>
+                                بستن
+                            </Button>
+                        </HStack>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Direct Telegram Message Modal */}
+            <Modal
+                isOpen={Boolean(directMessageUser)}
+                onClose={() => setDirectMessageUser(null)}
+                isCentered
+                dir="rtl"
+            >
+                <ModalOverlay />
+                <ModalContent bg={bgCard} border="1px solid" borderColor={borderColor}>
+                    <ModalHeader fontSize="md" fontWeight="bold">
+                        <HStack spacing={2}>
+                            <PaperAirplaneIcon width={18} height={18} color="#319795" />
+                            <Text>ارسال پیام به: {directMessageUser?.first_name || "کاربر"} ({directMessageUser?.telegram_id})</Text>
+                        </HStack>
+                    </ModalHeader>
+                    <ModalCloseButton left={3} right="auto" />
+                    <ModalBody>
+                        <VStack spacing={4} align="stretch">
+                            <Text fontSize="xs" color={textSecondary}>
+                                این پیام به صورت مستقیم از طریق ربات تلگرام برای کاربر ارسال می‌شود.
+                            </Text>
+
+                            <FormControl isRequired>
+                                <FormLabel fontSize="xs">متن پیام:</FormLabel>
+                                <Textarea
+                                    rows={5}
+                                    placeholder="متن پیام خود را بنویسید..."
+                                    value={directMessageText}
+                                    onChange={(e) => setDirectMessageText(e.target.value)}
+                                    borderRadius="lg"
+                                />
+                            </FormControl>
+
+                            <HStack spacing={1} wrap="wrap">
+                                <Text fontSize="10px" color={textSecondary}>قالب‌های سریع:</Text>
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => setDirectMessageText("سلام و درود،\nلطفاً جهت تمدید سرویس یا افزایش موجودی کیف پول خود به منوی ربات مراجعه فرمایید.")}
+                                >
+                                    یادآوری تمدید
+                                </Button>
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => setDirectMessageText("سلام،\nمشکل شما بررسی و برطرف گردید. لطفاً مجدداً اتصال پنل خود را تست کنید.")}
+                                >
+                                    پاسخ پشتیبانی
+                                </Button>
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => setDirectMessageText("با سلام،\nبه اطلاع می‌رساند سرورها در حال بروزرسانی هستند و تا دقایقی دیگر به حالت عادی بازمی‌گردند.")}
+                                >
+                                    اطلاعیه بروزرسانی
+                                </Button>
+                            </HStack>
+                        </VStack>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="ghost" mr={3} onClick={() => setDirectMessageUser(null)}>
+                            انصراف
+                        </Button>
+                        <Button
+                            colorScheme="teal"
+                            isLoading={sendDirectMessageMutation.isLoading}
+                            isDisabled={!directMessageText.trim()}
+                            leftIcon={<PaperAirplaneIcon width={14} height={14} />}
+                            onClick={() => {
+                                sendDirectMessageMutation.mutate({
+                                    id: directMessageUser.telegram_id,
+                                    message: directMessageText,
+                                });
+                            }}
+                        >
+                            ارسال پیام
                         </Button>
                     </ModalFooter>
                 </ModalContent>

@@ -657,17 +657,20 @@ func (s *Server) handleSalesBotReceiptAction(w http.ResponseWriter, r *http.Requ
 // -------------------------------------------------------------
 
 type BotUserResponse struct {
-	TelegramID     int64   `json:"telegram_id"`
-	Username       string  `json:"username"`
-	FirstName      string  `json:"first_name"`
-	WalletBalance  float64 `json:"wallet_balance"`
-	PanelUsername  string  `json:"panel_username"`
-	SubURL         string  `json:"sub_url"`
-	ServiceStatus  string  `json:"service_status"`
-	TotalSpent     float64 `json:"total_spent"`
-	HasUsedTest    bool    `json:"has_used_test"`
-	TestUsageCount int     `json:"test_usage_count"`
-	CreatedAt      string  `json:"created_at"`
+	TelegramID       int64   `json:"telegram_id"`
+	Username         string  `json:"username"`
+	FirstName        string  `json:"first_name"`
+	WalletBalance    float64 `json:"wallet_balance"`
+	PanelUsername    string  `json:"panel_username"`
+	SubURL           string  `json:"sub_url"`
+	ServiceStatus    string  `json:"service_status"`
+	TotalSpent       float64 `json:"total_spent"`
+	TotalBilledBytes int64   `json:"total_billed_bytes"`
+	Status           string  `json:"status"`
+	HasUsedTest      bool    `json:"has_used_test"`
+	TestUsageCount   int     `json:"test_usage_count"`
+	PanelsCount      int     `json:"panels_count"`
+	CreatedAt        string  `json:"created_at"`
 }
 
 func (s *Server) handleSalesBotUsers(w http.ResponseWriter, r *http.Request) {
@@ -684,6 +687,7 @@ func (s *Server) handleSalesBotUsers(w http.ResponseWriter, r *http.Request) {
 
 	search := strings.TrimSpace(r.URL.Query().Get("search"))
 	statusFilter := strings.TrimSpace(r.URL.Query().Get("status"))
+	testFilter := strings.TrimSpace(r.URL.Query().Get("test"))
 	limit := 100
 	if lStr := r.URL.Query().Get("limit"); lStr != "" {
 		if l, err := strconv.Atoi(lStr); err == nil && l > 0 && l <= 1000 {
@@ -692,26 +696,36 @@ func (s *Server) handleSalesBotUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		SELECT telegram_id, username, first_name, wallet_balance,
-		       panel_username, sub_url, service_status, total_spent,
-		       COALESCE(has_used_test, 0), COALESCE(test_usage_count, 0), created_at
-		FROM users
+		SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), u.wallet_balance,
+		       COALESCE(u.panel_username, ''), COALESCE(u.sub_url, ''), COALESCE(u.service_status, 'none'), u.total_spent,
+		       COALESCE(u.has_used_test, 0), COALESCE(u.test_usage_count, 0),
+		       COALESCE(u.status, 'active'), u.created_at,
+		       COALESCE(ut.total_billed_bytes, 0),
+		       (SELECT COUNT(*) FROM user_panels WHERE user_id = u.telegram_id)
+		FROM users u
+		LEFT JOIN usage_tracking ut ON u.telegram_id = ut.user_id
 		WHERE 1=1
 	`
 	var args []any
 
 	if statusFilter != "" && statusFilter != "all" {
-		query += ` AND service_status = ?`
+		query += ` AND u.service_status = ?`
 		args = append(args, statusFilter)
 	}
 
+	if testFilter == "used" {
+		query += ` AND u.has_used_test = 1`
+	} else if testFilter == "not_used" {
+		query += ` AND (u.has_used_test = 0 OR u.has_used_test IS NULL)`
+	}
+
 	if search != "" {
-		query += ` AND (username LIKE ? OR first_name LIKE ? OR panel_username LIKE ? OR CAST(telegram_id AS TEXT) LIKE ?)`
+		query += ` AND (u.username LIKE ? OR u.first_name LIKE ? OR u.panel_username LIKE ? OR CAST(u.telegram_id AS TEXT) LIKE ?)`
 		like := "%" + search + "%"
 		args = append(args, like, like, like, like)
 	}
 
-	query += ` ORDER BY telegram_id DESC LIMIT ?`
+	query += ` ORDER BY u.telegram_id DESC LIMIT ?`
 	args = append(args, limit)
 
 	rows, err := db.Query(query, args...)
@@ -725,13 +739,17 @@ func (s *Server) handleSalesBotUsers(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var u BotUserResponse
 		var hasTestInt, testCountInt sql.NullInt64
+		var totalBilledBytes, panelsCount sql.NullInt64
 		if err := rows.Scan(
 			&u.TelegramID, &u.Username, &u.FirstName, &u.WalletBalance,
 			&u.PanelUsername, &u.SubURL, &u.ServiceStatus, &u.TotalSpent,
-			&hasTestInt, &testCountInt, &u.CreatedAt,
+			&hasTestInt, &testCountInt, &u.Status, &u.CreatedAt,
+			&totalBilledBytes, &panelsCount,
 		); err == nil {
 			u.HasUsedTest = hasTestInt.Int64 == 1
 			u.TestUsageCount = int(testCountInt.Int64)
+			u.TotalBilledBytes = totalBilledBytes.Int64
+			u.PanelsCount = int(panelsCount.Int64)
 			users = append(users, u)
 		}
 	}
@@ -744,15 +762,14 @@ func (s *Server) handleSalesBotUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSalesBotUserAction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/sales-bot/users/"), "/")
 	parts := strings.Split(path, "/")
 
 	if len(parts) == 1 && parts[0] == "reset-all-tests" {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
 		affected, err := salesbot.ResetAllUsersTestAccess()
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
@@ -763,6 +780,10 @@ func (s *Server) handleSalesBotUserAction(w http.ResponseWriter, r *http.Request
 	}
 
 	if len(parts) == 2 && parts[1] == "reset-test" {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
 		telegramID, err := strconv.ParseInt(parts[0], 10, 64)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid telegram id")
@@ -773,6 +794,181 @@ func (s *Server) handleSalesBotUserAction(w http.ResponseWriter, r *http.Request
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "دسترسی تست کاربر با موفقیت ریست شد"})
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "details" {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		telegramID, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid telegram id")
+			return
+		}
+		db, _, err := getBotDB()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		var u BotUserResponse
+		var hasTestInt, testCountInt sql.NullInt64
+		var totalBilledBytes, panelsCount sql.NullInt64
+		err = db.QueryRow(`
+			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), u.wallet_balance,
+			       COALESCE(u.panel_username, ''), COALESCE(u.sub_url, ''), COALESCE(u.service_status, 'none'), u.total_spent,
+			       COALESCE(u.has_used_test, 0), COALESCE(u.test_usage_count, 0),
+			       COALESCE(u.status, 'active'), u.created_at,
+			       COALESCE(ut.total_billed_bytes, 0),
+			       (SELECT COUNT(*) FROM user_panels WHERE user_id = u.telegram_id)
+			FROM users u
+			LEFT JOIN usage_tracking ut ON u.telegram_id = ut.user_id
+			WHERE u.telegram_id = ?
+		`, telegramID).Scan(
+			&u.TelegramID, &u.Username, &u.FirstName, &u.WalletBalance,
+			&u.PanelUsername, &u.SubURL, &u.ServiceStatus, &u.TotalSpent,
+			&hasTestInt, &testCountInt, &u.Status, &u.CreatedAt,
+			&totalBilledBytes, &panelsCount,
+		)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "کاربر یافت نشد")
+			return
+		}
+		u.HasUsedTest = hasTestInt.Int64 == 1
+		u.TestUsageCount = int(testCountInt.Int64)
+		u.TotalBilledBytes = totalBilledBytes.Int64
+		u.PanelsCount = int(panelsCount.Int64)
+
+		type PanelItem struct {
+			ID            int64  `json:"id"`
+			PanelUsername string `json:"panel_username"`
+			PanelPassword string `json:"panel_password"`
+			PanelURL      string `json:"panel_url"`
+			PanelType     string `json:"panel_type"`
+			Status        string `json:"status"`
+			CreatedAt     string `json:"created_at"`
+		}
+		panelRows, _ := db.Query(`
+			SELECT id, panel_username, panel_password, panel_url, panel_type, status, created_at
+			FROM user_panels
+			WHERE user_id = ?
+			ORDER BY id DESC
+		`, telegramID)
+		var panels []PanelItem
+		if panelRows != nil {
+			for panelRows.Next() {
+				var p PanelItem
+				if err := panelRows.Scan(&p.ID, &p.PanelUsername, &p.PanelPassword, &p.PanelURL, &p.PanelType, &p.Status, &p.CreatedAt); err == nil {
+					panels = append(panels, p)
+				}
+			}
+			panelRows.Close()
+		}
+		if panels == nil {
+			panels = []PanelItem{}
+		}
+
+		type OrderSummary struct {
+			ID          int64   `json:"id"`
+			AmountExact float64 `json:"amount_exact"`
+			Status      string  `json:"status"`
+			BankRef     string  `json:"bank_ref"`
+			CreatedAt   string  `json:"created_at"`
+		}
+		orderRows, _ := db.Query(`
+			SELECT id, amount_exact, status, bank_ref, created_at
+			FROM orders
+			WHERE user_id = ?
+			ORDER BY id DESC LIMIT 5
+		`, telegramID)
+		var orders []OrderSummary
+		if orderRows != nil {
+			for orderRows.Next() {
+				var o OrderSummary
+				if err := orderRows.Scan(&o.ID, &o.AmountExact, &o.Status, &o.BankRef, &o.CreatedAt); err == nil {
+					orders = append(orders, o)
+				}
+			}
+			orderRows.Close()
+		}
+		if orders == nil {
+			orders = []OrderSummary{}
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"user":   u,
+			"panels": panels,
+			"orders": orders,
+		})
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "message" {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		telegramID, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid telegram id")
+			return
+		}
+		var payload struct {
+			Message string `json:"message"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || strings.TrimSpace(payload.Message) == "" {
+			writeError(w, http.StatusBadRequest, "متن پیام نمی‌تواند خالی باشد")
+			return
+		}
+		botToken := strings.TrimSpace(salesbot.GetSetting("bot_token", ""))
+		if botToken == "" {
+			writeError(w, http.StatusBadRequest, "توکن ربات تلگرام در تنظیمات ثبت نشده است")
+			return
+		}
+		tgClient := salesbot.NewTelegramClient()
+		formattedMsg := fmt.Sprintf("📩 <b>پیام مستقیم از طرف مدیریت:</b>\n\n%s", payload.Message)
+		err = tgClient.SendMessage(r.Context(), botToken, telegramID, formattedMsg, nil)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "خطا در ارسال پیام تلگرام: "+err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "پیام با موفقیت به کاربر در تلگرام ارسال شد"})
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "toggle-status" {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		telegramID, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid telegram id")
+			return
+		}
+		db, _, err := getBotDB()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		var currentStatus string
+		_ = db.QueryRow(`SELECT COALESCE(status, 'active') FROM users WHERE telegram_id = ?`, telegramID).Scan(&currentStatus)
+		newStatus := "blocked"
+		if currentStatus == "blocked" {
+			newStatus = "active"
+		}
+		_, err = db.Exec(`UPDATE users SET status = ? WHERE telegram_id = ?`, newStatus, telegramID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		msg := "کاربر با موفقیت فعال شد"
+		if newStatus == "blocked" {
+			msg = "کاربر با موفقیت مسدود شد"
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": newStatus, "message": msg})
 		return
 	}
 

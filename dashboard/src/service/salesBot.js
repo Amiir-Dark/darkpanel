@@ -74,9 +74,28 @@ export const getSalesBotUsers = async (params = {}) => {
     const searchParams = new URLSearchParams();
     if (params.search) searchParams.set("search", params.search);
     if (params.status) searchParams.set("status", params.status);
+    if (params.test) searchParams.set("test", params.test);
     if (params.limit) searchParams.set("limit", String(params.limit));
     const qs = searchParams.toString();
     return apiFetch(`/sales-bot/users${qs ? `?${qs}` : ""}`);
+};
+
+export const getUserDetails = async (telegramId) => {
+    return apiFetch(`/sales-bot/users/${encodeURIComponent(telegramId)}/details`);
+};
+
+export const sendUserMessage = async (telegramId, message) => {
+    return apiFetch(`/sales-bot/users/${encodeURIComponent(telegramId)}/message`, {
+        method: "POST",
+        body: JSON.stringify({ message }),
+    });
+};
+
+export const toggleUserStatus = async (telegramId) => {
+    return apiFetch(`/sales-bot/users/${encodeURIComponent(telegramId)}/toggle-status`, {
+        method: "POST",
+        body: JSON.stringify({}),
+    });
 };
 
 export const adjustUserWallet = async (telegramId, payload) => {

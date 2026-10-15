@@ -254,6 +254,14 @@ func GetDB() (*sql.DB, string, error) {
 
 	CREATE INDEX IF NOT EXISTS idx_user_panels_user ON user_panels(user_id);
 	CREATE INDEX IF NOT EXISTS idx_user_panels_username ON user_panels(panel_username);
+
+	CREATE TABLE IF NOT EXISTS user_notifications (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		notif_type TEXT NOT NULL,
+		sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(user_id, notif_type)
+	);
 	`
 	if _, err := conn.Exec(schema); err != nil {
 		_ = conn.Close()
@@ -457,6 +465,32 @@ func ClearUserState(userID int64) {
 		return
 	}
 	_, _ = db.Exec(`DELETE FROM user_states WHERE user_id = ?`, userID)
+}
+
+// User notifications rate-limiting helpers
+func CanSendUserNotification(userID int64, notifType string, cooldownHours int) bool {
+	db, _, err := GetDB()
+	if err != nil || db == nil {
+		return false
+	}
+	var count int
+	_ = db.QueryRow(`
+		SELECT COUNT(*) FROM user_notifications 
+		WHERE user_id = ? AND notif_type = ? AND sent_at >= datetime('now', printf('-%d hours', ?))
+	`, userID, notifType, cooldownHours).Scan(&count)
+	return count == 0
+}
+
+func RecordUserNotification(userID int64, notifType string) {
+	db, _, err := GetDB()
+	if err != nil || db == nil {
+		return
+	}
+	_, _ = db.Exec(`
+		INSERT INTO user_notifications (user_id, notif_type, sent_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(user_id, notif_type) DO UPDATE SET sent_at = CURRENT_TIMESTAMP
+	`, userID, notifType)
 }
 
 // User operations
