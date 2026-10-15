@@ -1043,9 +1043,15 @@ issue_ssl_with_acme() {
         args+=" -d $domain"
     done
 
-    ~/.acme.sh/acme.sh --issue --standalone $args --accountemail "$email" || return 1
-
     local primary="${domains[0]}"
+    if ! ~/.acme.sh/acme.sh --issue --standalone $args --accountemail "$email"; then
+        if [ ! -d ~/.acme.sh/"${primary}_ecc" ] && [ ! -d ~/.acme.sh/"${primary}" ]; then
+            if ! ~/.acme.sh/acme.sh --issue --standalone $args --accountemail "$email" --force; then
+                return 1
+            fi
+        fi
+    fi
+
     SSL_CERT_DIR="$CERTS_BASE/$primary"
     mkdir -p "$SSL_CERT_DIR"
 
@@ -1073,11 +1079,18 @@ issue_ssl_with_certbot() {
     certbot certonly --standalone $args --non-interactive --agree-tos --email "$email" || return 1
 
     local primary="${domains[0]}"
+    local src_key="/etc/letsencrypt/live/$primary/privkey.pem"
+    local src_cert="/etc/letsencrypt/live/$primary/fullchain.pem"
+    if [ ! -s "$src_key" ] || [ ! -s "$src_cert" ]; then
+        colorized_echo red "Certbot certificate files missing or empty in /etc/letsencrypt/live/$primary/"
+        return 1
+    fi
+
     SSL_CERT_DIR="$CERTS_BASE/$primary"
     mkdir -p "$SSL_CERT_DIR"
 
-    cat "/etc/letsencrypt/live/$primary/privkey.pem" > "$SSL_CERT_DIR/privkey.pem"
-    cat "/etc/letsencrypt/live/$primary/fullchain.pem" > "$SSL_CERT_DIR/fullchain.pem"
+    cp -f "$src_key" "$SSL_CERT_DIR/privkey.pem"
+    cp -f "$src_cert" "$SSL_CERT_DIR/fullchain.pem"
 
     echo "provider=certbot" > "$SSL_CERT_DIR/.metadata"
     echo "email=$email" >> "$SSL_CERT_DIR/.metadata"
