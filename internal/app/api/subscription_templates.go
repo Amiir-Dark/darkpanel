@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -185,13 +186,37 @@ func setActiveRowTemplateName(name string) {
 	_ = os.WriteFile(stateFile, []byte(strings.TrimSpace(name)), 0644)
 }
 
+func (s *Server) getResellerActiveTemplateName(ctx context.Context, adminID int64) string {
+	var raw sql.NullString
+	if err := s.db.QueryRowContext(ctx, "SELECT subscription_settings FROM admins WHERE id = ? LIMIT 1", adminID).Scan(&raw); err == nil && strings.TrimSpace(raw.String) != "" {
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(raw.String), &parsed); err == nil {
+			if tpl, ok := parsed["subscription_page_template"].(string); ok && strings.TrimSpace(tpl) != "" {
+				if id, ok := rowtemplates.ExtractTemplateID(tpl); ok {
+					return id
+				}
+			}
+		}
+	}
+	return s.getActiveRowTemplateName(ctx)
+}
+
 func (s *Server) handleSubscriptionTemplatesRoot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	activeTemplate := s.getActiveRowTemplateName(r.Context())
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	isReseller := (principal.Role == string(adminapp.RoleReseller))
+
+	var activeTemplate string
+	if isReseller {
+		activeTemplate = s.getResellerActiveTemplateName(r.Context(), principal.ID)
+	} else {
+		activeTemplate = s.getActiveRowTemplateName(r.Context())
+	}
+
 	list := make([]SubscriptionTemplateInfo, len(availableRowTemplates))
 	copy(list, availableRowTemplates)
 
@@ -203,6 +228,7 @@ func (s *Server) handleSubscriptionTemplatesRoot(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, map[string]any{
 		"templates":       list,
 		"active_template": activeTemplate,
+		"is_reseller":     isReseller,
 	})
 }
 
@@ -275,10 +301,7 @@ func (s *Server) handleSubscriptionTemplatePreview(w http.ResponseWriter, r *htt
 
 func (s *Server) handleSubscriptionTemplateActivate(w http.ResponseWriter, r *http.Request, templateName string) {
 	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
-	if principal.Role == string(adminapp.RoleReseller) {
-		writeError(w, http.StatusForbidden, "نمایندگان مجاز به تغییر قالب سابسکریپشن سرور نیستند")
-		return
-	}
+	isReseller := (principal.Role == string(adminapp.RoleReseller))
 
 	shellBytes, err := rowtemplates.ReadTemplate(templateName)
 	if err != nil {
@@ -286,7 +309,23 @@ func (s *Server) handleSubscriptionTemplateActivate(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// 1. Write to target index.html
+	templatePathInDB := "subscription/row-template/" + templateName + "/shell.html"
+
+	if isReseller {
+		if err := s.updateResellerSubscriptionPageTemplate(r.Context(), principal.ID, templatePathInDB); err != nil {
+			writeError(w, http.StatusInternalServerError, "خطا در تنظیم قالب نماینده: "+err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"success":         true,
+			"message":         "قالب «" + templateName + "» با موفقیت برای کاربران شما فعال گردید.",
+			"active_template": templateName,
+			"is_reseller":     true,
+		})
+		return
+	}
+
+	// Master Admin: Write to target index.html
 	targetIndex := rowtemplates.ResolveSubscriptionTargetPath()
 	_ = os.MkdirAll(filepath.Dir(targetIndex), 0755)
 	backupIndex := filepath.Join(filepath.Dir(targetIndex), "index.html.original")
@@ -305,8 +344,7 @@ func (s *Server) handleSubscriptionTemplateActivate(w http.ResponseWriter, r *ht
 		_ = os.WriteFile(standardPath, shellBytes, 0644)
 	}
 
-	// 2. Update database settings so subscription_page_template is configured to the row template
-	templatePathInDB := "subscription/row-template/" + templateName + "/shell.html"
+	// Update database settings so subscription_page_template is configured to the row template
 	rawSettings := map[string]json.RawMessage{
 		"subscription_page_template": json.RawMessage(`"` + templatePathInDB + `"`),
 	}
@@ -315,7 +353,7 @@ func (s *Server) handleSubscriptionTemplateActivate(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// 3. Clear any admin-level subscription_page_template overrides in admins table
+	// Clear any admin-level subscription_page_template overrides in admins table
 	// so ALL users across the entire panel will use this template
 	s.clearAllAdminSubscriptionTemplateOverrides(r.Context())
 
@@ -326,16 +364,30 @@ func (s *Server) handleSubscriptionTemplateActivate(w http.ResponseWriter, r *ht
 		"success":         true,
 		"message":         "قالب «" + templateName + "» با موفقیت برای کل پنل فعال گردید.",
 		"active_template": templateName,
+		"is_reseller":     false,
 	})
 }
 
 func (s *Server) handleSubscriptionTemplateReset(w http.ResponseWriter, r *http.Request) {
 	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
-	if principal.Role == string(adminapp.RoleReseller) {
-		writeError(w, http.StatusForbidden, "نمایندگان مجاز به تغییر قالب سابسکریپشن سرور نیستند")
+	isReseller := (principal.Role == string(adminapp.RoleReseller))
+
+	if isReseller {
+		if err := s.clearResellerSubscriptionPageTemplate(r.Context(), principal.ID); err != nil {
+			writeError(w, http.StatusInternalServerError, "خطا در بازگردانی قالب: "+err.Error())
+			return
+		}
+		serverDefault := s.getActiveRowTemplateName(r.Context())
+		writeJSON(w, http.StatusOK, map[string]any{
+			"success":         true,
+			"message":         "قالب سابسکریپشن کاربران شما به پیش‌فرض سرور بازگردانده شد.",
+			"active_template": serverDefault,
+			"is_reseller":     true,
+		})
 		return
 	}
 
+	// Master Admin: Reset to default Rebecca
 	targetIndex := rowtemplates.ResolveSubscriptionTargetPath()
 	backupIndex := filepath.Join(filepath.Dir(targetIndex), "index.html.original")
 
@@ -355,7 +407,42 @@ func (s *Server) handleSubscriptionTemplateReset(w http.ResponseWriter, r *http.
 		"success":         true,
 		"message":         "قالب پیش‌فرض ربکا با موفقیت فعال شد.",
 		"active_template": "",
+		"is_reseller":     false,
 	})
+}
+
+func (s *Server) updateResellerSubscriptionPageTemplate(ctx context.Context, adminID int64, templatePath string) error {
+	var raw sql.NullString
+	_ = s.db.QueryRowContext(ctx, "SELECT subscription_settings FROM admins WHERE id = ? LIMIT 1", adminID).Scan(&raw)
+
+	parsed := map[string]any{}
+	if strings.TrimSpace(raw.String) != "" {
+		_ = json.Unmarshal([]byte(raw.String), &parsed)
+	}
+	parsed["subscription_page_template"] = templatePath
+	newJSON, err := json.Marshal(parsed)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, "UPDATE admins SET subscription_settings = ? WHERE id = ?", string(newJSON), adminID)
+	return err
+}
+
+func (s *Server) clearResellerSubscriptionPageTemplate(ctx context.Context, adminID int64) error {
+	var raw sql.NullString
+	_ = s.db.QueryRowContext(ctx, "SELECT subscription_settings FROM admins WHERE id = ? LIMIT 1", adminID).Scan(&raw)
+
+	parsed := map[string]any{}
+	if strings.TrimSpace(raw.String) != "" {
+		_ = json.Unmarshal([]byte(raw.String), &parsed)
+	}
+	delete(parsed, "subscription_page_template")
+	newJSON, err := json.Marshal(parsed)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, "UPDATE admins SET subscription_settings = ? WHERE id = ?", string(newJSON), adminID)
+	return err
 }
 
 func (s *Server) clearAllAdminSubscriptionTemplateOverrides(ctx context.Context) {

@@ -53,7 +53,7 @@ const CATEGORIES = [
     { key: "art", label: "طراحی دستی" },
 ];
 
-export const SubscriptionTemplatesSection = () => {
+export const SubscriptionTemplatesSection = ({ isReseller: propIsReseller }) => {
     const { t } = useTranslation();
     const toast = useToast();
     const queryClient = useQueryClient();
@@ -79,6 +79,8 @@ export const SubscriptionTemplatesSection = () => {
         staleTime: 60_000,
     });
 
+    const isReseller = Boolean(propIsReseller || data?.is_reseller);
+
     const activateMutation = useMutation(activateSubscriptionTemplate, {
         onSuccess: (res, templateName) => {
             queryClient.invalidateQueries("subscription-templates");
@@ -86,7 +88,9 @@ export const SubscriptionTemplatesSection = () => {
             setTemplateToActivate(null);
             toast({
                 title: "قالب با موفقیت فعال شد",
-                description: `قالب «${templateName}» اکنون به عنوان صفحه سابسکریپشن تمامی کاربران فعال است.`,
+                description: isReseller
+                    ? `قالب «${templateName}» اکنون برای تمامی کاربران زیرمجموعه شما فعال شد.`
+                    : `قالب «${templateName}» اکنون به عنوان صفحه سابسکریپشن تمامی کاربران فعال است.`,
                 status: "success",
                 duration: 5000,
                 isClosable: true,
@@ -103,8 +107,10 @@ export const SubscriptionTemplatesSection = () => {
             queryClient.invalidateQueries("subscription-settings");
             setIsResetConfirmOpen(false);
             toast({
-                title: "بازگردانی به پیش‌فرض ربکا",
-                description: "صفحه سابسکریپشن به قالب اصلی و پیش‌فرض پنل ربکا بازگردانده شد.",
+                title: isReseller ? "بازگردانی به پیش‌فرض سرور" : "بازگردانی به پیش‌فرض ربکا",
+                description: isReseller
+                    ? "قالب کاربران شما به تنظیمات پیش‌فرض سراسری سرور بازگردانده شد."
+                    : "صفحه سابسکریپشن به قالب اصلی و پیش‌فرض پنل ربکا بازگردانده شد.",
                 status: "info",
                 duration: 5000,
                 isClosable: true,
@@ -163,7 +169,7 @@ export const SubscriptionTemplatesSection = () => {
 
     return (
         <Stack spacing={4} align="stretch" mt={1}>
-            {/* Sleek, Minimal Top Toolbar (Replaces the bulky header completely) */}
+            {/* Sleek, Minimal Top Toolbar */}
             <Box
                 borderRadius="xl"
                 p={3}
@@ -246,11 +252,16 @@ export const SubscriptionTemplatesSection = () => {
                         {activeTemplate ? (
                             <Tag size="sm" colorScheme="green" variant="subtle" borderRadius="full">
                                 <Icon as={CheckCircleIcon} boxSize={3.5} me={1} />
-                                <TagLabel>فعال: {activeTemplateObj?.name || activeTemplate}</TagLabel>
+                                <TagLabel>
+                                    {isReseller ? "قالب کاربران من: " : "قالب فعال: "}
+                                    {activeTemplateObj?.name || activeTemplate}
+                                </TagLabel>
                             </Tag>
                         ) : (
                             <Tag size="sm" colorScheme="gray" variant="subtle" borderRadius="full">
-                                <TagLabel>قالب پیش‌فرض ربکا</TagLabel>
+                                <TagLabel>
+                                    {isReseller ? "پیروی از پیش‌فرض سرور" : "قالب پیش‌فرض ربکا"}
+                                </TagLabel>
                             </Tag>
                         )}
 
@@ -272,7 +283,7 @@ export const SubscriptionTemplatesSection = () => {
                                 onClick={() => setIsResetConfirmOpen(true)}
                                 isLoading={resetMutation.isLoading}
                             >
-                                بازگردانی پیش‌فرض
+                                {isReseller ? "پیش‌فرض سرور" : "بازگردانی پیش‌فرض"}
                             </Button>
                         )}
                     </HStack>
@@ -463,7 +474,11 @@ export const SubscriptionTemplatesSection = () => {
                                             </Button>
                                         ) : (
                                             <Tooltip
-                                                label="فعال‌سازی این قالب برای تمام کاربران پنل"
+                                                label={
+                                                    isReseller
+                                                        ? "فعال‌سازی این قالب برای کاربران زیرمجموعه شما"
+                                                        : "فعال‌سازی این قالب برای تمام کاربران پنل"
+                                                }
                                                 placement="top"
                                                 hasArrow
                                             >
@@ -476,7 +491,9 @@ export const SubscriptionTemplatesSection = () => {
                                                     onClick={() => setTemplateToActivate(tpl)}
                                                     isLoading={isThisActivating}
                                                 >
-                                                    فعال‌سازی روی پنل
+                                                    {isReseller
+                                                        ? "فعال‌سازی برای کاربران من"
+                                                        : "فعال‌سازی روی پنل"}
                                                 </Button>
                                             </Tooltip>
                                         )}
@@ -497,9 +514,19 @@ export const SubscriptionTemplatesSection = () => {
                         activateMutation.mutate(templateToActivate.id);
                     }
                 }}
-                title={`فعال‌سازی قالب «${templateToActivate?.name || ""}»`}
-                description={`آیا از اعمال قالب «${templateToActivate?.name}» به عنوان صفحه سابسکریپشن تمامی کاربران اطمینان دارید؟ با تایید شما، تمام کاربران پنل بلافاصله صفحه اتصال خود را با این استایل جدید مشاهده خواهند کرد.`}
-                confirmLabel="بله، فعال‌سازی روی کل پنل"
+                title={
+                    isReseller
+                        ? `فعال‌سازی قالب «${templateToActivate?.name || ""}» برای کاربران شما`
+                        : `فعال‌سازی قالب «${templateToActivate?.name || ""}» روی کل پنل`
+                }
+                description={
+                    isReseller
+                        ? `آیا از اعمال قالب «${templateToActivate?.name}» برای تمامی کاربران زیرمجموعه خود اطمینان دارید؟ تمام کاربرانی که توسط شما ایجاد شده‌اند بلافاصله این استایل جدید را مشاهده خواهند کرد.`
+                        : `آیا از اعمال قالب «${templateToActivate?.name}» به عنوان صفحه سابسکریپشن تمامی کاربران اطمینان دارید؟ با تایید شما، تمام کاربران پنل بلافاصله صفحه اتصال خود را با این استایل جدید مشاهده خواهند کرد.`
+                }
+                confirmLabel={
+                    isReseller ? "بله، فعال‌سازی برای کاربران من" : "بله، فعال‌سازی روی کل پنل"
+                }
                 colorScheme="primary"
                 isLoading={activateMutation.isLoading}
             />
@@ -509,10 +536,18 @@ export const SubscriptionTemplatesSection = () => {
                 isOpen={isResetConfirmOpen}
                 onClose={() => setIsResetConfirmOpen(false)}
                 onConfirm={() => resetMutation.mutate()}
-                title="بازگردانی به قالب اصلی ربکا"
-                description="آیا می‌خواهید قالب صفحه سابسکریپشن را به پوسته استاندارد و پیش‌فرض پنل ربکا بازگردانید؟"
-                confirmLabel="بازگردانی به پیش‌فرض"
-                colorScheme="red"
+                title={
+                    isReseller
+                        ? "استفاده از قالب پیش‌فرض سرور"
+                        : "بازگردانی به قالب اصلی ربکا"
+                }
+                description={
+                    isReseller
+                        ? "آیا می‌خواهید قالب اختصاصی خود را لغو کرده و کاربران شما از قالب پیش‌فرض سراسری سرور استفاده کنند؟"
+                        : "آیا می‌خواهید قالب صفحه سابسکریپشن را به پوسته استاندارد و پیش‌فرض پنل ربکا بازگردانید؟"
+                }
+                confirmLabel={isReseller ? "استفاده از پیش‌فرض سرور" : "بازگردانی به پیش‌فرض"}
+                colorScheme={isReseller ? "orange" : "red"}
                 isLoading={resetMutation.isLoading}
             />
         </Stack>

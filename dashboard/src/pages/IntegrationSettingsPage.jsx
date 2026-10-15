@@ -599,7 +599,7 @@ export const IntegrationSettingsPage = () => {
         return 0;
     });
     useEffect(() => {
-        if (isSelfOnlySubscription && activeIntegrationTab !== 2 && activeIntegrationTab !== 4) {
+        if (isSelfOnlySubscription && activeIntegrationTab !== 2 && activeIntegrationTab !== 4 && activeIntegrationTab !== 5) {
             setActiveIntegrationTab(canManageSubscription ? 2 : 4);
         }
     }, [isSelfOnlySubscription, activeIntegrationTab, canManageSubscription]);
@@ -1605,6 +1605,12 @@ export const IntegrationSettingsPage = () => {
                                 window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#config_remarks`);
                             },
                             label: "Config Remarks",
+                        },
+                        {
+                            value: "templates",
+                            isActive: activeIntegrationTab === 5,
+                            onClick: () => handleIntegrationTabChange(5),
+                            label: t("settings.templates.tabTitle", "تمپلیت (قالب‌ها)"),
                         },
                     ]
                     : []),
@@ -3050,9 +3056,9 @@ export const IntegrationSettingsPage = () => {
 			{activeIntegrationTab === 4 && canManagePlaceholders && (<Box mt={4}>
 					<PlaceholderSettingsPanel isTab/>
 				</Box>)}
-			{activeIntegrationTab === 5 && (canManageIntegrations || isSudoOrFull) && (
+			{activeIntegrationTab === 5 && (canManageIntegrations || isSudoOrFull || canManageSubscription) && (
 				<Box mt={4}>
-					<SubscriptionTemplatesSection />
+					<SubscriptionTemplatesSection isReseller={isSelfOnlySubscription} />
 				</Box>
 			)}
 			<Modal isOpen={isCertificateDialogOpen} onClose={() => setCertificateDialogOpen(false)} size={certificateForm.provider === "manual" ? "3xl" : "xl"} isCentered scrollBehavior="inside" closeOnOverlayClick={!isCertificateMutationLoading}>
