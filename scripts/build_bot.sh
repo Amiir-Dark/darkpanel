@@ -17,8 +17,8 @@ fi
 
 echo "Building DarkPanel Telegram Bot..."
 (
-    cd "$ROOT_DIR/bot"
-    CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$output" .
+    cd "$ROOT_DIR"
+    CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$output" ./cmd/darkpanel_bot
 )
 
 echo "DarkPanel Telegram Bot built at $output"
