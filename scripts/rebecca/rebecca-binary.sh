@@ -592,10 +592,34 @@ apt_update_with_repo_repair() {
 }
 
 
+wait_for_dpkg_lock() {
+    if ! command -v fuser >/dev/null 2>&1; then
+        return 0
+    fi
+    local max_wait=60
+    local waited=0
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+        if [ "$waited" -eq 0 ]; then
+            colorized_echo yellow "Waiting for background package manager (unattended-upgrades) to release lock..."
+        fi
+        sleep 2
+        waited=$((waited + 2))
+        if [ "$waited" -ge "$max_wait" ]; then
+            colorized_echo yellow "Stopping background unattended-upgrades to proceed with installation..."
+            systemctl stop unattended-upgrades 2>/dev/null || true
+            killall -9 unattended-upgr apt-get apt dpkg 2>/dev/null || true
+            rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock
+            dpkg --configure -a 2>/dev/null || true
+            break
+        fi
+    done
+}
+
 detect_and_update_package_manager() {
     if [[ "$OS" == "Ubuntu"* ]] || [[ "$OS" == "Debian"* ]]; then
         PKG_MANAGER="apt-get"
-        ui_spinner_run "Updating package index" apt_update_with_repo_repair -o Acquire::AllowReleaseInfoChange=true -o Acquire::AllowReleaseInfoChange::Label=true
+        wait_for_dpkg_lock
+        ui_spinner_run "Updating package index" apt_update_with_repo_repair -o DPkg::Lock::Timeout=120 -o Acquire::AllowReleaseInfoChange=true -o Acquire::AllowReleaseInfoChange::Label=true
     elif [[ "$OS" == "CentOS"* ]] || [[ "$OS" == "AlmaLinux"* ]]; then
         PKG_MANAGER="yum"
         ui_spinner_run "Updating package index" "$PKG_MANAGER" update -y -q
@@ -618,7 +642,9 @@ detect_and_update_package_manager() {
 install_package_impl() {
     local PACKAGE="$1"
     if [[ "$OS" == "Ubuntu"* ]] || [[ "$OS" == "Debian"* ]]; then
+        wait_for_dpkg_lock
         DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a $PKG_MANAGER -y -qq install "$PACKAGE" \
+            -o DPkg::Lock::Timeout=120 \
             -o Dpkg::Options::="--force-confdef" \
             -o Dpkg::Options::="--force-confold"
     elif [[ "$OS" == "CentOS"* ]] || [[ "$OS" == "AlmaLinux"* ]]; then
