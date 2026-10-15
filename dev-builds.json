@@ -1,9 +1,57 @@
 {
   "schema_version": 1,
   "project": "Rebecca",
-  "latest": "main-7018d1f",
-  "updated_at": "2026-10-15T06:22:23Z",
+  "latest": "main-aec37c4",
+  "updated_at": "2026-10-15T06:28:08Z",
   "builds": [
+    {
+      "tag": "main-aec37c4",
+      "sha": "aec37c4191e640f56ad9a691e78b22f23e48e760",
+      "branch": "main",
+      "workflow": "Binary Build",
+      "run_id": "38692181317",
+      "run_number": "138",
+      "created_at": "2026-10-15T06:28:08Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-dev-aec37c4.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-aec37c4.tar.gz"
+        },
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-dev-aec37c4.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-dev-aec37c4.tar.gz"
+        },
+        "windows-amd64": {
+          "name": "rebecca-windows-amd64-main-aec37c4.zip",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-windows-amd64-main-aec37c4.zip"
+        }
+      }
+    },
+    {
+      "tag": "dev-aec37c4",
+      "sha": "aec37c4191e640f56ad9a691e78b22f23e48e760",
+      "branch": "main",
+      "workflow": "Binary Build",
+      "run_id": "38692181317",
+      "run_number": "138",
+      "created_at": "2026-10-15T06:28:08Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-dev-aec37c4.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-aec37c4.tar.gz"
+        },
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-dev-aec37c4.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-dev-aec37c4.tar.gz"
+        },
+        "windows-amd64": {
+          "name": "rebecca-windows-amd64-main-aec37c4.zip",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-windows-amd64-main-aec37c4.zip"
+        }
+      }
+    },
     {
       "tag": "main-7018d1f",
       "sha": "7018d1f544167378cd3f92a6225bde672059e8a4",
@@ -1153,54 +1201,6 @@
         "linux-arm64": {
           "name": "rebecca-linux-arm64-dev-03f1d12.tar.gz",
           "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-03f1d12.tar.gz"
-        }
-      }
-    },
-    {
-      "tag": "dev-cc9e04b",
-      "sha": "cc9e04b51a6c763412b6198796090c1af2f02f43",
-      "branch": "main",
-      "workflow": "Binary Build",
-      "run_id": "38570880802",
-      "run_number": "84",
-      "created_at": "2026-10-14T13:24:22Z",
-      "release_tag": "dev-builds",
-      "assets": {
-        "windows-amd64": {
-          "name": "rebecca-windows-amd64-dev-cc9e04b.zip",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-windows-amd64-dev-cc9e04b.zip"
-        },
-        "linux-amd64": {
-          "name": "rebecca-linux-amd64-dev-cc9e04b.tar.gz",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-dev-cc9e04b.tar.gz"
-        },
-        "linux-arm64": {
-          "name": "rebecca-linux-arm64-dev-cc9e04b.tar.gz",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-cc9e04b.tar.gz"
-        }
-      }
-    },
-    {
-      "tag": "dev-6339bfe",
-      "sha": "6339bfeb25ed7a7c3faea716f36efa260f757bb5",
-      "branch": "main",
-      "workflow": "Binary Build",
-      "run_id": "38568070670",
-      "run_number": "83",
-      "created_at": "2026-10-14T13:02:47Z",
-      "release_tag": "dev-builds",
-      "assets": {
-        "linux-arm64": {
-          "name": "rebecca-linux-arm64-dev-6339bfe.tar.gz",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-6339bfe.tar.gz"
-        },
-        "windows-amd64": {
-          "name": "rebecca-windows-amd64-dev-6339bfe.zip",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-windows-amd64-dev-6339bfe.zip"
-        },
-        "linux-amd64": {
-          "name": "rebecca-linux-amd64-dev-6339bfe.tar.gz",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-dev-6339bfe.tar.gz"
         }
       }
     }
