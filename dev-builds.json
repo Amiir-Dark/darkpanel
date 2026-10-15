@@ -1,9 +1,57 @@
 {
   "schema_version": 1,
   "project": "Rebecca",
-  "latest": "main-81e24f5",
-  "updated_at": "2026-10-15T03:42:40Z",
+  "latest": "main-c4d0370",
+  "updated_at": "2026-10-15T03:50:45Z",
   "builds": [
+    {
+      "tag": "main-c4d0370",
+      "sha": "c4d0370aa214097105ac215f60f66e0be96a958a",
+      "branch": "main",
+      "workflow": "Binary Build",
+      "run_id": "38678035784",
+      "run_number": "128",
+      "created_at": "2026-10-15T03:50:45Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "windows-amd64": {
+          "name": "rebecca-windows-amd64-main-c4d0370.zip",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-windows-amd64-main-c4d0370.zip"
+        },
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-dev-c4d0370.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-c4d0370.tar.gz"
+        },
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-main-c4d0370.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-main-c4d0370.tar.gz"
+        }
+      }
+    },
+    {
+      "tag": "dev-c4d0370",
+      "sha": "c4d0370aa214097105ac215f60f66e0be96a958a",
+      "branch": "main",
+      "workflow": "Binary Build",
+      "run_id": "38678035784",
+      "run_number": "128",
+      "created_at": "2026-10-15T03:50:45Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "windows-amd64": {
+          "name": "rebecca-windows-amd64-main-c4d0370.zip",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-windows-amd64-main-c4d0370.zip"
+        },
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-dev-c4d0370.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-dev-c4d0370.tar.gz"
+        },
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-main-c4d0370.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-main-c4d0370.tar.gz"
+        }
+      }
+    },
     {
       "tag": "main-81e24f5",
       "sha": "81e24f5877112163c19a1fe6366b5ee381910ec4",
