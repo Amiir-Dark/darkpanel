@@ -910,23 +910,36 @@ func ListGiftCodes() ([]GiftCodeItem, error) {
 	return list, nil
 }
 
-func CreateGiftCode(code string, amount float64, maxUses int) error {
+func generateRandomGiftCode(length int) string {
+	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[r.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+func CreateGiftCode(code string, amount float64, maxUses int) (string, error) {
 	code = strings.ToUpper(strings.TrimSpace(code))
 	if code == "" {
-		return fmt.Errorf("کد هدیه الزامی است")
+		code = "GIFT-" + generateRandomGiftCode(6)
 	}
 	if amount <= 0 {
-		return fmt.Errorf("مبلغ کد هدیه باید بیشتر از صفر باشد")
+		return "", fmt.Errorf("مبلغ کد هدیه باید بیشتر از صفر باشد")
 	}
 	if maxUses <= 0 {
 		maxUses = 1
 	}
 	db, _, err := GetDB()
 	if err != nil {
-		return err
+		return "", err
 	}
 	_, err = db.Exec(`INSERT INTO gift_codes (code, amount, max_uses, used_count) VALUES (?, ?, ?, 0)`, code, amount, maxUses)
-	return err
+	if err != nil {
+		return "", err
+	}
+	return code, nil
 }
 
 func DeleteGiftCode(id int64) error {

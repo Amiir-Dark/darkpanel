@@ -508,11 +508,19 @@ export const SalesBotPage = () => {
         refetchOnWindowFocus: false,
     });
     const [newGiftCode, setNewGiftCode] = useState({ code: "", amount: "", max_uses: 1 });
+    const generateRandomGiftCode = () => {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let res = "GIFT-";
+        for (let i = 0; i < 6; i++) {
+            res += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        setNewGiftCode((prev) => ({ ...prev, code: res }));
+    };
     const createGiftCodeMutation = useMutation(createGiftCode, {
         onSuccess: (res) => {
             toast({
                 title: "کد هدیه ایجاد شد",
-                description: res?.message,
+                description: res?.message || (res?.code ? `کد: ${res.code}` : "با موفقیت ایجاد شد"),
                 status: "success",
                 duration: 4000,
                 isClosable: true,
@@ -1057,222 +1065,6 @@ export const SalesBotPage = () => {
                         </VStack>
                     </TabPanel>
 
-                    {/* TAB 5: GIFT CODES */}
-                    <TabPanel p={0}>
-                        <VStack spacing={6} align="stretch">
-                            {/* Create Gift Code Box */}
-                            <Box
-                                p={5}
-                                bg={bgCard}
-                                borderRadius="xl"
-                                border="1px solid"
-                                borderColor={borderColor}
-                            >
-                                <Heading size="sm" mb={4} color="purple.400">
-                                    🎁 ایجاد کد هدیه جدید
-                                </Heading>
-                                <Grid templateColumns={{ base: "1fr", md: "2fr 2fr 1.5fr auto" }} gap={3} alignItems="end">
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">کد هدیه (اختیاری یا سفارشی)</FormLabel>
-                                        <Input
-                                            size="sm"
-                                            placeholder="مثال: NOROOZ1403 (خالی = خودکار)"
-                                            value={newGiftCode.code}
-                                            onChange={(e) => setNewGiftCode({ ...newGiftCode, code: e.target.value.toUpperCase() })}
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
-
-                                    <FormControl isRequired>
-                                        <FormLabel fontSize="xs">مبلغ شارژ هدیه (تومان)</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            placeholder="50000"
-                                            value={newGiftCode.amount}
-                                            onChange={(e) => setNewGiftCode({ ...newGiftCode, amount: e.target.value })}
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
-
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">حداکثر دفعات مجاز استفاده</FormLabel>
-                                        <Input
-                                            type="number"
-                                            size="sm"
-                                            placeholder="1"
-                                            value={newGiftCode.max_uses}
-                                            onChange={(e) => setNewGiftCode({ ...newGiftCode, max_uses: parseInt(e.target.value, 10) || 1 })}
-                                            borderRadius="lg"
-                                        />
-                                    </FormControl>
-
-                                    <Button
-                                        size="sm"
-                                        colorScheme="purple"
-                                        leftIcon={<PlusIcon width={16} height={16} />}
-                                        isLoading={createGiftCodeMutation.isLoading}
-                                        onClick={() => {
-                                            const amt = parseFloat(newGiftCode.amount);
-                                            if (!amt || amt <= 0) {
-                                                toast({ title: "مبلغ نامعتبر است", status: "warning", duration: 3000 });
-                                                return;
-                                            }
-                                            createGiftCodeMutation.mutate({
-                                                code: newGiftCode.code,
-                                                amount: amt,
-                                                max_uses: newGiftCode.max_uses || 1,
-                                            });
-                                        }}
-                                    >
-                                        ساخت کد هدیه
-                                    </Button>
-                                </Grid>
-                            </Box>
-
-                            {/* Gift Codes List */}
-                            <Box
-                                bg={bgCard}
-                                borderRadius="xl"
-                                border="1px solid"
-                                borderColor={borderColor}
-                                overflowX="auto"
-                            >
-                                <Table size="sm" variant="simple">
-                                    <Thead bg={bgElevated}>
-                                        <Tr>
-                                            <Th>شناسه</Th>
-                                            <Th>کد هدیه</Th>
-                                            <Th>مبلغ هدیه</Th>
-                                            <Th>سقف استفاده</Th>
-                                            <Th>تعداد دفعات مصرف‌شده</Th>
-                                            <Th>تاریخ ایجاد</Th>
-                                            <Th textAlign="center">عملیات</Th>
-                                        </Tr>
-                                    </Thead>
-                                    <Tbody>
-                                        {giftCodesQuery.isLoading ? (
-                                            <Tr>
-                                                <Td colSpan={7} textAlign="center" py={8}>
-                                                    <Spinner size="sm" color="purple.500" />
-                                                </Td>
-                                            </Tr>
-                                        ) : (giftCodesQuery.data?.length ?? 0) === 0 ? (
-                                            <Tr>
-                                                <Td colSpan={7} textAlign="center" py={8} color={textSecondary}>
-                                                    هیچ کد هدیه‌ای ایجاد نشده است.
-                                                </Td>
-                                            </Tr>
-                                        ) : (
-                                            giftCodesQuery.data.map((item) => (
-                                                <Tr key={item.id} _hover={{ bg: bgElevated }}>
-                                                    <Td fontSize="xs" fontWeight="mono">#{item.id}</Td>
-                                                    <Td>
-                                                        <Code colorScheme="purple" fontSize="xs" fontWeight="bold">
-                                                            {item.code}
-                                                        </Code>
-                                                    </Td>
-                                                    <Td fontWeight="bold" color="green.400">
-                                                        {formatToman(item.amount)} تومان
-                                                    </Td>
-                                                    <Td fontSize="xs">
-                                                        {item.max_uses} بار
-                                                    </Td>
-                                                    <Td fontSize="xs">
-                                                        <Badge colorScheme={item.used_count >= item.max_uses ? "red" : "green"}>
-                                                            {item.used_count} از {item.max_uses}
-                                                        </Badge>
-                                                    </Td>
-                                                    <Td fontSize="10px" color={textSecondary}>
-                                                        {item.created_at}
-                                                    </Td>
-                                                    <Td textAlign="center">
-                                                        <IconButton
-                                                            size="xs"
-                                                            colorScheme="red"
-                                                            variant="ghost"
-                                                            icon={<TrashIcon width={14} height={14} />}
-                                                            isLoading={deleteGiftCodeMutation.isLoading}
-                                                            onClick={() => {
-                                                                if (window.confirm(`آیا از حذف کد هدیه ${item.code} مطمئن هستید؟`)) {
-                                                                    deleteGiftCodeMutation.mutate(item.id);
-                                                                }
-                                                            }}
-                                                            aria-label="حذف کد هدیه"
-                                                        />
-                                                    </Td>
-                                                </Tr>
-                                            ))
-                                        )}
-                                    </Tbody>
-                                </Table>
-                            </Box>
-                        </VStack>
-                    </TabPanel>
-
-                    {/* TAB 6: BROADCAST */}
-                    <TabPanel p={0}>
-                        <VStack spacing={6} align="stretch">
-                            <Box
-                                p={5}
-                                bg={bgCard}
-                                borderRadius="xl"
-                                border="1px solid"
-                                borderColor={borderColor}
-                            >
-                                <HStack spacing={3} mb={3}>
-                                    <Box p={2} bg="purple.500" color="white" borderRadius="lg">
-                                        <MegaphoneIcon width={22} height={22} />
-                                    </Box>
-                                    <Box>
-                                        <Heading size="sm">
-                                            📢 ارسال پیام همگانی به تمام کاربران ربات
-                                        </Heading>
-                                        <Text fontSize="xs" color={textSecondary}>
-                                            پیام شما به صورت اختصاصی برای تمامی کاربران ثبت‌نام شده در ربات ارسال خواهد شد.
-                                        </Text>
-                                    </Box>
-                                </HStack>
-
-                                <Alert status="info" borderRadius="lg" mb={4} fontSize="xs">
-                                    <AlertIcon />
-                                    شما می‌توانید در متن پیام از فرمت‌های HTML تلگرام (مانند <code>&lt;b&gt;بولد&lt;/b&gt;</code> یا <code>&lt;code&gt;کد&lt;/code&gt;</code>) و اموجی‌ها استفاده فرمایید.
-                                </Alert>
-
-                                <FormControl isRequired mb={4}>
-                                    <FormLabel fontSize="xs">متن پیام ارسالی</FormLabel>
-                                    <Textarea
-                                        rows={8}
-                                        placeholder="متن پیام خود را اینجا وارد کنید..."
-                                        value={broadcastText}
-                                        onChange={(e) => setBroadcastText(e.target.value)}
-                                        borderRadius="lg"
-                                        fontSize="sm"
-                                    />
-                                </FormControl>
-
-                                <Flex justify="flex-end">
-                                    <Button
-                                        colorScheme="purple"
-                                        leftIcon={<MegaphoneIcon width={16} height={16} />}
-                                        isLoading={broadcastMutation.isLoading}
-                                        onClick={() => {
-                                            if (!broadcastText.trim()) {
-                                                toast({ title: "متن پیام خالی است", status: "warning", duration: 3000 });
-                                                return;
-                                            }
-                                            if (window.confirm("آیا مطمئن هستید که می‌خواهید این پیام برای تمام کاربران ارسال شود؟")) {
-                                                broadcastMutation.mutate(broadcastText.trim());
-                                            }
-                                        }}
-                                    >
-                                        ارسال همگانی پیام
-                                    </Button>
-                                </Flex>
-                            </Box>
-                        </VStack>
-                    </TabPanel>
-
                     {/* TAB 2: 5-MINUTE LIVE ORDERS */}
                     <TabPanel p={0}>
                         <VStack spacing={4} align="stretch">
@@ -1761,7 +1553,268 @@ export const SalesBotPage = () => {
                         </VStack>
                     </TabPanel>
 
-                    {/* TAB 5: PRICING & PAYMENT SETTINGS */}
+                    {/* TAB 5: GIFT CODES */}
+                    <TabPanel p={0}>
+                        <VStack spacing={6} align="stretch">
+                            {/* Create Gift Code Box */}
+                            <Box
+                                p={5}
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                            >
+                                <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
+                                    <Heading size="sm" color="purple.400">
+                                        🎁 ایجاد کد هدیه جدید
+                                    </Heading>
+                                    <Button
+                                        size="xs"
+                                        leftIcon={<ArrowPathIcon width={14} height={14} />}
+                                        isLoading={giftCodesQuery.isFetching}
+                                        onClick={() => giftCodesQuery.refetch()}
+                                    >
+                                        رفرش کدهای هدیه
+                                    </Button>
+                                </Flex>
+                                <Grid templateColumns={{ base: "1fr", md: "2.5fr 2fr 1.5fr auto" }} gap={3} alignItems="end">
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">کد هدیه (خالی = تولید خودکار)</FormLabel>
+                                        <InputGroup size="sm">
+                                            <Input
+                                                size="sm"
+                                                placeholder="مثال: NOROOZ1403 یا تصادفی"
+                                                value={newGiftCode.code}
+                                                onChange={(e) => setNewGiftCode({ ...newGiftCode, code: e.target.value.toUpperCase() })}
+                                                borderRadius="lg"
+                                            />
+                                            <InputRightElement>
+                                                <Tooltip label="تولید کد تصادفی">
+                                                    <IconButton
+                                                        size="xs"
+                                                        variant="ghost"
+                                                        icon={<SparklesIcon width={14} height={14} />}
+                                                        onClick={generateRandomGiftCode}
+                                                        aria-label="تولید کد تصادفی"
+                                                    />
+                                                </Tooltip>
+                                            </InputRightElement>
+                                        </InputGroup>
+                                    </FormControl>
+
+                                    <FormControl isRequired>
+                                        <FormLabel fontSize="xs">مبلغ شارژ هدیه (تومان)</FormLabel>
+                                        <Input
+                                            type="number"
+                                            size="sm"
+                                            placeholder="50000"
+                                            value={newGiftCode.amount}
+                                            onChange={(e) => setNewGiftCode({ ...newGiftCode, amount: e.target.value })}
+                                            borderRadius="lg"
+                                        />
+                                    </FormControl>
+
+                                    <FormControl>
+                                        <FormLabel fontSize="xs">حداکثر دفعات مجاز استفاده</FormLabel>
+                                        <Input
+                                            type="number"
+                                            size="sm"
+                                            placeholder="1"
+                                            value={newGiftCode.max_uses}
+                                            onChange={(e) => setNewGiftCode({ ...newGiftCode, max_uses: e.target.value })}
+                                            borderRadius="lg"
+                                        />
+                                    </FormControl>
+
+                                    <Button
+                                        size="sm"
+                                        colorScheme="purple"
+                                        leftIcon={<PlusIcon width={16} height={16} />}
+                                        isLoading={createGiftCodeMutation.isLoading}
+                                        onClick={() => {
+                                            const amt = parseFloat(newGiftCode.amount);
+                                            if (!amt || amt <= 0) {
+                                                toast({ title: "مبلغ نامعتبر است", status: "warning", duration: 3000 });
+                                                return;
+                                            }
+                                            let code = newGiftCode.code ? newGiftCode.code.trim() : "";
+                                            if (!code) {
+                                                const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+                                                code = "GIFT-";
+                                                for (let i = 0; i < 6; i++) {
+                                                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                                                }
+                                            }
+                                            createGiftCodeMutation.mutate({
+                                                code: code,
+                                                amount: amt,
+                                                max_uses: parseInt(newGiftCode.max_uses, 10) || 1,
+                                            });
+                                        }}
+                                    >
+                                        ساخت کد هدیه
+                                    </Button>
+                                </Grid>
+                            </Box>
+
+                            {/* Gift Codes List */}
+                            <Box
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                                overflowX="auto"
+                            >
+                                <Table size="sm" variant="simple">
+                                    <Thead bg={bgElevated}>
+                                        <Tr>
+                                            <Th>شناسه</Th>
+                                            <Th>کد هدیه</Th>
+                                            <Th>مبلغ هدیه</Th>
+                                            <Th>سقف استفاده</Th>
+                                            <Th>تعداد دفعات مصرف‌شده</Th>
+                                            <Th>تاریخ ایجاد</Th>
+                                            <Th textAlign="center">عملیات</Th>
+                                        </Tr>
+                                    </Thead>
+                                    <Tbody>
+                                        {giftCodesQuery.isLoading ? (
+                                            <Tr>
+                                                <Td colSpan={7} textAlign="center" py={8}>
+                                                    <Spinner size="sm" color="purple.500" />
+                                                </Td>
+                                            </Tr>
+                                        ) : (giftCodesQuery.data?.length ?? 0) === 0 ? (
+                                            <Tr>
+                                                <Td colSpan={7} textAlign="center" py={8} color={textSecondary}>
+                                                    هیچ کد هدیه‌ای ایجاد نشده است.
+                                                </Td>
+                                            </Tr>
+                                        ) : (
+                                            giftCodesQuery.data.map((item) => (
+                                                <Tr key={item.id} _hover={{ bg: bgElevated }}>
+                                                    <Td fontSize="xs" fontWeight="mono">#{item.id}</Td>
+                                                    <Td>
+                                                        <HStack spacing={1}>
+                                                            <Code colorScheme="purple" fontSize="xs" fontWeight="bold">
+                                                                {item.code}
+                                                            </Code>
+                                                            <Tooltip label="کپی کد هدیه">
+                                                                <IconButton
+                                                                    size="xs"
+                                                                    variant="ghost"
+                                                                    icon={<DocumentDuplicateIcon width={12} height={12} />}
+                                                                    onClick={() => {
+                                                                        navigator.clipboard.writeText(item.code);
+                                                                        toast({ title: "کد هدیه کپی شد", status: "info", duration: 2000 });
+                                                                    }}
+                                                                    aria-label="کپی کد هدیه"
+                                                                />
+                                                            </Tooltip>
+                                                        </HStack>
+                                                    </Td>
+                                                    <Td fontWeight="bold" color="green.400">
+                                                        {formatToman(item.amount)} تومان
+                                                    </Td>
+                                                    <Td fontSize="xs">
+                                                        {item.max_uses} بار
+                                                    </Td>
+                                                    <Td fontSize="xs">
+                                                        <Badge colorScheme={item.used_count >= item.max_uses ? "red" : "green"}>
+                                                            {item.used_count} از {item.max_uses}
+                                                        </Badge>
+                                                    </Td>
+                                                    <Td fontSize="10px" color={textSecondary}>
+                                                        {item.created_at}
+                                                    </Td>
+                                                    <Td textAlign="center">
+                                                        <IconButton
+                                                            size="xs"
+                                                            colorScheme="red"
+                                                            variant="ghost"
+                                                            icon={<TrashIcon width={14} height={14} />}
+                                                            isLoading={deleteGiftCodeMutation.isLoading}
+                                                            onClick={() => {
+                                                                if (window.confirm(`آیا از حذف کد هدیه ${item.code} مطمئن هستید؟`)) {
+                                                                    deleteGiftCodeMutation.mutate(item.id);
+                                                                }
+                                                            }}
+                                                            aria-label="حذف کد هدیه"
+                                                        />
+                                                    </Td>
+                                                </Tr>
+                                            ))
+                                        )}
+                                    </Tbody>
+                                </Table>
+                            </Box>
+                        </VStack>
+                    </TabPanel>
+
+                    {/* TAB 6: BROADCAST */}
+                    <TabPanel p={0}>
+                        <VStack spacing={6} align="stretch">
+                            <Box
+                                p={5}
+                                bg={bgCard}
+                                borderRadius="xl"
+                                border="1px solid"
+                                borderColor={borderColor}
+                            >
+                                <HStack spacing={3} mb={3}>
+                                    <Box p={2} bg="purple.500" color="white" borderRadius="lg">
+                                        <MegaphoneIcon width={22} height={22} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="sm">
+                                            📢 ارسال پیام همگانی به تمام کاربران ربات
+                                        </Heading>
+                                        <Text fontSize="xs" color={textSecondary}>
+                                            پیام شما به صورت اختصاصی برای تمامی کاربران ثبت‌نام شده در ربات ارسال خواهد شد.
+                                        </Text>
+                                    </Box>
+                                </HStack>
+
+                                <Alert status="info" borderRadius="lg" mb={4} fontSize="xs">
+                                    <AlertIcon />
+                                    شما می‌توانید در متن پیام از فرمت‌های HTML تلگرام (مانند <code>&lt;b&gt;بولد&lt;/b&gt;</code> یا <code>&lt;code&gt;کد&lt;/code&gt;</code>) و اموجی‌ها استفاده فرمایید.
+                                </Alert>
+
+                                <FormControl isRequired mb={4}>
+                                    <FormLabel fontSize="xs">متن پیام ارسالی</FormLabel>
+                                    <Textarea
+                                        rows={8}
+                                        placeholder="متن پیام خود را اینجا وارد کنید..."
+                                        value={broadcastText}
+                                        onChange={(e) => setBroadcastText(e.target.value)}
+                                        borderRadius="lg"
+                                        fontSize="sm"
+                                    />
+                                </FormControl>
+
+                                <Flex justify="flex-end">
+                                    <Button
+                                        colorScheme="purple"
+                                        leftIcon={<MegaphoneIcon width={16} height={16} />}
+                                        isLoading={broadcastMutation.isLoading}
+                                        onClick={() => {
+                                            if (!broadcastText.trim()) {
+                                                toast({ title: "متن پیام خالی است", status: "warning", duration: 3000 });
+                                                return;
+                                            }
+                                            if (window.confirm("آیا مطمئن هستید که می‌خواهید این پیام برای تمام کاربران ارسال شود؟")) {
+                                                broadcastMutation.mutate(broadcastText.trim());
+                                            }
+                                        }}
+                                    >
+                                        ارسال همگانی پیام
+                                    </Button>
+                                </Flex>
+                            </Box>
+                        </VStack>
+                    </TabPanel>
+
+                    {/* TAB 7: PRICING & PAYMENT SETTINGS */}
                     <TabPanel p={0}>
                         <VStack spacing={6} align="stretch">
                             {/* Pay-As-You-Go Section */}
@@ -2260,7 +2313,7 @@ export const SalesBotPage = () => {
                         </VStack>
                     </TabPanel>
 
-                    {/* TAB 6: WEBHOOK & SMS LOGS */}
+                    {/* TAB 8: WEBHOOK & SMS LOGS */}
                     <TabPanel p={0}>
                         <VStack spacing={6} align="stretch">
                             {/* Stat Cards */}

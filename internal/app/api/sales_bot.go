@@ -1034,11 +1034,16 @@ func (s *Server) handleSalesBotGiftCodes(w http.ResponseWriter, r *http.Request)
 			writeError(w, http.StatusBadRequest, "invalid json: "+err.Error())
 			return
 		}
-		if err := salesbot.CreateGiftCode(payload.Code, payload.Amount, payload.MaxUses); err != nil {
+		createdCode, err := salesbot.CreateGiftCode(payload.Code, payload.Amount, payload.MaxUses)
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "کد هدیه با موفقیت ایجاد شد"})
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"code":    createdCode,
+			"message": fmt.Sprintf("کد هدیه %s با موفقیت ایجاد شد", createdCode),
+		})
 
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
