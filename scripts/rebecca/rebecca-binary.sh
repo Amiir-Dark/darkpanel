@@ -3686,6 +3686,10 @@ install_binary_rebecca() {
     fi
 
     mkdir -p "$BINARY_BIN_DIR" "$DATA_DIR" "$APP_DIR/scripts"
+    if [ -d "$tmp_dir/templates" ]; then
+        mkdir -p "$APP_DIR/templates"
+        cp -R "$tmp_dir/templates"/. "$APP_DIR/templates/"
+    fi
     install -m 755 "$tmp_dir/rebecca-server" "$BINARY_SERVER"
     install -m 755 "$tmp_dir/rebecca-cli" "$BINARY_CLI"
     install_binary_cli_launcher

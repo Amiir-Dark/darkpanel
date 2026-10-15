@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/rowtemplates"
 	"github.com/rebeccapanel/rebecca/internal/app/user"
 )
 
@@ -248,8 +249,7 @@ func (s *Server) handleSubscriptionTemplatePreview(w http.ResponseWriter, r *htt
 		return
 	}
 
-	shellPath := filepath.Join("templates", "subscription", "row-template", templateName, "shell.html")
-	contentBytes, err := os.ReadFile(shellPath)
+	contentBytes, err := rowtemplates.ReadTemplate(templateName)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "قالب مورد نظر یافت نشد: "+templateName)
 		return
@@ -273,15 +273,15 @@ func (s *Server) handleSubscriptionTemplateActivate(w http.ResponseWriter, r *ht
 		return
 	}
 
-	shellPath := filepath.Join("templates", "subscription", "row-template", templateName, "shell.html")
-	shellBytes, err := os.ReadFile(shellPath)
+	shellBytes, err := rowtemplates.ReadTemplate(templateName)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "فایل قالب یافت نشد: "+templateName)
 		return
 	}
 
-	targetIndex := filepath.Join("templates", "subscription", "index.html")
-	backupIndex := filepath.Join("templates", "subscription", "index.html.original")
+	targetIndex := rowtemplates.ResolveSubscriptionTargetPath()
+	_ = os.MkdirAll(filepath.Dir(targetIndex), 0755)
+	backupIndex := filepath.Join(filepath.Dir(targetIndex), "index.html.original")
 
 	// Backup original index.html if backup does not exist yet
 	if _, err := os.Stat(backupIndex); os.IsNotExist(err) {
@@ -320,8 +320,8 @@ func (s *Server) handleSubscriptionTemplateReset(w http.ResponseWriter, r *http.
 		return
 	}
 
-	targetIndex := filepath.Join("templates", "subscription", "index.html")
-	backupIndex := filepath.Join("templates", "subscription", "index.html.original")
+	targetIndex := rowtemplates.ResolveSubscriptionTargetPath()
+	backupIndex := filepath.Join(filepath.Dir(targetIndex), "index.html.original")
 
 	if backupBytes, err := os.ReadFile(backupIndex); err == nil && len(backupBytes) > 0 {
 		_ = os.WriteFile(targetIndex, backupBytes, 0644)

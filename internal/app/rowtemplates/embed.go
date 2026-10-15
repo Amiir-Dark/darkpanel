@@ -1,0 +1,110 @@
+package rowtemplates
+
+import (
+	"embed"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+//go:embed assets/*/shell.html
+var embeddedFS embed.FS
+
+// ReadTemplate returns the raw HTML bytes for the given template name.
+// It first attempts to read from disk (allowing admin overrides), and falls
+// back to the embedded template compiled directly into the binary.
+func ReadTemplate(name string) ([]byte, error) {
+	cleanName := strings.ToLower(strings.TrimSpace(name))
+	if cleanName == "" {
+		return nil, fmt.Errorf("empty template name")
+	}
+
+	// 1. Try disk candidates
+	diskCandidates := candidatePaths(cleanName)
+	for _, candidate := range diskCandidates {
+		if content, err := os.ReadFile(candidate); err == nil && len(content) > 0 {
+			return content, nil
+		}
+	}
+
+	// 2. Fall back to embedded files (guaranteed to be present in binary)
+	embedPath := "assets/" + cleanName + "/shell.html"
+	content, err := embeddedFS.ReadFile(embedPath)
+	if err == nil && len(content) > 0 {
+		return content, nil
+	}
+
+	return nil, fmt.Errorf("قالب مورد نظر یافت نشد: %s", name)
+}
+
+func candidatePaths(name string) []string {
+	var candidates []string
+
+	filename := filepath.Join(name, "shell.html")
+
+	// CWD-based paths
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates,
+			filepath.Join(cwd, "templates", "subscription", "row-template", filename),
+			filepath.Join(cwd, "row-template", filename),
+			filepath.Join(filepath.Dir(cwd), "templates", "subscription", "row-template", filename),
+			filepath.Join(filepath.Dir(filepath.Dir(cwd)), "templates", "subscription", "row-template", filename),
+		)
+	}
+
+	// Executable-based paths
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Join(exeDir, "templates", "subscription", "row-template", filename),
+			filepath.Join(filepath.Dir(exeDir), "templates", "subscription", "row-template", filename),
+			filepath.Join(filepath.Dir(filepath.Dir(exeDir)), "templates", "subscription", "row-template", filename),
+		)
+	}
+
+	// Standard installation paths
+	candidates = append(candidates,
+		filepath.Join("/opt", "rebecca", "templates", "subscription", "row-template", filename),
+		filepath.Join("/opt", "darkpanel", "templates", "subscription", "row-template", filename),
+		filepath.Join("/var", "lib", "rebecca", "templates", "subscription", "row-template", filename),
+		filepath.Join("/var", "lib", "darkpanel", "templates", "subscription", "row-template", filename),
+	)
+
+	return candidates
+}
+
+// ResolveSubscriptionTargetPath returns the absolute path where templates/subscription/index.html
+// should be stored when activating a template.
+func ResolveSubscriptionTargetPath() string {
+	candidates := []string{}
+
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(cwd, "templates", "subscription"))
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Join(exeDir, "templates", "subscription"),
+			filepath.Join(filepath.Dir(exeDir), "templates", "subscription"),
+		)
+	}
+	candidates = append(candidates,
+		filepath.Join("/opt", "darkpanel", "templates", "subscription"),
+		filepath.Join("/opt", "rebecca", "templates", "subscription"),
+		filepath.Join("/var", "lib", "darkpanel", "templates", "subscription"),
+		filepath.Join("/var", "lib", "rebecca", "templates", "subscription"),
+	)
+
+	for _, c := range candidates {
+		if info, err := os.Stat(c); err == nil && info.IsDir() {
+			return filepath.Join(c, "index.html")
+		}
+		parent := filepath.Dir(c)
+		if info, err := os.Stat(parent); err == nil && info.IsDir() {
+			return filepath.Join(c, "index.html")
+		}
+	}
+
+	return filepath.Join("templates", "subscription", "index.html")
+}
