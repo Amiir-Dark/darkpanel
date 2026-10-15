@@ -406,17 +406,35 @@ jobs:
                   latest: $build_tag,
                   updated_at: $generated_at,
                   builds: (
-                    ([{
-                      tag: $build_tag,
-                      sha: $sha,
-                      branch: $branch,
-                      workflow: $workflow,
-                      run_id: $run_id,
-                      run_number: $run_number,
-                      created_at: $generated_at,
-                      release_tag: $release_tag,
-                      assets: build_assets($asset_names)
-                    }] + $previous_builds)
+                    (([
+                      {
+                        tag: $build_tag,
+                        sha: $sha,
+                        branch: $branch,
+                        workflow: $workflow,
+                        run_id: $run_id,
+                        run_number: $run_number,
+                        created_at: $generated_at,
+                        release_tag: $release_tag,
+                        assets: build_assets($asset_names)
+                      }
+                    ] + (
+                      if ($build_tag | startswith("main-")) then
+                        [{
+                          tag: ("dev-" + ($sha[:7])),
+                          sha: $sha,
+                          branch: $branch,
+                          workflow: $workflow,
+                          run_id: $run_id,
+                          run_number: $run_number,
+                          created_at: $generated_at,
+                          release_tag: $release_tag,
+                          assets: build_assets($asset_names)
+                        }]
+                      else
+                        []
+                      end
+                    )) + $previous_builds)
                     | reduce .[] as $build
                         ([];
                           if (($build.tag // "") == "" or any(.[]; (.tag // "") == ($build.tag // ""))) then
