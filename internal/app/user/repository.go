@@ -169,6 +169,7 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 	result.SubscriptionAliases = normalizeAliases(row["subscription_aliases"])
 	result.ClientRoutingRules = normalizeClientRoutingRules(row["client_routing_rules"])
 	result.BlockedClientApps = normalizeBlockedClientApps(row["blocked_client_apps"])
+	result.ClientAppFormats = normalizeClientAppFormats(row["client_app_formats"])
 	result.SubscriptionPlaceholderEnabled = truthy(row["subscription_placeholder_enabled"])
 	result.SubscriptionPlaceholderRemark = firstNonEmptyString(stringValue(row["subscription_placeholder_remark"]), "disabled")
 	result.RawSubscriptionSettings = json.RawMessage(mustJSON(row))
@@ -994,6 +995,40 @@ func normalizeBlockedClientApps(raw any) []string {
 		return blocked
 	}
 	return []string{}
+}
+
+func normalizeClientAppFormats(raw any) map[string]string {
+	if raw == nil {
+		return map[string]string{}
+	}
+	switch typed := raw.(type) {
+	case map[string]string:
+		return typed
+	case map[string]any:
+		res := make(map[string]string, len(typed))
+		for k, v := range typed {
+			res[k] = fmt.Sprint(v)
+		}
+		return res
+	case string:
+		text := strings.TrimSpace(typed)
+		if text == "" || text == "{}" {
+			return map[string]string{}
+		}
+		var formats map[string]string
+		if err := json.Unmarshal([]byte(text), &formats); err == nil && formats != nil {
+			return formats
+		}
+	case []byte:
+		if len(typed) == 0 {
+			return map[string]string{}
+		}
+		var formats map[string]string
+		if err := json.Unmarshal(typed, &formats); err == nil && formats != nil {
+			return formats
+		}
+	}
+	return map[string]string{}
 }
 
 func mustJSON(value any) []byte {

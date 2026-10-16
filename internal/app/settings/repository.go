@@ -293,6 +293,18 @@ func (r Repository) UpdateSubscriptionSettings(ctx context.Context, raw map[stri
 			}
 			encoded, _ := json.Marshal(blocked)
 			add(key, string(encoded))
+		case "client_app_formats":
+			var formats map[string]string
+			if string(value) != "null" {
+				if err := json.Unmarshal(value, &formats); err != nil {
+					return SubscriptionSettings{}, fmt.Errorf("client_app_formats must be a valid map")
+				}
+			}
+			if formats == nil {
+				formats = map[string]string{}
+			}
+			encoded, _ := json.Marshal(formats)
+			add(key, string(encoded))
 		case "custom_templates_directory":
 			if string(value) == "null" {
 				add(key, nil)
@@ -540,11 +552,12 @@ COALESCE(happ_sub_expire_button_link, ''),
 COALESCE(happ_announcement_target_type, 'all'),
 COALESCE(happ_announcement_target_users, ''),
 COALESCE(default_device_limit_type, 'ip'),
-COALESCE(blocked_client_apps, '[]')
+COALESCE(blocked_client_apps, '[]'),
+COALESCE(client_app_formats, '{}')
 FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	var result SubscriptionSettings
 	var customDir sql.NullString
-	var aliasesRaw, portsRaw, clientRoutingRulesRaw, blockedClientAppsRaw sql.NullString
+	var aliasesRaw, portsRaw, clientRoutingRulesRaw, blockedClientAppsRaw, clientAppFormatsRaw sql.NullString
 	var placeholderEnabled sql.NullBool
 	var placeholderRemark sql.NullString
 	var ann, infoColor, infoBtnText, infoBtnLink, expireBtnLink, targetType, targetUsers, defaultDeviceLimitType sql.NullString
@@ -582,6 +595,7 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 		&targetUsers,
 		&defaultDeviceLimitType,
 		&blockedClientAppsRaw,
+		&clientAppFormatsRaw,
 	); err != nil {
 		return SubscriptionSettings{}, err
 	}
@@ -633,6 +647,12 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	if result.BlockedClientApps == nil {
 		result.BlockedClientApps = []string{}
 	}
+	if clientAppFormatsRaw.Valid && clientAppFormatsRaw.String != "" {
+		_ = json.Unmarshal([]byte(clientAppFormatsRaw.String), &result.ClientAppFormats)
+	}
+	if result.ClientAppFormats == nil {
+		result.ClientAppFormats = map[string]string{}
+	}
 	result.ClientAppStats = r.computeClientAppPercentages(ctx)
 	applySubscriptionDefaults(&result)
 	return result, nil
@@ -680,9 +700,10 @@ happ_announcement_target_type,
 happ_announcement_target_users,
 default_device_limit_type,
 blocked_client_apps,
+client_app_formats,
 created_at,
 updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		"",
 		defaultSubscriptionProfileTitle,
 		defaultSubscriptionSupportURL,
@@ -715,6 +736,7 @@ updated_at
 		"",
 		"ip",
 		"[]",
+		"{}",
 		now,
 		now,
 	)
@@ -1137,8 +1159,29 @@ func IdentifyClientApp(userAgent string) string {
 	if strings.Contains(ua, "v2box") {
 		return "v2box"
 	}
+	if strings.Contains(ua, "karing") {
+		return "karing"
+	}
+	if strings.Contains(ua, "v2raytun") {
+		return "v2raytun"
+	}
+	if strings.Contains(ua, "thron") {
+		return "throne"
+	}
 	if strings.Contains(ua, "happ") {
 		return "happ"
+	}
+	if strings.Contains(ua, "incy") {
+		return "incy"
+	}
+	if strings.Contains(ua, "sing-box") || strings.Contains(ua, "sfa") || strings.Contains(ua, "sfi") || strings.Contains(ua, "sfm") || strings.Contains(ua, "sft") {
+		return "singbox"
+	}
+	if strings.Contains(ua, "passwall") {
+		return "passwall"
+	}
+	if strings.Contains(ua, "clash") || strings.Contains(ua, "stash") || strings.Contains(ua, "mihomo") {
+		return "clash"
 	}
 	for _, marker := range []string{"mozilla/", "chrome/", "safari/", "firefox/", "edg/", "opr/"} {
 		if strings.Contains(ua, marker) {

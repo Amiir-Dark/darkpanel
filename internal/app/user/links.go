@@ -107,6 +107,7 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 		SubscriptionAliases:            append([]string{}, base.SubscriptionAliases...),
 		ClientRoutingRules:             append([]ClientRoutingRule{}, base.ClientRoutingRules...),
 		BlockedClientApps:              append([]string{}, base.BlockedClientApps...),
+		ClientAppFormats:               copyStringMap(base.ClientAppFormats),
 		SubscriptionPlaceholderEnabled: base.SubscriptionPlaceholderEnabled,
 		SubscriptionPlaceholderRemark:  firstNonEmptyString(base.SubscriptionPlaceholderRemark, "disabled"),
 		SubscriptionAnnouncement:       base.SubscriptionAnnouncement,
@@ -484,4 +485,15 @@ func containsString(values []string, candidate string) bool {
 		}
 	}
 	return false
+}
+
+func copyStringMap(src map[string]string) map[string]string {
+	if src == nil {
+		return map[string]string{}
+	}
+	dst := make(map[string]string, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }

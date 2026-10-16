@@ -78,6 +78,7 @@ type SubscriptionSettings struct {
 	HappAnnouncementTargetUsers    string              `json:"happ_announcement_target_users"`
 	DefaultDeviceLimitType         string              `json:"default_device_limit_type"`
 	BlockedClientApps              []string            `json:"blocked_client_apps"`
+	ClientAppFormats               map[string]string   `json:"client_app_formats,omitempty"`
 	ClientAppStats                 map[string]float64  `json:"client_app_stats,omitempty"`
 }
 
@@ -114,6 +115,7 @@ type SubscriptionSettingsUpdate struct {
 	HappAnnouncementTargetUsers    *string              `json:"happ_announcement_target_users,omitempty"`
 	DefaultDeviceLimitType         *string              `json:"default_device_limit_type,omitempty"`
 	BlockedClientApps              *[]string            `json:"blocked_client_apps,omitempty"`
+	ClientAppFormats               *map[string]string   `json:"client_app_formats,omitempty"`
 }
 
 type AdminSubscriptionSettings struct {

@@ -1,8 +1,4 @@
-<p align="center">
-  <a href="https://github.com/Amiir-Dark/darkpanel" target="_blank" rel="noopener noreferrer">
-    <img width="140" height="140" src="./dashboard/src/assets/logo.svg" alt="DarkPanel logo">
-  </a>
-</p>
+
 
 <h1 align="center">DarkPanel</h1>
 

@@ -44,6 +44,7 @@ func TestReadTemplateContentIgnoresPersistentDirectoryWhenDBDirectoryIsEmpty(t *
 		subscription_ports TEXT NULL,
 		default_device_limit_type TEXT NULL,
 		blocked_client_apps TEXT NULL,
+		client_app_formats TEXT NULL,
 		created_at DATETIME NULL,
 		updated_at DATETIME NULL
 	)`); err != nil {
@@ -89,7 +90,8 @@ func TestReadTemplateContentIgnoresPersistentDirectoryWhenDBDirectoryIsEmpty(t *
 		subscription_aliases,
 		subscription_ports,
 		client_routing_rules,
-		blocked_client_apps
+		blocked_client_apps,
+		client_app_formats
 	) VALUES (
 		'', 'Subscription', 'https://t.me/', '12', NULL,
 		'clash/default.yml', 'clash/settings.yml',
@@ -99,7 +101,8 @@ func TestReadTemplateContentIgnoresPersistentDirectoryWhenDBDirectoryIsEmpty(t *
 		'singbox/default.json', 'singbox/settings.json',
 		'mux/default.json',
 		0, 'disabled', 'sub', '[]', '[]', '` + defaultClientRoutingRules + `',
-		'[]'
+		'[]',
+		'{}'
 	)`); err != nil {
 		t.Fatal(err)
 	}
@@ -174,6 +177,7 @@ func TestReadTemplateContentRowTemplateFallback(t *testing.T) {
 		happ_sub_expire_button_link TEXT NULL,
 		default_device_limit_type TEXT NULL,
 		blocked_client_apps TEXT NULL,
+		client_app_formats TEXT NULL,
 		created_at TIMESTAMP NULL,
 		updated_at TIMESTAMP NULL
 	);

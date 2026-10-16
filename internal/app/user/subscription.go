@@ -197,7 +197,15 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 	}
 	clientType := req.ClientType
 	if clientType == "" {
-		clientType = selectSubscriptionClientType(req.UserAgent, settings)
+		if formatOverride := resolveClientAppFormatOverride(detectedApp, settings); formatOverride != "" {
+			clientType = formatOverride
+		} else {
+			clientType = selectSubscriptionClientType(req.UserAgent, settings)
+		}
+	} else {
+		if formatOverride := resolveClientAppFormatOverride(clientType, settings); formatOverride != "" {
+			clientType = formatOverride
+		}
 	}
 	if clientType == "blocked" {
 		return SubscriptionHTTPResponse{
@@ -1182,6 +1190,43 @@ func matchSubscriptionQueryAlias(alias string, path string, query url.Values) st
 		}
 	}
 	return firstNonEmptyString(query.Get("token"), query.Get("key"), query.Get("identifier"))
+}
+
+func resolveClientAppFormatOverride(appKey string, settings SubscriptionSettings) string {
+	if len(settings.ClientAppFormats) == 0 || appKey == "" {
+		return ""
+	}
+	appKey = strings.ToLower(strings.TrimSpace(appKey))
+	appKey = strings.ReplaceAll(appKey, "-", "")
+	appKey = strings.ReplaceAll(appKey, "_", "")
+
+	var format string
+	for k, v := range settings.ClientAppFormats {
+		normK := strings.ToLower(strings.TrimSpace(k))
+		normK = strings.ReplaceAll(normK, "-", "")
+		normK = strings.ReplaceAll(normK, "_", "")
+		if normK == appKey || (appKey == "hiddify" && normK == "hiddifyng") || (appKey == "hiddifyng" && normK == "hiddify") {
+			format = strings.ToLower(strings.TrimSpace(v))
+			break
+		}
+	}
+	if format == "" {
+		return ""
+	}
+	switch format {
+	case "simple", "v2ray", "normal", "plain", "base64":
+		return "v2ray"
+	case "json", "v2ray-json", "xray-json":
+		if appKey == "happ" {
+			return "happ"
+		}
+		if appKey == "singbox" {
+			return "sing-box"
+		}
+		return "v2ray-json"
+	default:
+		return ""
+	}
 }
 
 func selectSubscriptionClientType(userAgent string, settings SubscriptionSettings) string {

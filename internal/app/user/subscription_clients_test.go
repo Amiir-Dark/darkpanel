@@ -753,7 +753,8 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			client_routing_rules TEXT,
 			subscription_placeholder_enabled INTEGER DEFAULT 0,
 			subscription_placeholder_remark TEXT DEFAULT 'disabled',
-			blocked_client_apps TEXT DEFAULT '[]'
+			blocked_client_apps TEXT DEFAULT '[]',
+			client_app_formats TEXT DEFAULT '{}'
 		)`,
 		`CREATE TABLE admins (
 			id INTEGER PRIMARY KEY,
@@ -1094,4 +1095,70 @@ func TestSubscriptionBlockedClientApps(t *testing.T) {
 		t.Fatalf("expected 403 for browser, got %d", res.Status)
 	}
 }
+
+func TestSubscriptionClientAppFormatOverrides(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+
+	// 1. Set v2rayNG to "json" -> gets application/json
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET client_app_formats = '{"v2rayng":"json"}' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	res, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "v2rayNG/1.10.28",
+	})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if res.MediaType != "application/json" {
+		t.Fatalf("expected application/json for v2rayNG when set to json, got %s", res.MediaType)
+	}
+
+	// 2. Set v2rayNG to "simple" -> gets text/plain (base64 v2ray format)
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET client_app_formats = '{"v2rayng":"simple"}' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	res, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "v2rayNG/1.10.28",
+	})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if res.MediaType != "text/plain" {
+		t.Fatalf("expected text/plain for v2rayNG when set to simple, got %s", res.MediaType)
+	}
+
+	// 3. Set Hiddify to "json" -> gets application/json
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET client_app_formats = '{"hiddifyng":"json"}' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	res, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "HiddifyNext/2.5.7 (android)",
+	})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if res.MediaType != "application/json" {
+		t.Fatalf("expected application/json for Hiddify when set to json, got %s", res.MediaType)
+	}
+
+	// 4. Set Hiddify to "simple" -> gets text/plain
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET client_app_formats = '{"hiddifyng":"simple"}' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	res, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "HiddifyNext/2.5.7 (android)",
+	})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if res.MediaType != "text/plain" {
+		t.Fatalf("expected text/plain for Hiddify when set to simple, got %s", res.MediaType)
+	}
+}
+
 

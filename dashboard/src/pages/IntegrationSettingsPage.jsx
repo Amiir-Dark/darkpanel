@@ -1,4 +1,4 @@
-import { Alert, AlertIcon, Badge, Box, Button, chakra, Divider, Flex, FormControl, FormHelperText, FormLabel, Heading, HStack, Menu, MenuButton, MenuItem, MenuList, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, SimpleGrid, Spinner, Stack, Switch, Text, Textarea, useColorMode, useColorModeValue, useToast, VStack, IconButton, } from "@chakra-ui/react";
+import { Alert, AlertIcon, Badge, Box, Button, chakra, Divider, Flex, FormControl, FormHelperText, FormLabel, Heading, HStack, Menu, MenuButton, MenuItem, MenuList, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, SimpleGrid, Spinner, Stack, Switch, Text, Textarea, Tooltip, useColorMode, useColorModeValue, useToast, VStack, IconButton, } from "@chakra-ui/react";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { ArrowPathIcon, ArrowUpTrayIcon, ChevronDownIcon as HeroChevronDownIcon, ChevronUpIcon, NoSymbolIcon, PaperAirplaneIcon, PlusIcon, TrashIcon, AdjustmentsHorizontalIcon, ArrowsRightLeftIcon, AtSymbolIcon, ClockIcon, EyeIcon, LinkIcon, MegaphoneIcon, WindowIcon, } from "@heroicons/react/24/outline";
 import { NumericInput } from "components/common/NumericInput";
@@ -43,16 +43,19 @@ const CLIENT_OPTIONS = [
     "blocked"
 ];
 const CLIENT_APPS_LIST = [
-    { key: "v2rayng", name: "v2rayNG", platform: "Android client" },
-    { key: "v2rayn", name: "v2rayN", platform: "Windows client" },
-    { key: "streisand", name: "Streisand", platform: "iOS / Android client" },
-    { key: "hiddifyng", name: "HiddifyNG", platform: "Multi-platform client" },
-    { key: "nekobox", name: "NekoBox", platform: "Android client" },
-    { key: "shadowrocket", name: "Shadowrocket", platform: "iOS client" },
-    { key: "v2box", name: "V2Box", platform: "iOS client" },
-    { key: "happ", name: "Happ", platform: "Multi-platform client" },
-    { key: "browser", name: "Browser", platform: "Web page access" },
-    { key: "other", name: "Other", platform: "Unrecognized apps" },
+    { key: "v2rayng", name: "v2rayNG", platform: "Android client", defaultFormat: "json" },
+    { key: "v2rayn", name: "v2rayN", platform: "Windows client", defaultFormat: "json" },
+    { key: "streisand", name: "Streisand", platform: "iOS / Android client", defaultFormat: "json" },
+    { key: "hiddifyng", name: "Hiddify", platform: "Multi-platform client", defaultFormat: "simple" },
+    { key: "nekobox", name: "NekoBox", platform: "Android client", defaultFormat: "simple" },
+    { key: "shadowrocket", name: "Shadowrocket", platform: "iOS client", defaultFormat: "simple" },
+    { key: "v2box", name: "V2Box", platform: "iOS client", defaultFormat: "simple" },
+    { key: "karing", name: "Karing", platform: "Multi-platform client", defaultFormat: "simple" },
+    { key: "v2raytun", name: "v2rayTun", platform: "Multi-platform client", defaultFormat: "simple" },
+    { key: "singbox", name: "Sing-box", platform: "Multi-platform client", defaultFormat: "json" },
+    { key: "happ", name: "Happ", platform: "Multi-platform client", defaultFormat: "json" },
+    { key: "browser", name: "Browser", platform: "Web page access", defaultFormat: "simple" },
+    { key: "other", name: "Other", platform: "Unrecognized apps", defaultFormat: "simple" },
 ];
 const DEFAULT_CLIENT_ROUTING_RULES = [
     { pattern: "^([Cc]lash-verge|[Cc]lash[-\\.]?[Mm]eta|[Ff][Ll][Cc]lash|[Mm]ihomo)", result: "clash-meta" },
@@ -455,6 +458,7 @@ const buildSubscriptionDefaults = (settings) => ({
     client_routing_rules: settings?.client_routing_rules ?? [],
     default_device_limit_type: settings?.default_device_limit_type ?? "ip",
     blocked_client_apps: settings?.blocked_client_apps ?? [],
+    client_app_formats: settings?.client_app_formats ?? {},
     client_app_stats: settings?.client_app_stats ?? {},
 });
 const cleanOverridePayload = (settings) => {
@@ -556,6 +560,7 @@ const buildSubscriptionPayload = (values) => ({
     happ_sub_expire_button_link: values.happ_sub_expire_button_link?.trim() || "",
     default_device_limit_type: values.default_device_limit_type === "hwid" ? "hwid" : "ip",
     blocked_client_apps: values.blocked_client_apps ?? [],
+    client_app_formats: values.client_app_formats ?? {},
 });
 const buildAdminSubscriptionPayload = (admin) => ({
     subscription_domain: admin.subscription_domain?.trim() || null,
@@ -2677,40 +2682,83 @@ export const IntegrationSettingsPage = () => {
                         const currentBlocked = watchSubscription("blocked_client_apps") || [];
                         const isBlocked = currentBlocked.some((b) => b.toLowerCase() === app.key.toLowerCase());
                         const isAllowed = !isBlocked;
+                        const currentFormats = watchSubscription("client_app_formats") || {};
+                        const currentFormat = currentFormats[app.key] || app.defaultFormat || "simple";
                         const stats = subscriptionBundle?.settings?.client_app_stats || {};
                         const pct = stats[app.key] !== undefined
                             ? `${stats[app.key].toFixed(1)}%`
                             : "0.0%";
-                        return (<Flex key={app.key} p={3.5} borderRadius="xl" borderWidth="1px" borderColor={colorMode === "dark" ? "whiteAlpha.100" : "gray.200"} bg={colorMode === "dark" ? "whiteAlpha.50" : "gray.50"} justify="space-between" align="center" transition="all 0.2s ease" _hover={{
+                        return (<Flex key={app.key} p={3.5} borderRadius="xl" borderWidth="1px" borderColor={colorMode === "dark" ? "whiteAlpha.100" : "gray.200"} bg={colorMode === "dark" ? "whiteAlpha.50" : "gray.50"} direction="column" gap={3} transition="all 0.2s ease" _hover={{
                                 borderColor: colorMode === "dark" ? "whiteAlpha.200" : "gray.300",
                                 bg: colorMode === "dark" ? "whiteAlpha.100" : "gray.100",
                             }}>
-													<Box>
-														<Text fontWeight="semibold" fontSize="sm">
-															{app.name}
-														</Text>
-														<Text fontSize="xs" color="gray.500" mt={0.5}>
-															{t(`settings.subscriptions.clientAppPlatforms.${app.key}`, app.platform)}{" "}
-															· {pct}
-														</Text>
-													</Box>
-													<Switch colorScheme="primary" isChecked={isAllowed} onChange={(e) => {
-                                let updated;
-                                if (e.target.checked) {
-                                    updated = currentBlocked.filter((k) => k.toLowerCase() !== app.key.toLowerCase());
-                                }
-                                else {
-                                    updated = [
-                                        ...currentBlocked.filter((k) => k.toLowerCase() !==
-                                            app.key.toLowerCase()),
-                                        app.key,
-                                    ];
-                                }
-                                setSubscriptionValue("blocked_client_apps", updated, {
-                                    shouldDirty: true,
-                                    shouldValidate: true,
-                                });
-                            }}/>
+													<Flex justify="space-between" align="center">
+														<Box>
+															<HStack spacing={2} align="center">
+																<Text fontWeight="semibold" fontSize="sm">
+																	{app.name}
+																</Text>
+																{!isAllowed && (<Badge colorScheme="red" variant="subtle" fontSize="2xs" borderRadius="md">
+																		{t("settings.subscriptions.blocked", "Blocked")}
+																	</Badge>)}
+															</HStack>
+															<Text fontSize="xs" color="gray.500" mt={0.5}>
+																{t(`settings.subscriptions.clientAppPlatforms.${app.key}`, app.platform)}{" "}
+																· {pct}
+															</Text>
+														</Box>
+														<Tooltip label={isAllowed ? t("settings.subscriptions.blockApp", "Block app") : t("settings.subscriptions.allowApp", "Allow app")}>
+															<Switch colorScheme="primary" isChecked={isAllowed} onChange={(e) => {
+                                        let updated;
+                                        if (e.target.checked) {
+                                            updated = currentBlocked.filter((k) => k.toLowerCase() !== app.key.toLowerCase());
+                                        }
+                                        else {
+                                            updated = [
+                                                ...currentBlocked.filter((k) => k.toLowerCase() !==
+                                                    app.key.toLowerCase()),
+                                                app.key,
+                                            ];
+                                        }
+                                        setSubscriptionValue("blocked_client_apps", updated, {
+                                            shouldDirty: true,
+                                            shouldValidate: true,
+                                        });
+                                    }}/>
+														</Tooltip>
+													</Flex>
+
+													{app.key !== "browser" && (<Flex align="center" justify="space-between" pt={2} borderTop="1px solid" borderColor={colorMode === "dark" ? "whiteAlpha.100" : "gray.200"}>
+															<Text fontSize="xs" fontWeight="medium" color={colorMode === "dark" ? "gray.400" : "gray.600"}>
+																{t("settings.subscriptions.configFormat", "Config format")}:
+															</Text>
+															<HStack spacing={1}>
+																<Button size="xs" variant={currentFormat === "json" ? "solid" : "outline"} colorScheme={currentFormat === "json" ? "primary" : "gray"} borderRadius="md" fontWeight="medium" onClick={() => {
+                                        const nextFormats = {
+                                            ...currentFormats,
+                                            [app.key]: "json",
+                                        };
+                                        setSubscriptionValue("client_app_formats", nextFormats, {
+                                            shouldDirty: true,
+                                            shouldValidate: true,
+                                        });
+                                    }}>
+																	{t("settings.subscriptions.formatJson", "JSON")}
+																</Button>
+																<Button size="xs" variant={currentFormat === "simple" ? "solid" : "outline"} colorScheme={currentFormat === "simple" ? "primary" : "gray"} borderRadius="md" fontWeight="medium" onClick={() => {
+                                        const nextFormats = {
+                                            ...currentFormats,
+                                            [app.key]: "simple",
+                                        };
+                                        setSubscriptionValue("client_app_formats", nextFormats, {
+                                            shouldDirty: true,
+                                            shouldValidate: true,
+                                        });
+                                    }}>
+																	{t("settings.subscriptions.formatSimple", "Simple (Normal)")}
+																</Button>
+															</HStack>
+														</Flex>)}
 												</Flex>);
                     })}
 									</SimpleGrid>
