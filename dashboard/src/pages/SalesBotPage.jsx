@@ -43,6 +43,7 @@ import {
     SimpleGrid,
     Spinner,
     Switch,
+    Textarea,
     Stack,
     Tab,
     Table,
