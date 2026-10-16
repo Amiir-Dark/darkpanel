@@ -1326,8 +1326,6 @@ func subscriptionHeaders(user UserDetail, req SubscriptionRenderRequest, setting
 		if btnLink := strings.TrimSpace(settings.HappSubInfoButtonLink); btnLink != "" {
 			headers["sub-info-button-link"] = btnLink
 		}
-	} else {
-		headers["sub-info-text"] = "0"
 	}
 	if annURL := strings.TrimSpace(settings.AnnounceURL); annURL != "" {
 		headers["announce-url"] = annURL

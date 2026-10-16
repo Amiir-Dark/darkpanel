@@ -2571,3 +2571,18 @@ func TestHappAnnouncementHeaders(t *testing.T) {
 	}
 }
 
+func TestHappAnnouncementHeadersOmittedWhenEmpty(t *testing.T) {
+	user := UserDetail{Username: "bob", UsedTraffic: 1024}
+	req := SubscriptionRenderRequest{URL: "https://example.com/sub/bob"}
+	headers := subscriptionHeaders(user, req, SubscriptionSettings{})
+	if _, ok := headers["sub-info-text"]; ok {
+		t.Fatalf("expected no sub-info-text when announcement is empty, got %q", headers["sub-info-text"])
+	}
+	if _, ok := headers["sub-info-color"]; ok {
+		t.Fatalf("expected no sub-info-color when announcement is empty, got %q", headers["sub-info-color"])
+	}
+	if _, ok := headers["sub-info-button-text"]; ok {
+		t.Fatalf("expected no sub-info-button-text when announcement is empty, got %q", headers["sub-info-button-text"])
+	}
+}
+

@@ -152,7 +152,7 @@ CREATE TABLE subscription_settings (
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id)
-)`); err != nil {
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`); err != nil {
 		return err
 	}
 	for _, item := range subscriptionSettingsColumns() {
