@@ -424,6 +424,7 @@ func (s *Server) handleSalesBotButtons(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"keyboards": salesbot.ListBotKeyboards(),
 		"variables": salesbot.ListBotVariables(),
+		"actions":   salesbot.ListBotActions(),
 	})
 }
 

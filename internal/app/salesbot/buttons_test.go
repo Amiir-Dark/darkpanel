@@ -1,6 +1,7 @@
 package salesbot
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -96,6 +97,86 @@ func TestDepositKeyboardHidesDisabledMethods(t *testing.T) {
 				t.Fatalf("disabled method still present: %s", b.CallbackData)
 			}
 		}
+	}
+}
+
+func TestKeyboardCustomButtonWithStyle(t *testing.T) {
+	_ = SetSetting("kbd_main_menu",
+		`{"rows":[["support","custom_1"],["buy_panel"]],"labels":{},"hidden":[],`+
+			`"styles":{"support":"danger","buy_panel":"lime"},`+
+			`"custom":[{"id":"custom_1","text":"📣 کانال ما","type":"url","value":"https://t.me/example","style":"success"}]}`)
+	defer SetSetting("kbd_main_menu", "")
+
+	kb := mainKeyboard()
+	first := kb.InlineKeyboard[0]
+	if len(first) != 2 || first[0].Text != "📮 پشتیبانی" || first[0].Style != "danger" {
+		t.Fatalf("unexpected first button: %+v", first[0])
+	}
+	if first[1].Text != "📣 کانال ما" || first[1].URL != "https://t.me/example" || first[1].Style != "success" {
+		t.Fatalf("unexpected custom button: %+v", first[1])
+	}
+	if got := kb.InlineKeyboard[1][0]; got.Text != "⭐ دریافت پنل جدید" || got.Style != "" {
+		t.Fatalf("unsupported style should be dropped, got %+v", got)
+	}
+}
+
+func TestKeyboardCustomCallbackButton(t *testing.T) {
+	_ = SetSetting("kbd_main_menu",
+		`{"rows":[["buy_panel","custom_w"],["my_panels"]],"custom":[{"id":"custom_w","text":"💳 کیف پول سریع","type":"callback","value":"wallet"}]}`)
+	defer SetSetting("kbd_main_menu", "")
+
+	kb := mainKeyboard()
+	row := kb.InlineKeyboard[0]
+	if len(row) != 2 || row[1].Text != "💳 کیف پول سریع" || row[1].CallbackData != "wallet" {
+		t.Fatalf("unexpected custom callback button: %+v", row)
+	}
+}
+
+func TestKeyboardCustomButtonNotPlacedIsSkipped(t *testing.T) {
+	_ = SetSetting("kbd_main_menu",
+		`{"rows":[["buy_panel"]],"custom":[{"id":"custom_9","text":"مخفی","type":"callback","value":"support"}]}`)
+	defer SetSetting("kbd_main_menu", "")
+
+	kb := mainKeyboard()
+	for _, row := range kb.InlineKeyboard {
+		for _, b := range row {
+			if b.Text == "مخفی" {
+				t.Fatalf("unplaced custom button leaked into keyboard: %v", kbTexts(kb))
+			}
+		}
+	}
+}
+
+func TestKeyboardCustomButtonValidation(t *testing.T) {
+	_ = SetSetting("kbd_main_menu",
+		`{"rows":[["custom_bad_url","custom_bad_cb","buy_panel"]],"custom":[`+
+			`{"id":"custom_bad_url","text":"بدون لینک","type":"url","value":"notaurl"},`+
+			`{"id":"custom_bad_cb","text":"کالبک طولانی","type":"callback","value":"`+strings.Repeat("x", 70)+`"}]}`)
+	defer SetSetting("kbd_main_menu", "")
+
+	kb := mainKeyboard()
+	for _, row := range kb.InlineKeyboard {
+		for _, b := range row {
+			if b.Text == "بدون لینک" || b.Text == "کالبک طولانی" {
+				t.Fatalf("invalid custom button leaked into keyboard: %v", kbTexts(kb))
+			}
+		}
+	}
+}
+
+func TestKeyboardCustomButtonRendersVariables(t *testing.T) {
+	prevBrand := GetSetting("brand_name", "")
+	_ = SetSetting("kbd_main_menu",
+		`{"rows":[["custom_1"]],"custom":[{"id":"custom_1","text":"سلام {{brand}}","type":"callback","value":"support"}]}`)
+	_ = SetSetting("brand_name", "darktest")
+	defer func() {
+		_ = SetSetting("kbd_main_menu", "")
+		_ = SetSetting("brand_name", prevBrand)
+	}()
+
+	kb := mainKeyboard()
+	if len(kb.InlineKeyboard) == 0 || kb.InlineKeyboard[0][0].Text != "سلام darktest" {
+		t.Fatalf("custom label variables not rendered: %v", kbTexts(kb))
 	}
 }
 

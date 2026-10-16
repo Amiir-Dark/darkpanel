@@ -11,7 +11,6 @@ import {
     Badge,
     Box,
     Button,
-    Card,
     CardBody,
     CardHeader,
     Checkbox,
@@ -44,7 +43,6 @@ import {
     SimpleGrid,
     Spinner,
     Switch,
-    Textarea,
     Stack,
     Tab,
     Table,
@@ -102,7 +100,7 @@ import {
     ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import { fetch } from "service/http";
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 
 const RevenueChart = lazy(() => import("react-apexcharts"));
 import { useTranslation } from "react-i18next";
@@ -131,8 +129,6 @@ import {
     clearSalesBotWebhookLogs,
     simulateSalesBotWebhook,
     broadcastMessage,
-    getSalesBotMessages,
-    getSalesBotButtons,
     getGiftCodes,
     createGiftCode,
     deleteGiftCode,
@@ -142,6 +138,8 @@ import {
     sendUserMessage,
     toggleUserStatus,
 } from "service/salesBot";
+import { BotButtonsManager } from "components/salesbot/BotButtonsManager";
+import { BotMessagesManager } from "components/salesbot/BotMessagesManager";
 
 const formatToman = (val) => {
     if (val === null || val === undefined || isNaN(val)) return "0";
@@ -222,398 +220,6 @@ const BROADCAST_BUTTON_PRESETS = [
     { action: "test_panel", label: "🧪 پنل تست" },
     { action: "support", label: "📮 پشتیبانی" },
 ];
-
-const BOT_MESSAGE_FORMATS = [
-    { label: "B", title: "بولد", tag: "b" },
-    { label: "I", title: "ایتالیک", tag: "i" },
-    { label: "U", title: "زیرخط", tag: "u" },
-    { label: "S", title: "خط‌خوردگی", tag: "s" },
-    { label: "‹›", title: "کد", tag: "code" },
-];
-
-const BotMessageEditor = ({
-    message,
-    value,
-    onChange,
-    variables,
-    borderColor,
-    bgCard,
-    bgElevated,
-}) => {
-    const [showDefault, setShowDefault] = useState(false);
-    const ref = useRef(null);
-
-    const insertAtCursor = (snippet) => {
-        const el = ref.current;
-        const current = value ?? "";
-        const start = el?.selectionStart ?? current.length;
-        const end = el?.selectionEnd ?? current.length;
-        const next = `${current.slice(0, start)}${snippet}${current.slice(end)}`;
-        onChange(next);
-        requestAnimationFrame(() => {
-            if (!el) return;
-            el.focus();
-            const pos = start + snippet.length;
-            el.setSelectionRange(pos, pos);
-        });
-    };
-
-    const applyFormat = (tag) => {
-        const el = ref.current;
-        const current = value ?? "";
-        const start = el?.selectionStart ?? current.length;
-        const end = el?.selectionEnd ?? current.length;
-        const selected = current.slice(start, end) || "متن";
-        const next = `${current.slice(0, start)}<${tag}>${selected}</${tag}>${current.slice(end)}`;
-        onChange(next);
-        requestAnimationFrame(() => {
-            if (!el) return;
-            el.focus();
-            const pos = start + tag.length + 2;
-            el.setSelectionRange(pos, pos + selected.length);
-        });
-    };
-
-    const labelOf = (key) => variables.find((v) => v.key === key)?.label || key;
-
-    return (
-        <Box p={3} borderRadius="lg" border="1px solid" borderColor={borderColor} bg={bgCard}>
-            <Flex justify="space-between" align="center" mb={2} wrap="wrap" gap={2}>
-                <Text fontSize="xs" fontWeight="semibold">{message.label}</Text>
-                <HStack spacing={1}>
-                    {BOT_MESSAGE_FORMATS.map((f) => (
-                        <Button
-                            key={f.tag}
-                            size="xs"
-                            variant="ghost"
-                            title={f.title}
-                            onClick={() => applyFormat(f.tag)}
-                            minW="26px"
-                            px={1}
-                        >
-                            {f.label}
-                        </Button>
-                    ))}
-                </HStack>
-            </Flex>
-            {message.vars && message.vars.length > 0 && (
-                <Flex gap={1} wrap="wrap" mb={2}>
-                    {message.vars.map((key) => (
-                        <Button
-                            key={key}
-                            size="xs"
-                            variant="outline"
-                            colorScheme="purple"
-                            borderRadius="full"
-                            title={`درج {{${key}}}`}
-                            onClick={() => insertAtCursor(`{{${key}}}`)}
-                        >
-                            {labelOf(key)}
-                        </Button>
-                    ))}
-                </Flex>
-            )}
-            <Textarea
-                ref={ref}
-                rows={4}
-                size="sm"
-                value={value ?? ""}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder="خالی بماند = استفاده از متن پیش‌فرض"
-                borderRadius="md"
-            />
-            <Flex justify="space-between" align="center" mt={2} wrap="wrap" gap={2}>
-                <Button size="xs" variant="link" colorScheme="purple" onClick={() => setShowDefault((s) => !s)}>
-                    {showDefault ? "پنهان کردن متن پیش‌فرض" : "نمایش متن پیش‌فرض"}
-                </Button>
-                <Button size="xs" variant="ghost" colorScheme="red" isDisabled={!value} onClick={() => onChange("")}>
-                    بازگشت به پیش‌فرض
-                </Button>
-            </Flex>
-            {showDefault && (
-                <Box
-                    mt={2}
-                    p={2}
-                    borderRadius="md"
-                    bg={bgElevated}
-                    fontSize="xs"
-                    whiteSpace="pre-wrap"
-                    border="1px dashed"
-                    borderColor={borderColor}
-                >
-                    {message.default}
-                </Box>
-            )}
-        </Box>
-    );
-};
-
-const BotMessagesManager = ({ formSettings, handleSettingChange, borderColor, textSecondary, bgCard, bgElevated }) => {
-    const { data, isLoading } = useQuery("sales-bot-messages", getSalesBotMessages, { staleTime: 60000 });
-    const messages = data?.messages || [];
-    const variables = data?.variables || [];
-
-    const sections = useMemo(() => {
-        const order = [];
-        const map = {};
-        messages.forEach((m) => {
-            if (!map[m.section]) {
-                map[m.section] = { id: m.section, title: m.section_title || m.section, items: [] };
-                order.push(map[m.section]);
-            }
-            map[m.section].items.push(m);
-        });
-        return order;
-    }, [messages]);
-
-    if (isLoading) {
-        return <Flex justify="center" py={6}><Spinner size="md" /></Flex>;
-    }
-    if (!messages.length) {
-        return <Text fontSize="xs" color={textSecondary}>موردی برای ویرایش یافت نشد.</Text>;
-    }
-
-    return (
-        <Accordion allowToggle>
-            {sections.map((section) => (
-                <AccordionItem key={section.id} border="none">
-                    <AccordionButton px={0} py={2}>
-                        <Box flex="1" textAlign="left" fontSize="xs" fontWeight="bold">{section.title}</Box>
-                        <AccordionIcon />
-                    </AccordionButton>
-                    <AccordionPanel px={0} pb={3}>
-                        <VStack spacing={3} align="stretch">
-                            {section.items.map((m) => (
-                                <BotMessageEditor
-                                    key={m.key}
-                                    message={m}
-                                    value={formSettings[m.setting_key]}
-                                    onChange={(val) => handleSettingChange(m.setting_key, val)}
-                                    variables={variables}
-                                    borderColor={borderColor}
-                                    textSecondary={textSecondary}
-                                    bgCard={bgCard}
-                                    bgElevated={bgElevated}
-                                />
-                            ))}
-                        </VStack>
-                    </AccordionPanel>
-                </AccordionItem>
-            ))}
-        </Accordion>
-    );
-};
-
-const ButtonLayoutEditor = ({ kbd, value, onChange, borderColor, textSecondary, bgCard, bgElevated }) => {
-    const defaultTextById = useMemo(() => {
-        const m = {};
-        (kbd.buttons || []).forEach((b) => {
-            m[b.id] = b.text;
-        });
-        return m;
-    }, [kbd]);
-
-    const defaults = useMemo(() => (kbd.rows || []).map((r) => [...r]), [kbd]);
-
-    const parseValue = useCallback(() => {
-        if (!value) return null;
-        try {
-            return JSON.parse(value);
-        } catch {
-            return null;
-        }
-    }, [value]);
-
-    const [rows, setRows] = useState(() => parseValue()?.rows || defaults);
-    const [labels, setLabels] = useState(() => parseValue()?.labels || {});
-    const [hidden, setHidden] = useState(() => parseValue()?.hidden || []);
-    const lastEmitted = useRef(null);
-
-    useEffect(() => {
-        const incoming = value || "";
-        if (incoming === lastEmitted.current) return;
-        const parsed = parseValue();
-        setRows(parsed?.rows || defaults);
-        setLabels(parsed?.labels || {});
-        setHidden(parsed?.hidden || []);
-    }, [value, defaults, parseValue]);
-
-    const commit = (nextRows, nextLabels, nextHidden) => {
-        setRows(nextRows);
-        setLabels(nextLabels);
-        setHidden(nextHidden);
-        const serialized = JSON.stringify({ rows: nextRows, labels: nextLabels, hidden: nextHidden });
-        lastEmitted.current = serialized;
-        onChange(serialized);
-    };
-
-    const moveInRow = (ri, ci, dir) => {
-        const target = ci + dir;
-        if (target < 0 || target >= rows[ri].length) return;
-        const next = rows.map((r) => [...r]);
-        [next[ri][ci], next[ri][target]] = [next[ri][target], next[ri][ci]];
-        commit(next, labels, hidden);
-    };
-
-    const moveRow = (ri, dir) => {
-        const target = ri + dir;
-        if (target < 0 || target >= rows.length) return;
-        const next = rows.map((r) => [...r]);
-        [next[ri], next[target]] = [next[target], next[ri]];
-        commit(next, labels, hidden);
-    };
-
-    const hideButton = (id) => {
-        const next = rows.map((r) => r.filter((x) => x !== id));
-        commit(next, labels, [...hidden, id]);
-    };
-
-    const showButton = (id) => {
-        commit([...rows, [id]], labels, hidden.filter((x) => x !== id));
-    };
-
-    const setLabel = (id, text) => {
-        commit(rows, { ...labels, [id]: text }, hidden);
-    };
-
-    const reset = () => {
-        lastEmitted.current = "";
-        onChange("");
-        setRows(defaults);
-        setLabels({});
-        setHidden([]);
-    };
-
-    return (
-        <Box p={3} borderRadius="lg" border="1px solid" borderColor={borderColor} bg={bgCard}>
-            <Flex justify="space-between" align="center" mb={3} wrap="wrap" gap={2}>
-                <Text fontSize="xs" fontWeight="bold">{kbd.label}</Text>
-                <Button size="xs" variant="ghost" colorScheme="red" onClick={reset}>
-                    بازگشت به چیدمان پیش‌فرض
-                </Button>
-            </Flex>
-
-            <VStack spacing={2} align="stretch">
-                {rows.map((row, ri) => (
-                    <Flex key={`row-${ri}`} gap={2} align="stretch">
-                        <VStack spacing={1} justify="center">
-                            <Button size="xs" variant="ghost" px={1} minW="24px" isDisabled={ri === 0} onClick={() => moveRow(ri, -1)}>
-                                ▲
-                            </Button>
-                            <Button
-                                size="xs"
-                                variant="ghost"
-                                px={1}
-                                minW="24px"
-                                isDisabled={ri === rows.length - 1}
-                                onClick={() => moveRow(ri, 1)}
-                            >
-                                ▼
-                            </Button>
-                        </VStack>
-                        <Flex flex="1" gap={2} wrap="wrap" p={2} borderRadius="md" bg={bgElevated} border="1px dashed" borderColor={borderColor}>
-                            {row.map((id, ci) => (
-                                <Box key={id} minW="180px" flex="1">
-                                    <Input
-                                        size="xs"
-                                        value={labels[id] ?? defaultTextById[id] ?? id}
-                                        onChange={(e) => setLabel(id, e.target.value)}
-                                        borderRadius="md"
-                                    />
-                                    <HStack spacing={1} mt={1}>
-                                        <Button size="xs" variant="ghost" px={1} minW="24px" isDisabled={ci === 0} onClick={() => moveInRow(ri, ci, -1)}>
-                                            ◀
-                                        </Button>
-                                        <Button
-                                            size="xs"
-                                            variant="ghost"
-                                            px={1}
-                                            minW="24px"
-                                            isDisabled={ci === row.length - 1}
-                                            onClick={() => moveInRow(ri, ci, 1)}
-                                        >
-                                            ▶
-                                        </Button>
-                                        <Button size="xs" variant="ghost" colorScheme="red" px={1} onClick={() => hideButton(id)}>
-                                            مخفی
-                                        </Button>
-                                    </HStack>
-                                </Box>
-                            ))}
-                        </Flex>
-                    </Flex>
-                ))}
-            </VStack>
-
-            {hidden.length > 0 && (
-                <Box mt={3}>
-                    <Text fontSize="2xs" color={textSecondary} mb={1}>دکمه‌های مخفی:</Text>
-                    <Flex gap={1} wrap="wrap">
-                        {hidden.map((id) => (
-                            <Button key={id} size="xs" variant="outline" onClick={() => showButton(id)}>
-                                {defaultTextById[id] ?? id} ↩
-                            </Button>
-                        ))}
-                    </Flex>
-                </Box>
-            )}
-        </Box>
-    );
-};
-
-const BotButtonsManager = ({ formSettings, handleSettingChange, borderColor, textSecondary, bgCard, bgElevated }) => {
-    const { data, isLoading } = useQuery("sales-bot-buttons", getSalesBotButtons, { staleTime: 60000 });
-    const keyboards = data?.keyboards || [];
-
-    const sections = useMemo(() => {
-        const order = [];
-        const map = {};
-        keyboards.forEach((k) => {
-            if (!map[k.section]) {
-                map[k.section] = { id: k.section, title: k.section_title || k.section, items: [] };
-                order.push(map[k.section]);
-            }
-            map[k.section].items.push(k);
-        });
-        return order;
-    }, [keyboards]);
-
-    if (isLoading) {
-        return <Flex justify="center" py={6}><Spinner size="md" /></Flex>;
-    }
-    if (!keyboards.length) {
-        return <Text fontSize="xs" color={textSecondary}>موردی برای ویرایش یافت نشد.</Text>;
-    }
-
-    return (
-        <Accordion allowToggle>
-            {sections.map((section) => (
-                <AccordionItem key={section.id} border="none">
-                    <AccordionButton px={0} py={2}>
-                        <Box flex="1" textAlign="left" fontSize="xs" fontWeight="bold">{section.title}</Box>
-                        <AccordionIcon />
-                    </AccordionButton>
-                    <AccordionPanel px={0} pb={3}>
-                        <VStack spacing={3} align="stretch">
-                            {section.items.map((k) => (
-                                <ButtonLayoutEditor
-                                    key={k.key}
-                                    kbd={k}
-                                    value={formSettings[k.setting_key]}
-                                    onChange={(val) => handleSettingChange(k.setting_key, val)}
-                                    borderColor={borderColor}
-                                    textSecondary={textSecondary}
-                                    bgCard={bgCard}
-                                    bgElevated={bgElevated}
-                                />
-                            ))}
-                        </VStack>
-                    </AccordionPanel>
-                </AccordionItem>
-            ))}
-        </Accordion>
-    );
-};
 
 export const SalesBotPage = () => {
     const { userData } = useGetUser();
@@ -3729,21 +3335,14 @@ export const SalesBotPage = () => {
                                 <Alert status="info" borderRadius="lg" fontSize="11px" mb={4}>
                                     <AlertIcon />
                                     <Box>
-                                        متن پیام‌های ربات و چیدمان دکمه‌های شیشه‌ای (Inline) منوها را از اینجا مدیریت کنید. اگر فیلدی خالی بماند،
-                                        مقدار پیش‌فرض استفاده می‌شود. برای درج متغیر در متن، روی دکمه‌ی متغیر در کنار هر پیام بزنید.
+                                        متن پیام‌ها را با پیش‌نمایش زنده تلگرام ویرایش کنید و دکمه‌های شیشه‌ای (Inline) هر منو را با
+                                        درگ‌واندراپ بچینید. اگر فیلدی خالی بماند، مقدار پیش‌فرض استفاده می‌شود.
+                                        <br />
+                                        برای هر دکمه می‌توانید رنگ (آبی، سبز، قرمز)، متن و عملکرد تعیین کنید، دکمه سفارشی (لینک یا دستور
+                                        ربات) بسازید و با کلیک روی دکمه‌های پیش‌نمایش، بین منوهای ربات مثل خود تلگرام جابه‌جا شوید. رنگ دکمه‌ها
+                                        در تلگرام نسخه Bot API 10.3 به بعد نمایش داده می‌شود.
                                     </Box>
                                 </Alert>
-                                <Flex gap={1} wrap="wrap" mb={4}>
-                                    {[
-                                        "name", "full_name", "username", "telegram_id", "brand", "panel_name", "panel_url",
-                                        "panel_expire", "price_per_gb", "balance", "min_balance", "support", "channel",
-                                        "max_panels", "active_panels", "test_limit", "amount",
-                                    ].map((v) => (
-                                        <Badge key={v} colorScheme="purple" borderRadius="full" fontSize="2xs" px={2} py={1}>
-                                            {`{{${v}}}`}
-                                        </Badge>
-                                    ))}
-                                </Flex>
                                 <Accordion defaultIndex={[0]} allowToggle>
                                     <AccordionItem border="none">
                                         <AccordionButton px={0} py={2}>

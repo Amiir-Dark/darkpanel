@@ -96,3 +96,21 @@ darkpanel logs       # View live panel logs
 darkpanel cli --help # CLI commands and options
 darkpanel help       # Control center menu
 ```
+
+---
+
+# Developer Guide / راهنمای توسعه‌دهنده
+
+**Start here:** [`map.md`](map.md)
+
+The project map (written in Persian) documents the full architecture: what each
+folder and file is for, where all data and settings live (databases, env vars,
+templates, certificates), how the main flows work (gateway, auth, migrations,
+subscriptions, nodes, sales bot, dashboard), day-to-day commands, common
+pitfalls, and suggested next steps.
+
+Every new developer **must** read `map.md` before changing code, and
+must keep it updated when adding files, folders, or features.
+
+نقطه‌ی شروع هر توسعه‌دهنده: `map.md` — قبل از تغییر کد بخوانید و
+بعد از هر تغییر مهم، به‌روزش کنید.

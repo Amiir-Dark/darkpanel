@@ -146,6 +146,9 @@ type InlineKeyboardButton struct {
 	Text         string `json:"text"`
 	CallbackData string `json:"callback_data,omitempty"`
 	URL          string `json:"url,omitempty"`
+	// Style is an optional button color supported by Telegram Bot API 10.3+
+	// ("danger", "success" or "primary"). Sent only when explicitly set.
+	Style string `json:"style,omitempty"`
 }
 
 type apiResponse struct {

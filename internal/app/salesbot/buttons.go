@@ -225,10 +225,67 @@ func validHTTPURL(u string) bool {
 // Button override (persisted as JSON in settings key "kbd_<key>")
 // -------------------------------------------------------------
 
+// customButtonDef describes an admin-defined button added to a menu. Its ID is
+// always prefixed with "custom_" so it can never collide with a static button.
+type customButtonDef struct {
+	ID    string `json:"id"`
+	Text  string `json:"text"`
+	Type  string `json:"type"` // "callback" or "url"
+	Value string `json:"value"`
+	Style string `json:"style,omitempty"`
+}
+
 type buttonOverride struct {
 	Rows   [][]string        `json:"rows"`
 	Labels map[string]string `json:"labels"`
 	Hidden []string          `json:"hidden"`
+	// Styles maps button IDs to a Telegram button style
+	// ("danger", "success" or "primary"); empty = app default.
+	Styles map[string]string `json:"styles,omitempty"`
+	// Custom holds admin-defined buttons that can be placed inside Rows.
+	Custom []customButtonDef `json:"custom,omitempty"`
+}
+
+const customButtonIDPrefix = "custom_"
+
+// normalizeButtonStyle keeps only styles supported by Telegram Bot API 10.3.
+func normalizeButtonStyle(style string) string {
+	switch strings.ToLower(strings.TrimSpace(style)) {
+	case "primary", "success", "danger":
+		return strings.ToLower(strings.TrimSpace(style))
+	}
+	return ""
+}
+
+func validCustomButtonURL(u string) bool {
+	return validHTTPURL(u) || strings.HasPrefix(u, "tg://")
+}
+
+func (o *buttonOverride) customCell(def customButtonDef) (kbCell, bool) {
+	id := strings.TrimSpace(def.ID)
+	if !strings.HasPrefix(id, customButtonIDPrefix) || len(id) > 64 {
+		return kbCell{}, false
+	}
+	label := strings.TrimSpace(def.Text)
+	if label == "" {
+		return kbCell{}, false
+	}
+	btn := InlineKeyboardButton{Text: label, Style: normalizeButtonStyle(def.Style)}
+	switch strings.ToLower(strings.TrimSpace(def.Type)) {
+	case "url":
+		u := strings.TrimSpace(def.Value)
+		if !validCustomButtonURL(u) {
+			return kbCell{}, false
+		}
+		btn.URL = u
+	default:
+		action := strings.TrimSpace(def.Value)
+		if action == "" || len(action) > 64 {
+			return kbCell{}, false
+		}
+		btn.CallbackData = action
+	}
+	return kbCell{ID: id, Button: btn}, true
 }
 
 func loadButtonOverride(key string) *buttonOverride {
@@ -237,7 +294,7 @@ func loadButtonOverride(key string) *buttonOverride {
 		return nil
 	}
 	var o buttonOverride
-	if err := json.Unmarshal([]byte(raw), &o); err != nil || len(o.Rows) == 0 {
+	if err := json.Unmarshal([]byte(raw), &o); err != nil || (len(o.Rows) == 0 && len(o.Custom) == 0) {
 		return nil
 	}
 	return &o
@@ -272,13 +329,34 @@ func applyButtonOverride(key string, rows [][]kbCell, vars map[string]string) []
 		}
 	}
 
+	// Admin-defined buttons exist only when placed inside a row.
+	isCustom := map[string]bool{}
+	for _, def := range o.Custom {
+		cell, ok := o.customCell(def)
+		if !ok {
+			continue
+		}
+		if _, exists := cells[cell.ID]; exists {
+			continue
+		}
+		cells[cell.ID] = cell
+		order = append(order, cell.ID)
+		isCustom[cell.ID] = true
+	}
+
 	hidden := map[string]bool{}
 	labels := map[string]string{}
+	styles := map[string]string{}
 	for _, h := range o.Hidden {
 		hidden[h] = true
 	}
 	for k, v := range o.Labels {
 		labels[k] = v
+	}
+	for k, v := range o.Styles {
+		if s := normalizeButtonStyle(v); s != "" {
+			styles[k] = s
+		}
 	}
 
 	out := make([][]kbCell, 0, len(rows))
@@ -298,7 +376,7 @@ func applyButtonOverride(key string, rows [][]kbCell, vars map[string]string) []
 		}
 	}
 	for _, id := range order {
-		if used[id] || hidden[id] {
+		if used[id] || hidden[id] || isCustom[id] {
 			continue
 		}
 		out = append(out, []kbCell{cells[id]})
@@ -310,6 +388,9 @@ func applyButtonOverride(key string, rows [][]kbCell, vars map[string]string) []
 				out[i][j].Button.Text = lbl
 			}
 			out[i][j].Button.Text = RenderTemplate(out[i][j].Button.Text, vars)
+			if st, ok := styles[out[i][j].ID]; ok {
+				out[i][j].Button.Style = st
+			}
 		}
 	}
 	return out
@@ -503,6 +584,32 @@ func renderStaticRows(key string, ctx *kbCtx) [][]kbCell {
 		}
 	}
 	return applyButtonOverride(key, rows, ctx.vars())
+}
+
+// BotActionDef describes a bot callback that may be attached to a custom button.
+type BotActionDef struct {
+	Action string `json:"action"`
+	Label  string `json:"label"`
+}
+
+var botActionCatalog = []BotActionDef{
+	{"main_menu", "🏠 بازگشت به منوی اصلی"},
+	{"buy_panel", "⭐ شروع خرید پنل جدید"},
+	{"my_panels", "🌐 نمایش پنل‌های من"},
+	{"wallet", "💳 نمایش کیف پول"},
+	{"deposit", "➕ افزایش موجودی"},
+	{"gift_code", "🎉 ورود کد هدیه"},
+	{"test_panel", "🧪 دریافت پنل تست"},
+	{"support", "📮 نمایش پیام پشتیبانی"},
+	{"deposit_5min", "⚡ واریز کارت‌به‌کارت هوشمند (۵ دقیقه‌ای)"},
+	{"deposit_receipt", "💳 واریز با ارسال فیش"},
+	{"deposit_crypto", "🪙 پرداخت با رمزارز"},
+	{"confirm_buy_panel", "✅ تایید و ساخت پنل"},
+}
+
+// ListBotActions returns the callback catalog usable for custom buttons.
+func ListBotActions() []BotActionDef {
+	return botActionCatalog
 }
 
 // ListBotKeyboards returns the keyboard catalog with the current overrides so
