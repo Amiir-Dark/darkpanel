@@ -248,10 +248,18 @@ func wantsSubscriptionHTML(req SubscriptionRenderRequest) bool {
 }
 
 func identifySubscriptionClientApp(req SubscriptionRenderRequest) string {
+	// Prefer identifying the concrete client from its User-Agent. Some apps send
+	// browser-like User-Agents or an "Accept: text/html" header, and treating them
+	// as "browser" would bypass per-app blocking. Only fall back to "browser" when
+	// the request cannot be attributed to a known app.
+	app := settingsapp.IdentifyClientApp(req.UserAgent)
+	if app != "other" {
+		return app
+	}
 	if wantsSubscriptionHTML(req) && req.ClientType == "" {
 		return "browser"
 	}
-	return settingsapp.IdentifyClientApp(req.UserAgent)
+	return app
 }
 
 func isClientAppBlocked(app string, blocked []string) bool {

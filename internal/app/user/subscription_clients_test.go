@@ -1096,6 +1096,42 @@ func TestSubscriptionBlockedClientApps(t *testing.T) {
 	}
 }
 
+func TestSubscriptionBlockedClientAppWithBrowserLikeRequest(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET blocked_client_apps = '["karing"]' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+
+	// A blocked app that sends an HTML Accept header and a browser-like User-Agent
+	// must still be identified as its own app and rejected.
+	res, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "Karing/1.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari/604.1",
+		Accept:     "text/html,application/xhtml+xml",
+	})
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if res.Status != 403 {
+		t.Fatalf("expected 403 for blocked karing app, got %d", res.Status)
+	}
+
+	// A genuine browser request must still be identified as browser, not the app.
+	res, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+		Accept:     "text/html",
+	})
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if res.Status != 200 {
+		t.Fatalf("expected 200 for allowed browser, got %d", res.Status)
+	}
+}
+
 func TestSubscriptionClientAppFormatOverrides(t *testing.T) {
 	service, key := newSubscriptionClientTestService(t)
 	ctx := context.Background()
