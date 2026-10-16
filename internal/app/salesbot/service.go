@@ -285,7 +285,9 @@ func (s *Service) checkExpiredOrders(ctx context.Context) {
 			notifyCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			text := getBotMessage("deposit_expired", formatCurrency(exp.amountExact))
+			text := getBotMessage("deposit_expired", mergeVars(baseBotVars(nil), map[string]string{
+				"amount": formatCurrency(exp.amountExact),
+			}))
 			_ = s.tgClient.SendMessage(notifyCtx, s.botToken, exp.userID, text, mainKeyboard())
 		}(item)
 	}

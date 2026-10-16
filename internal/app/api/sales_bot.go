@@ -28,6 +28,7 @@ func (s *Server) registerSalesBotRoutes(r chi.Router) {
 	r.HandleFunc("/sales-bot/service/restart", s.requireSalesBotAccess(s.handleSalesBotServiceRestart))
 	r.HandleFunc("/sales-bot/settings", s.requireSalesBotAccess(s.handleSalesBotSettings))
 	r.HandleFunc("/sales-bot/messages", s.requireSalesBotAccess(s.handleSalesBotMessages))
+	r.HandleFunc("/sales-bot/buttons", s.requireSalesBotAccess(s.handleSalesBotButtons))
 	r.HandleFunc("/sales-bot/orders/*", s.requireSalesBotAccess(s.handleSalesBotOrderAction))
 	r.HandleFunc("/sales-bot/orders", s.requireSalesBotAccess(s.handleSalesBotOrders))
 	r.HandleFunc("/sales-bot/receipts/*", s.requireSalesBotAccess(s.handleSalesBotReceiptAction))
@@ -407,7 +408,23 @@ func (s *Server) handleSalesBotMessages(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"messages": salesbot.ListBotMessages()})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"messages":  salesbot.ListBotMessages(),
+		"variables": salesbot.ListBotVariables(),
+	})
+}
+
+// handleSalesBotButtons returns the catalog of inline keyboards with their
+// default buttons/rows and the currently configured overrides.
+func (s *Server) handleSalesBotButtons(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"keyboards": salesbot.ListBotKeyboards(),
+		"variables": salesbot.ListBotVariables(),
+	})
 }
 
 // -------------------------------------------------------------

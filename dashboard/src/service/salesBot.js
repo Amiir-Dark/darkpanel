@@ -157,6 +157,10 @@ export const getSalesBotMessages = async () => {
     return apiFetch("/sales-bot/messages");
 };
 
+export const getSalesBotButtons = async () => {
+    return apiFetch("/sales-bot/buttons");
+};
+
 export const getGiftCodes = async () => {
     return apiFetch("/sales-bot/gift-codes");
 };

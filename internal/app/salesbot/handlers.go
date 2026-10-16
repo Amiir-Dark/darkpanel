@@ -67,23 +67,7 @@ func formatCurrency(val float64) string {
 // -------------------------------------------------------------
 
 func mainInlineKeyboard() InlineKeyboardMarkup {
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"},
-			},
-			{
-				{Text: "🌐 پنل‌های من", CallbackData: "my_panels"},
-				{Text: "💳 موجودی", CallbackData: "wallet"},
-			},
-			{
-				{Text: "🧪 دریافت پنل تست", CallbackData: "test_panel"},
-			},
-			{
-				{Text: "📮 پشتیبانی", CallbackData: "support"},
-			},
-		},
-	}
+	return renderBotKeyboard("main_menu", &kbCtx{})
 }
 
 func mainKeyboard() InlineKeyboardMarkup {
@@ -91,32 +75,11 @@ func mainKeyboard() InlineKeyboardMarkup {
 }
 
 func buyPanelKeyboard() InlineKeyboardMarkup {
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "توضیحات رو مطالعه و تایید میکنم.", CallbackData: "confirm_buy_panel"},
-			},
-			{
-				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-			},
-		},
-	}
+	return renderBotKeyboard("buy_intro", &kbCtx{})
 }
 
 func walletKeyboard() InlineKeyboardMarkup {
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "➕ افزایش موجودی", CallbackData: "deposit"},
-			},
-			{
-				{Text: "🎉 کد هدیه", CallbackData: "gift_code"},
-			},
-			{
-				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-			},
-		},
-	}
+	return renderBotKeyboard("wallet_menu", &kbCtx{})
 }
 
 func canUserTakeTest(user *User) bool {
@@ -139,119 +102,38 @@ func canUserTakeTest(user *User) bool {
 
 func getEmptyPanelsText(canTakeTest bool) string {
 	if canTakeTest {
-		return getBotMessage("panels_empty")
+		return getBotMessage("panels_empty", nil)
 	}
-	return getBotMessage("panels_empty_no_test")
+	return getBotMessage("panels_empty_no_test", nil)
 }
 
 func emptyPanelsKeyboard(canTakeTest bool) InlineKeyboardMarkup {
-	var rows [][]InlineKeyboardButton
-	if canTakeTest {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "🧪 دریافت پنل تست", CallbackData: "test_panel"},
-		})
-	}
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "⭐ دریافت پنل جدید", CallbackData: "buy_panel"},
-	})
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-	})
-	return InlineKeyboardMarkup{InlineKeyboard: rows}
+	return renderBotKeyboard("empty_panels", &kbCtx{CanTakeTest: canTakeTest})
 }
 
 func panelDetailKeyboard(panel UserPanel, canCreateMore bool, totalPanels int) InlineKeyboardMarkup {
-	var rows [][]InlineKeyboardButton
-	if panel.PanelURL != "" && (strings.HasPrefix(panel.PanelURL, "http://") || strings.HasPrefix(panel.PanelURL, "https://")) {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "🌐 ورود به درگاه پنل", URL: panel.PanelURL},
-		})
-	}
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "🔑 تغییر رمز عبور", CallbackData: fmt.Sprintf("chpass:%d", panel.ID)},
-		{Text: "🗑️ حذف پنل", CallbackData: fmt.Sprintf("delpanel:%d", panel.ID)},
+	return renderBotKeyboard("panel_detail", &kbCtx{
+		Panel:         &panel,
+		PanelURL:      panel.PanelURL,
+		CanCreateMore: canCreateMore,
+		TotalPanels:   totalPanels,
 	})
-	if canCreateMore {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "➕ ساخت پنل جدید", CallbackData: "buy_panel"},
-		})
-	}
-	if totalPanels > 1 {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "🔙 لیست پنل‌ها", CallbackData: "my_panels"},
-			{Text: "🏠 منوی اصلی", CallbackData: "main_menu"},
-		})
-	} else {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-		})
-	}
-	return InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
 func panelsListKeyboard(panels []UserPanel, canCreateMore bool) InlineKeyboardMarkup {
-	var rows [][]InlineKeyboardButton
-	for _, p := range panels {
-		st := "فعال ✅"
-		if p.Status == "disabled" {
-			st = "غیرفعال ⚠️"
-		}
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: fmt.Sprintf("🔹 %s (%s)", p.PanelUsername, st), CallbackData: fmt.Sprintf("view_panel:%d", p.ID)},
-		})
-	}
-	if canCreateMore {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "➕ ساخت پنل جدید", CallbackData: "buy_panel"},
-		})
-	}
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-	})
-	return InlineKeyboardMarkup{InlineKeyboard: rows}
+	return renderPanelsList(&kbCtx{Panels: panels, CanCreateMore: canCreateMore})
 }
 
 func changePassKeyboard(panelID int64) InlineKeyboardMarkup {
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "🎲 ساخت رمز عبور تصادفی", CallbackData: fmt.Sprintf("gen_pass:%d", panelID)},
-			},
-			{
-				{Text: "✏️ تایپ رمز دلخواه", CallbackData: fmt.Sprintf("input_pass:%d", panelID)},
-			},
-			{
-				{Text: "🔙 بازگشت به پنل", CallbackData: fmt.Sprintf("view_panel:%d", panelID)},
-			},
-		},
-	}
+	return renderBotKeyboard("change_pass", &kbCtx{PanelID: panelID})
 }
 
 func passChangedKeyboard(panel UserPanel) InlineKeyboardMarkup {
-	var rows [][]InlineKeyboardButton
-	if panel.PanelURL != "" && (strings.HasPrefix(panel.PanelURL, "http://") || strings.HasPrefix(panel.PanelURL, "https://")) {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "🌐 ورود به درگاه پنل", URL: panel.PanelURL},
-		})
-	}
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "🔙 بازگشت به پنل", CallbackData: fmt.Sprintf("view_panel:%d", panel.ID)},
-		{Text: "🌐 پنل‌های من", CallbackData: "my_panels"},
-	})
-	return InlineKeyboardMarkup{InlineKeyboard: rows}
+	return renderBotKeyboard("pass_changed", &kbCtx{Panel: &panel, PanelURL: panel.PanelURL})
 }
 
 func confirmDeleteKeyboard(panelID int64) InlineKeyboardMarkup {
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "🗑️ بله، پنل را حذف کن", CallbackData: fmt.Sprintf("confirm_del:%d", panelID)},
-			},
-			{
-				{Text: "🔙 انصراف و بازگشت", CallbackData: fmt.Sprintf("view_panel:%d", panelID)},
-			},
-		},
-	}
+	return renderBotKeyboard("confirm_delete", &kbCtx{PanelID: panelID})
 }
 
 func myPanelsKeyboard(hasPanel bool, panelURL string, canTakeTest ...bool) InlineKeyboardMarkup {
@@ -262,46 +144,15 @@ func myPanelsKeyboard(hasPanel bool, panelURL string, canTakeTest ...bool) Inlin
 		}
 		return emptyPanelsKeyboard(canTest)
 	}
-	var rows [][]InlineKeyboardButton
-	if panelURL != "" && (strings.HasPrefix(panelURL, "http://") || strings.HasPrefix(panelURL, "https://")) {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "🌐 ورود به پنل مدیریت", URL: panelURL},
-		})
-	}
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "➕ افزایش موجودی", CallbackData: "deposit"},
-	})
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-	})
-	return InlineKeyboardMarkup{InlineKeyboard: rows}
+	return renderBotKeyboard("my_panels", &kbCtx{PanelURL: panelURL})
 }
 
 func testPanelSuccessKeyboard(panelURL string) InlineKeyboardMarkup {
-	var rows [][]InlineKeyboardButton
-	if panelURL != "" && (strings.HasPrefix(panelURL, "http://") || strings.HasPrefix(panelURL, "https://")) {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "🌐 ورود به پنل مدیریت", URL: panelURL},
-		})
-	}
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "🌐 پنل‌های من", CallbackData: "my_panels"},
-		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-	})
-	return InlineKeyboardMarkup{InlineKeyboard: rows}
+	return renderBotKeyboard("test_success", &kbCtx{PanelURL: panelURL})
 }
 
 func depositOnlyKeyboard() InlineKeyboardMarkup {
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "➕ افزایش موجودی", CallbackData: "deposit"},
-			},
-			{
-				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-			},
-		},
-	}
+	return renderBotKeyboard("deposit_only", &kbCtx{})
 }
 
 func settingOn(key string, defaultOn bool) bool {
@@ -317,27 +168,7 @@ func settingOn(key string, defaultOn bool) bool {
 }
 
 func depositKeyboard() InlineKeyboardMarkup {
-	var rows [][]InlineKeyboardButton
-	if settingOn("deposit_5min_enabled", true) {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "⚡ کارت به کارت هوشمند (شناسایی ۵ دقیقه‌ای)", CallbackData: "deposit_5min"},
-		})
-	}
-	if settingOn("deposit_receipt_enabled", true) {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "💳 واریز کارت به کارت (ارسال فیش)", CallbackData: "deposit_receipt"},
-		})
-	}
-	if settingOn("deposit_crypto_enabled", true) &&
-		(strings.TrimSpace(GetSetting("tether_wallet", "")) != "" || strings.TrimSpace(GetSetting("ton_wallet", "")) != "") {
-		rows = append(rows, []InlineKeyboardButton{
-			{Text: "🪙 پرداخت با رمزارز (USDT / TON)", CallbackData: "deposit_crypto"},
-		})
-	}
-	rows = append(rows, []InlineKeyboardButton{
-		{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-	})
-	return InlineKeyboardMarkup{InlineKeyboard: rows}
+	return renderBotKeyboard("deposit_menu", &kbCtx{})
 }
 
 // buildCryptoWalletsText renders the configured crypto wallet addresses.
@@ -385,13 +216,7 @@ func (s *Service) notifyAdmins(ctx context.Context, text string) {
 }
 
 func backKeyboard() InlineKeyboardMarkup {
-	return InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "🔙 بازگشت به منو", CallbackData: "main_menu"},
-			},
-		},
-	}
+	return renderBotKeyboard("back_menu", &kbCtx{})
 }
 
 // -------------------------------------------------------------
@@ -399,21 +224,21 @@ func backKeyboard() InlineKeyboardMarkup {
 // -------------------------------------------------------------
 
 func getWelcomeText(u *User) string {
-	brandName := GetSetting("brand_name", "zonixvpn")
-	return getBotMessage("welcome", brandName)
+	return getBotMessage("welcome", baseBotVars(u))
 }
 
 func getTermsText() string {
-	brandName := GetSetting("brand_name", "zonixvpn")
 	pricePerGB := GetSettingFloat("price_per_gb", 5000)
 	if pricePerGB <= 0 {
 		pricePerGB = 5000
 	}
-	return getBotMessage("terms", brandName, formatCurrency(pricePerGB))
+	return getBotMessage("terms", mergeVars(baseBotVars(nil), map[string]string{
+		"price_per_gb": formatCurrency(pricePerGB),
+	}))
 }
 
 func getWalletText(u *User) string {
-	return getBotMessage("wallet", formatCurrency(u.WalletBalance))
+	return getBotMessage("wallet", baseBotVars(u))
 }
 
 func formatPanelDetail(user *User, panel *UserPanel) string {
@@ -557,7 +382,7 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 	case text == "⚡ شارژ کیف پول (پرداخت ۵ دقیقه‌ای)":
 		ClearUserState(userID)
 		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
-		text := getBotMessage("deposit_menu")
+		text := getBotMessage("deposit_menu", nil)
 		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, text, depositKeyboard())
 
 	case text == "📊 وضعیت اشتراک و اعتبار" || text == "🌐 پنل‌های من" || text == "پنل‌های من":
@@ -588,11 +413,10 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 	case text == "📖 راهنمای اتصال" || text == "📞 پشتیبانی" || text == "پشتیبانی":
 		ClearUserState(userID)
 		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
-		supportUser := GetSetting("support_username", "@AdminSupport")
 		channelUser := GetSetting("channel_username", "")
-		text := getBotMessage("support", supportUser)
+		text := getBotMessage("support", baseBotVars(user))
 		if channelUser != "" {
-			text += getBotMessage("support_channel", channelUser)
+			text += getBotMessage("support_channel", baseBotVars(user))
 		}
 		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, text, backKeyboard())
 
@@ -679,7 +503,10 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		maxPanels := GetMaxPanelsPerUser()
 		activeCount := GetUserActivePanelCount(user.TelegramID)
 		if maxPanels > 0 && activeCount >= maxPanels {
-			text := getBotMessage("buy_limit_reached", activeCount, maxPanels)
+			text := getBotMessage("buy_limit_reached", mergeVars(baseBotVars(user), map[string]string{
+				"active_panels": strconv.Itoa(activeCount),
+				"max_panels":    strconv.Itoa(maxPanels),
+			}))
 			s.editOrSend(ctx, chatID, messageID, text, InlineKeyboardMarkup{
 				InlineKeyboard: [][]InlineKeyboardButton{
 					{{Text: "🌐 پنل‌های من", CallbackData: "my_panels"}},
@@ -695,7 +522,10 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		}
 
 		if user.WalletBalance < minBalance {
-			text := getBotMessage("buy_low_balance", formatCurrency(minBalance), formatCurrency(user.WalletBalance))
+			text := getBotMessage("buy_low_balance", mergeVars(baseBotVars(user), map[string]string{
+				"min_balance": formatCurrency(minBalance),
+				"balance":     formatCurrency(user.WalletBalance),
+			}))
 			s.editOrSend(ctx, chatID, messageID, text, depositOnlyKeyboard())
 			return
 		}
@@ -703,12 +533,14 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		adminUser, adminPass, panelURL, isUpgrade, err := CreatePurchasedAdmin(ctx, user.TelegramID, user.FirstName)
 		if err != nil {
 			if err.Error() == "MAX_LIMIT_REACHED" {
-				text := getBotMessage("buy_limit_reached_short", maxPanels)
+				text := getBotMessage("buy_limit_reached_short", mergeVars(baseBotVars(user), map[string]string{
+					"max_panels": strconv.Itoa(maxPanels),
+				}))
 				s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 				return
 			}
 			fmt.Printf("[SalesBot] ERROR CreatePurchasedAdmin for tgID %d: %v\n", user.TelegramID, err)
-			text := getBotMessage("buy_error")
+			text := getBotMessage("buy_error", baseBotVars(user))
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
@@ -790,14 +622,17 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		ClearUserState(user.TelegramID)
 		testEnabled := GetSetting("test_panel_enabled", "true")
 		if testEnabled == "false" || testEnabled == "0" {
-			s.editOrSend(ctx, chatID, messageID, getBotMessage("test_disabled"), backKeyboard())
+			s.editOrSend(ctx, chatID, messageID, getBotMessage("test_disabled", baseBotVars(user)), backKeyboard())
 			return
 		}
 
 		maxPanels := GetMaxPanelsPerUser()
 		activeCount := GetUserActivePanelCount(user.TelegramID)
 		if maxPanels > 0 && activeCount >= maxPanels {
-			text := getBotMessage("test_limit_panels", activeCount, maxPanels)
+			text := getBotMessage("test_limit_panels", mergeVars(baseBotVars(user), map[string]string{
+				"active_panels": strconv.Itoa(activeCount),
+				"max_panels":    strconv.Itoa(maxPanels),
+			}))
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
@@ -808,7 +643,9 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		}
 
 		if user.TestUsageCount >= maxTests || (maxTests == 1 && user.HasUsedTest) {
-			text := getBotMessage("test_limit_reached", maxTests, maxTests)
+			text := getBotMessage("test_limit_reached", mergeVars(baseBotVars(user), map[string]string{
+				"test_limit": strconv.Itoa(maxTests),
+			}))
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
@@ -816,12 +653,14 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		adminUser, adminPass, panelURL, err := CreateTestAdmin(ctx, user.TelegramID, user.FirstName)
 		if err != nil {
 			if err.Error() == "MAX_LIMIT_REACHED" {
-				text := getBotMessage("test_limit_panels_short", maxPanels)
+				text := getBotMessage("test_limit_panels_short", mergeVars(baseBotVars(user), map[string]string{
+					"max_panels": strconv.Itoa(maxPanels),
+				}))
 				s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 				return
 			}
 			fmt.Printf("[SalesBot] ERROR CreateTestAdmin for tgID %d: %v\n", user.TelegramID, err)
-			text := getBotMessage("test_error")
+			text := getBotMessage("test_error", baseBotVars(user))
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
@@ -870,12 +709,12 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 	case "deposit":
 		ClearUserState(user.TelegramID)
-		text := getBotMessage("deposit_menu")
+		text := getBotMessage("deposit_menu", nil)
 		s.editOrSend(ctx, chatID, messageID, text, depositKeyboard())
 
 	case "deposit_5min":
 		if !settingOn("deposit_5min_enabled", true) {
-			s.editOrSend(ctx, chatID, messageID, getBotMessage("deposit_method_disabled"), backKeyboard())
+			s.editOrSend(ctx, chatID, messageID, getBotMessage("deposit_method_disabled", baseBotVars(user)), backKeyboard())
 			return
 		}
 		SetUserState(user.TelegramID, "awaiting_amount", "")
@@ -886,7 +725,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 	case "deposit_receipt":
 		if !settingOn("deposit_receipt_enabled", true) {
-			s.editOrSend(ctx, chatID, messageID, getBotMessage("deposit_method_disabled"), backKeyboard())
+			s.editOrSend(ctx, chatID, messageID, getBotMessage("deposit_method_disabled", baseBotVars(user)), backKeyboard())
 			return
 		}
 		SetUserState(user.TelegramID, "awaiting_receipt_amount", "")
@@ -895,7 +734,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 	case "deposit_crypto":
 		if !settingOn("deposit_crypto_enabled", true) ||
 			(strings.TrimSpace(GetSetting("tether_wallet", "")) == "" && strings.TrimSpace(GetSetting("ton_wallet", "")) == "") {
-			s.editOrSend(ctx, chatID, messageID, getBotMessage("deposit_method_disabled"), backKeyboard())
+			s.editOrSend(ctx, chatID, messageID, getBotMessage("deposit_method_disabled", baseBotVars(user)), backKeyboard())
 			return
 		}
 		ClearUserState(user.TelegramID)
@@ -908,11 +747,10 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 	case "support":
 		ClearUserState(user.TelegramID)
-		supportUser := GetSetting("support_username", "@AdminSupport")
 		channelUser := GetSetting("channel_username", "")
-		text := getBotMessage("support", supportUser)
+		text := getBotMessage("support", baseBotVars(user))
 		if channelUser != "" {
-			text += getBotMessage("support_channel", channelUser)
+			text += getBotMessage("support_channel", baseBotVars(user))
 		}
 		s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 

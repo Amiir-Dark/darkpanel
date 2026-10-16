@@ -1,7 +1,8 @@
 package salesbot
 
 import (
-	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -28,38 +29,60 @@ var botMessageSectionTitles = map[string]string{
 	"notifications": "اطلاع‌رسانی‌ها",
 }
 
+// botVariableCatalog lists every dynamic placeholder that can be used inside
+// message and button texts using the {{key}} syntax.
+var botVariableCatalog = []map[string]string{
+	{"key": "name", "label": "نام کاربر"},
+	{"key": "full_name", "label": "نام کامل کاربر"},
+	{"key": "username", "label": "یوزرنیم تلگرام"},
+	{"key": "telegram_id", "label": "آیدی عددی کاربر"},
+	{"key": "brand", "label": "نام برند"},
+	{"key": "panel_name", "label": "نام / یوزرنیم پنل"},
+	{"key": "panel_url", "label": "لینک پنل"},
+	{"key": "panel_expire", "label": "تاریخ انقضای پنل"},
+	{"key": "price_per_gb", "label": "قیمت هر گیگابایت"},
+	{"key": "balance", "label": "موجودی کیف پول"},
+	{"key": "min_balance", "label": "حداقل موجودی لازم"},
+	{"key": "support", "label": "آیدی پشتیبانی"},
+	{"key": "channel", "label": "آیدی کانال"},
+	{"key": "max_panels", "label": "حداکثر تعداد پنل"},
+	{"key": "active_panels", "label": "تعداد پنل فعال"},
+	{"key": "test_limit", "label": "سقف پنل تست"},
+	{"key": "amount", "label": "مبلغ"},
+}
+
 var botMessageRegistry = []BotMessageDef{
 	// --- welcome ---
 	{
 		Key: "welcome", Section: "welcome", SettingKey: "welcome_message",
 		Label:   "پیام خوش‌آمد (/start و منوی اصلی)",
-		Vars:    []string{"نام برند"},
-		Default: "درود و خوش آمدید! 🪪\n\nبرای خرید نمایندگی بدون دردسر و اذیت، با تنوع لوکیشن بالا و قیمت مناسب و سرعت کامل، مجموعه‌ی %s در خدمت شما عزیزان می‌باشد.",
+		Vars:    []string{"brand", "name"},
+		Default: "درود و خوش آمدید! 🪪\n\nبرای خرید نمایندگی بدون دردسر و اذیت، با تنوع لوکیشن بالا و قیمت مناسب و سرعت کامل، مجموعه‌ی {{brand}} در خدمت شما عزیزان می‌باشد.",
 	},
 	// --- purchase ---
 	{
 		Key: "terms", Section: "purchase", SettingKey: "terms_message",
 		Label: "متن قوانین و شرایط (قبل از خرید)",
-		Vars:  []string{"نام برند", "قیمت هر گیگابایت"},
+		Vars:  []string{"brand", "price_per_gb", "name"},
 		Default: "🫀 <b>پرداخت فقط به اندازه مصرف</b>\n\n" +
-			"در %s با مدل Pay As You Go فقط بابت ترافیک واقعی مصرف‌شده هزینه می‌پردازید؛ بدون خرید حجم از قبل و بدون هزینه پنهان.\n\n" +
-			"💵 <b>هزینه هر گیگابایت:</b> %s تومان",
+			"در {{brand}} با مدل Pay As You Go فقط بابت ترافیک واقعی مصرف‌شده هزینه می‌پردازید؛ بدون خرید حجم از قبل و بدون هزینه پنهان.\n\n" +
+			"💵 <b>هزینه هر گیگابایت:</b> {{price_per_gb}} تومان",
 	},
 	{
 		Key: "buy_limit_reached", Section: "purchase",
 		Label: "پیام رسیدن به سقف تعداد پنل",
-		Vars:  []string{"تعداد پنل فعال", "حداکثر مجاز"},
+		Vars:  []string{"active_panels", "max_panels"},
 		Default: "🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n" +
-			"شما در حال حاضر %d پنل فعال دارید و به حداکثر تعداد مجاز (%d عدد) رسیده‌اید.\n\n" +
+			"شما در حال حاضر {{active_panels}} پنل فعال دارید و به حداکثر تعداد مجاز ({{max_panels}} عدد) رسیده‌اید.\n\n" +
 			"در صورتی که نیاز به ساخت پنل جدید دارید، ابتدا یکی از پنل‌های قبلی خود را در بخش «🌐 پنل‌های من» حذف فرمایید یا با پشتیبانی در ارتباط باشید.",
 	},
 	{
 		Key: "buy_low_balance", Section: "purchase",
 		Label: "پیام موجودی ناکافی برای خرید",
-		Vars:  []string{"حداقل موجودی", "موجودی فعلی"},
+		Vars:  []string{"min_balance", "balance"},
 		Default: "⚠️ <b>موجودی کیف پول شما کافی نیست.</b>\n\n" +
-			"برای راه‌اندازی و فعال‌سازی پنل نمایندگی، حداقل موجودی اولیه <code>%s تومان</code> مورد نیاز است.\n\n" +
-			"💵 <b>موجودی فعلی شما:</b> <code>%s تومان</code>\n\n" +
+			"برای راه‌اندازی و فعال‌سازی پنل نمایندگی، حداقل موجودی اولیه <code>{{min_balance}} تومان</code> مورد نیاز است.\n\n" +
+			"💵 <b>موجودی فعلی شما:</b> <code>{{balance}} تومان</code>\n\n" +
 			"لطفاً ابتدا از دکمه «افزایش موجودی» نسبت به شارژ کیف پول خود اقدام فرمایید.",
 	},
 	{
@@ -70,9 +93,9 @@ var botMessageRegistry = []BotMessageDef{
 	{
 		Key: "buy_limit_reached_short", Section: "purchase",
 		Label: "پیام کوتاه رسیدن به سقف پنل (هنگام ساخت)",
-		Vars:  []string{"حداکثر مجاز"},
+		Vars:  []string{"max_panels"},
 		Default: "🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n" +
-			"شما در حال حاضر به حداکثر تعداد مجاز پنل (%d عدد) رسیده‌اید.\n\n" +
+			"شما در حال حاضر به حداکثر تعداد مجاز پنل ({{max_panels}} عدد) رسیده‌اید.\n\n" +
 			"جهت ساخت پنل جدید، یکی از پنل‌های خود را در «🌐 پنل‌های من» حذف نمایید.",
 	},
 	// --- panels ---
@@ -90,8 +113,8 @@ var botMessageRegistry = []BotMessageDef{
 	{
 		Key: "wallet", Section: "wallet",
 		Label:   "پیام کیف پول",
-		Vars:    []string{"موجودی"},
-		Default: "💰 <b>کیف پول شما</b>\n\n💵 <b>موجودی فعلی:</b> %s تومان",
+		Vars:    []string{"balance", "name"},
+		Default: "💰 <b>کیف پول شما</b>\n\n💵 <b>موجودی فعلی:</b> {{balance}} تومان",
 	},
 	{
 		Key: "deposit_menu", Section: "wallet",
@@ -105,10 +128,10 @@ var botMessageRegistry = []BotMessageDef{
 	},
 	{
 		Key: "deposit_expired", Section: "notifications",
-		Label:   "پیام لغو/انقضای مهلت واریز",
-		Vars:    []string{"مبلغ"},
+		Label: "پیام لغو/انقضای مهلت واریز",
+		Vars:  []string{"amount", "name"},
 		Default: "⏰ <b>مهلت پرداخت سفارش شما به پایان رسید!</b>\n\n" +
-			"فاکتور پرداخت به مبلغ %s تومان منقضی گردید.\n" +
+			"فاکتور پرداخت به مبلغ {{amount}} تومان منقضی گردید.\n" +
 			"اگر واریز را انجام نداده‌اید، می‌توانید از منوی اصلی مجدداً درخواست شارژ دهید.",
 	},
 	// --- test ---
@@ -120,9 +143,9 @@ var botMessageRegistry = []BotMessageDef{
 	{
 		Key: "test_limit_reached", Section: "test",
 		Label: "پیام پر شدن سقف پنل تست",
-		Vars:  []string{"سقف مجاز", "سقف مجاز"},
-		Default: "🔒 <b>شما سقف دریافت نمایندگی تست (%d بار) را پر کرده‌اید.</b>\n\n" +
-			"هر کاربر مجاز است حداکثر %d بار پنل نمایندگی تست دریافت کند.\n" +
+		Vars:  []string{"test_limit"},
+		Default: "🔒 <b>شما سقف دریافت نمایندگی تست ({{test_limit}} بار) را پر کرده‌اید.</b>\n\n" +
+			"هر کاربر مجاز است حداکثر {{test_limit}} بار پنل نمایندگی تست دریافت کند.\n" +
 			"در صورتی که نیاز به پنل جدید دارید می‌توانید از منوی اصلی اقدام به خرید نمایید یا با پشتیبانی در تماس باشید.",
 	},
 	{
@@ -133,32 +156,32 @@ var botMessageRegistry = []BotMessageDef{
 	{
 		Key: "test_limit_panels", Section: "test",
 		Label: "پیام رسیدن به سقف پنل (هنگام دریافت تست)",
-		Vars:  []string{"تعداد پنل فعال", "حداکثر مجاز"},
+		Vars:  []string{"active_panels", "max_panels"},
 		Default: "🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n" +
-			"شما در حال حاضر %d پنل فعال دارید و به حداکثر تعداد مجاز (%d عدد) رسیده‌اید.\n\n" +
+			"شما در حال حاضر {{active_panels}} پنل فعال دارید و به حداکثر تعداد مجاز ({{max_panels}} عدد) رسیده‌اید.\n\n" +
 			"جهت دریافت پنل جدید، ابتدا یکی از پنل‌های قبلی خود را در بخش «🌐 پنل‌های من» حذف فرمایید یا با پشتیبانی در ارتباط باشید.",
 	},
 	{
 		Key: "test_limit_panels_short", Section: "test",
 		Label: "پیام کوتاه سقف پنل (هنگام ساخت تست)",
-		Vars:  []string{"حداکثر مجاز"},
+		Vars:  []string{"max_panels"},
 		Default: "🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n" +
-			"شما در حال حاضر به حداکثر تعداد مجاز پنل (%d عدد) رسیده‌اید.",
+			"شما در حال حاضر به حداکثر تعداد مجاز پنل ({{max_panels}} عدد) رسیده‌اید.",
 	},
 	// --- support ---
 	{
 		Key: "support", Section: "support",
 		Label: "پیام پشتیبانی",
-		Vars:  []string{"آیدی پشتیبانی"},
+		Vars:  []string{"support"},
 		Default: "📮 <b>پشتیبانی و ارتباط با ما:</b>\n\n" +
 			"در صورت بروز هرگونه سوال یا مشکل با آیدی زیر در ارتباط باشید:\n" +
-			"👉 <b>%s</b>\n\n",
+			"👉 <b>{{support}}</b>\n\n",
 	},
 	{
 		Key: "support_channel", Section: "support",
-		Label: "بخش کانال اطلاع‌رسانی (به پیام پشتیبانی اضافه می‌شود)",
-		Vars:  []string{"آیدی کانال"},
-		Default: "📢 <b>کانال اطلاع‌رسانی:</b>\n👉 <b>%s</b>\n",
+		Label:   "بخش کانال اطلاع‌رسانی (به پیام پشتیبانی اضافه می‌شود)",
+		Vars:    []string{"channel"},
+		Default: "📢 <b>کانال اطلاع‌رسانی:</b>\n👉 <b>{{channel}}</b>\n",
 	},
 }
 
@@ -188,30 +211,74 @@ func botMessageDefault(key string) string {
 }
 
 // getBotMessage returns the configured override for a message (or its default),
-// applying fmt arguments against the resulting template.
-func getBotMessage(key string, args ...any) string {
+// rendering any {{variable}} placeholders from vars.
+func getBotMessage(key string, vars map[string]string) string {
 	def, ok := findBotMessage(key)
 	if !ok {
 		return ""
 	}
-	tpl := strings.TrimSpace(GetSetting(botMessageSettingKey(def), ""))
-	if tpl == "" {
+	tpl := GetSetting(botMessageSettingKey(def), "")
+	if strings.TrimSpace(tpl) == "" {
 		tpl = def.Default
 	}
-	if len(args) == 0 {
-		return tpl
-	}
-	return safeSprintf(tpl, args...)
+	return RenderTemplate(tpl, vars)
 }
 
-func safeSprintf(tpl string, args ...any) string {
-	defer func() {
-		_ = recover()
-	}()
-	out := fmt.Sprintf(tpl, args...)
-	if strings.Contains(out, "%!") {
-		// Template placeholders do not match the provided args; fall back to raw.
+var botVarRegex = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_]+)\s*\}\}`)
+
+// RenderTemplate substitutes {{key}} placeholders using the provided map.
+// Unknown placeholders are left untouched so admins can spot mistakes.
+func RenderTemplate(tpl string, vars map[string]string) string {
+	if !strings.Contains(tpl, "{{") {
 		return tpl
+	}
+	return botVarRegex.ReplaceAllStringFunc(tpl, func(match string) string {
+		sub := botVarRegex.FindStringSubmatch(match)
+		if len(sub) < 2 {
+			return match
+		}
+		if v, ok := vars[sub[1]]; ok {
+			return v
+		}
+		return match
+	})
+}
+
+// baseBotVars builds the common variable set available to every message.
+func baseBotVars(u *User) map[string]string {
+	vars := map[string]string{
+		"brand":   GetSetting("brand_name", "zonixvpn"),
+		"support": GetSetting("support_username", "@AdminSupport"),
+		"channel": GetSetting("channel_username", ""),
+	}
+	if u != nil {
+		name := strings.TrimSpace(u.FirstName)
+		if name == "" {
+			name = strings.TrimSpace(u.Username)
+		}
+		if name == "" {
+			name = "کاربر"
+		}
+		vars["name"] = name
+		vars["full_name"] = name
+		vars["username"] = u.Username
+		vars["telegram_id"] = strconv.FormatInt(u.TelegramID, 10)
+		vars["balance"] = formatCurrency(u.WalletBalance)
+	}
+	return vars
+}
+
+// mergeVars returns a copy of base with the extra keys applied on top.
+func mergeVars(base map[string]string, extra map[string]string) map[string]string {
+	if base == nil {
+		base = map[string]string{}
+	}
+	out := make(map[string]string, len(base)+len(extra))
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range extra {
+		out[k] = v
 	}
 	return out
 }
@@ -222,7 +289,7 @@ func ListBotMessages() []map[string]any {
 	list := make([]map[string]any, 0, len(botMessageRegistry))
 	for _, def := range botMessageRegistry {
 		sectionTitle := botMessageSectionTitles[def.Section]
-		current := strings.TrimSpace(GetSetting(botMessageSettingKey(def), ""))
+		current := GetSetting(botMessageSettingKey(def), "")
 		list = append(list, map[string]any{
 			"key":           def.Key,
 			"section":       def.Section,
@@ -235,4 +302,9 @@ func ListBotMessages() []map[string]any {
 		})
 	}
 	return list
+}
+
+// ListBotVariables returns the catalog of placeholders usable in templates.
+func ListBotVariables() []map[string]string {
+	return botVariableCatalog
 }

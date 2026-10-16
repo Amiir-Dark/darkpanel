@@ -25,21 +25,32 @@ func TestBotMessageRegistryIntegrity(t *testing.T) {
 }
 
 func TestGetBotMessageFallsBackToDefault(t *testing.T) {
-	got := getBotMessage("wallet", "5,000")
+	got := getBotMessage("wallet", map[string]string{"balance": "5,000"})
 	if !strings.Contains(got, "5,000") {
-		t.Fatalf("expected formatted default, got %q", got)
+		t.Fatalf("expected rendered balance, got %q", got)
 	}
-	if !strings.Contains(got, "کیف پول شما") {
-		t.Fatalf("expected wallet default content, got %q", got)
+	if strings.Contains(got, "{{balance}}") {
+		t.Fatalf("expected placeholders to be replaced, got %q", got)
 	}
 }
 
-func TestSafeSprintfFallsBackOnMismatch(t *testing.T) {
-	tpl := "hello %s"
-	if got := safeSprintf(tpl, 1, 2); got != tpl {
-		t.Fatalf("expected raw template on mismatch, got %q", got)
+func TestRenderTemplate(t *testing.T) {
+	vars := map[string]string{"name": "علی", "brand": "zonix"}
+	if got := RenderTemplate("سلام {{name}} از {{ brand }}", vars); got != "سلام علی از zonix" {
+		t.Fatalf("unexpected render: %q", got)
 	}
-	if got := safeSprintf("hi %s", "ali"); got != "hi ali" {
-		t.Fatalf("expected formatted output, got %q", got)
+	if got := RenderTemplate("{{unknown}}", vars); got != "{{unknown}}" {
+		t.Fatalf("unknown placeholder should be preserved, got %q", got)
+	}
+	if got := RenderTemplate("بدون متغیر", vars); got != "بدون متغیر" {
+		t.Fatalf("unexpected render: %q", got)
+	}
+}
+
+func TestBotVariableCatalogKeys(t *testing.T) {
+	for _, item := range botVariableCatalog {
+		if strings.TrimSpace(item["key"]) == "" || strings.TrimSpace(item["label"]) == "" {
+			t.Fatalf("invalid variable catalog entry: %#v", item)
+		}
 	}
 }
