@@ -146,11 +146,15 @@ export const simulateSalesBotWebhook = async (payload) => {
     });
 };
 
-export const broadcastMessage = async (message) => {
+export const broadcastMessage = async (message, buttons = []) => {
     return apiFetch("/sales-bot/broadcast", {
         method: "POST",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, buttons }),
     });
+};
+
+export const getSalesBotMessages = async () => {
+    return apiFetch("/sales-bot/messages");
 };
 
 export const getGiftCodes = async () => {

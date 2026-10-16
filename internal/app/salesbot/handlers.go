@@ -139,9 +139,9 @@ func canUserTakeTest(user *User) bool {
 
 func getEmptyPanelsText(canTakeTest bool) string {
 	if canTakeTest {
-		return "📦 هنوز پنلی نداری.\n\nاز دکمه‌های زیر می‌تونی پنل تست یا پنل جدید بگیری."
+		return getBotMessage("panels_empty")
 	}
-	return "📦 هنوز پنلی نداری.\n\nاز دکمه «دریافت پنل جدید» می‌تونی پنل جدید بگیری."
+	return getBotMessage("panels_empty_no_test")
 }
 
 func emptyPanelsKeyboard(canTakeTest bool) InlineKeyboardMarkup {
@@ -399,35 +399,21 @@ func backKeyboard() InlineKeyboardMarkup {
 // -------------------------------------------------------------
 
 func getWelcomeText(u *User) string {
-	customWelcome := GetSetting("welcome_message", "")
-	if strings.TrimSpace(customWelcome) != "" {
-		return customWelcome
-	}
 	brandName := GetSetting("brand_name", "zonixvpn")
-	return fmt.Sprintf("درود و خوش آمدید! 🪪\n\nبرای خرید نمایندگی بدون دردسر و اذیت، با تنوع لوکیشن بالا و قیمت مناسب و سرعت کامل، مجموعه‌ی %s در خدمت شما عزیزان می‌باشد.", brandName)
+	return getBotMessage("welcome", brandName)
 }
 
 func getTermsText() string {
-	customTerms := GetSetting("terms_message", "")
-	if strings.TrimSpace(customTerms) != "" {
-		return customTerms
-	}
 	brandName := GetSetting("brand_name", "zonixvpn")
 	pricePerGB := GetSettingFloat("price_per_gb", 5000)
 	if pricePerGB <= 0 {
 		pricePerGB = 5000
 	}
-
-	return fmt.Sprintf(`🫀 <b>پرداخت فقط به اندازه مصرف</b>
-
-در %s با مدل Pay As You Go فقط بابت ترافیک واقعی مصرف‌شده هزینه می‌پردازید؛ بدون خرید حجم از قبل و بدون هزینه پنهان.
-
-💵 <b>هزینه هر گیگابایت:</b> %s تومان`,
-		brandName, formatCurrency(pricePerGB))
+	return getBotMessage("terms", brandName, formatCurrency(pricePerGB))
 }
 
 func getWalletText(u *User) string {
-	return fmt.Sprintf("💰 <b>کیف پول شما</b>\n\n💵 <b>موجودی فعلی:</b> %s تومان", formatCurrency(u.WalletBalance))
+	return getBotMessage("wallet", formatCurrency(u.WalletBalance))
 }
 
 func formatPanelDetail(user *User, panel *UserPanel) string {
@@ -571,7 +557,7 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 	case text == "⚡ شارژ کیف پول (پرداخت ۵ دقیقه‌ای)":
 		ClearUserState(userID)
 		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
-		text := "💳 <b>افزایش موجودی کیف پول</b>\n\nلطفاً روش واریز مورد نظر خود را انتخاب نمایید:"
+		text := getBotMessage("deposit_menu")
 		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, text, depositKeyboard())
 
 	case text == "📊 وضعیت اشتراک و اعتبار" || text == "🌐 پنل‌های من" || text == "پنل‌های من":
@@ -604,14 +590,9 @@ func (s *Service) handleUpdate(ctx context.Context, u Update) {
 		s.tgClient.RemoveReplyKeyboard(ctx, s.botToken, userID)
 		supportUser := GetSetting("support_username", "@AdminSupport")
 		channelUser := GetSetting("channel_username", "")
-		text := fmt.Sprintf(
-			"📮 <b>پشتیبانی و ارتباط با ما:</b>\n\n"+
-				"در صورت بروز هرگونه سوال یا مشکل با آیدی زیر در ارتباط باشید:\n"+
-				"👉 <b>%s</b>\n\n",
-			supportUser,
-		)
+		text := getBotMessage("support", supportUser)
 		if channelUser != "" {
-			text += fmt.Sprintf("📢 <b>کانال اطلاع‌رسانی:</b>\n👉 <b>%s</b>\n", channelUser)
+			text += getBotMessage("support_channel", channelUser)
 		}
 		_ = s.tgClient.SendMessage(ctx, s.botToken, userID, text, backKeyboard())
 
@@ -698,12 +679,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		maxPanels := GetMaxPanelsPerUser()
 		activeCount := GetUserActivePanelCount(user.TelegramID)
 		if maxPanels > 0 && activeCount >= maxPanels {
-			text := fmt.Sprintf(
-				"🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n"+
-					"شما در حال حاضر %d پنل فعال دارید و به حداکثر تعداد مجاز (%d عدد) رسیده‌اید.\n\n"+
-					"در صورتی که نیاز به ساخت پنل جدید دارید، ابتدا یکی از پنل‌های قبلی خود را در بخش «🌐 پنل‌های من» حذف فرمایید یا با پشتیبانی در ارتباط باشید.",
-				activeCount, maxPanels,
-			)
+			text := getBotMessage("buy_limit_reached", activeCount, maxPanels)
 			s.editOrSend(ctx, chatID, messageID, text, InlineKeyboardMarkup{
 				InlineKeyboard: [][]InlineKeyboardButton{
 					{{Text: "🌐 پنل‌های من", CallbackData: "my_panels"}},
@@ -719,13 +695,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		}
 
 		if user.WalletBalance < minBalance {
-			text := fmt.Sprintf(
-				"⚠️ <b>موجودی کیف پول شما کافی نیست.</b>\n\n"+
-					"برای راه‌اندازی و فعال‌سازی پنل نمایندگی، حداقل موجودی اولیه <code>%s تومان</code> مورد نیاز است.\n\n"+
-					"💵 <b>موجودی فعلی شما:</b> <code>%s تومان</code>\n\n"+
-					"لطفاً ابتدا از دکمه «افزایش موجودی» نسبت به شارژ کیف پول خود اقدام فرمایید.",
-				formatCurrency(minBalance), formatCurrency(user.WalletBalance),
-			)
+			text := getBotMessage("buy_low_balance", formatCurrency(minBalance), formatCurrency(user.WalletBalance))
 			s.editOrSend(ctx, chatID, messageID, text, depositOnlyKeyboard())
 			return
 		}
@@ -733,17 +703,12 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		adminUser, adminPass, panelURL, isUpgrade, err := CreatePurchasedAdmin(ctx, user.TelegramID, user.FirstName)
 		if err != nil {
 			if err.Error() == "MAX_LIMIT_REACHED" {
-				text := fmt.Sprintf(
-					"🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n"+
-						"شما در حال حاضر به حداکثر تعداد مجاز پنل (%d عدد) رسیده‌اید.\n\n"+
-						"جهت ساخت پنل جدید، یکی از پنل‌های خود را در «🌐 پنل‌های من» حذف نمایید.",
-					maxPanels,
-				)
+				text := getBotMessage("buy_limit_reached_short", maxPanels)
 				s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 				return
 			}
 			fmt.Printf("[SalesBot] ERROR CreatePurchasedAdmin for tgID %d: %v\n", user.TelegramID, err)
-			text := "❌ <b>خطا در راه‌اندازی پنل نمایندگی</b>\n\nمتأسفانه در اتصال به سیستم یا ساخت اکانت خطایی رخ داد. لطفاً چند لحظه بعد مجدداً تلاش فرمایید یا با پشتیبانی در ارتباط باشید."
+			text := getBotMessage("buy_error")
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
@@ -825,19 +790,14 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		ClearUserState(user.TelegramID)
 		testEnabled := GetSetting("test_panel_enabled", "true")
 		if testEnabled == "false" || testEnabled == "0" {
-			s.editOrSend(ctx, chatID, messageID, "⚠️ <b>دریافت پنل تست در حال حاضر توسط مدیریت غیرفعال شده است.</b>\n\nجهت دریافت پنل می‌توانید از گزینه خرید پنل نمایندگی استفاده فرمایید.", backKeyboard())
+			s.editOrSend(ctx, chatID, messageID, getBotMessage("test_disabled"), backKeyboard())
 			return
 		}
 
 		maxPanels := GetMaxPanelsPerUser()
 		activeCount := GetUserActivePanelCount(user.TelegramID)
 		if maxPanels > 0 && activeCount >= maxPanels {
-			text := fmt.Sprintf(
-				"🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n"+
-					"شما در حال حاضر %d پنل فعال دارید و به حداکثر تعداد مجاز (%d عدد) رسیده‌اید.\n\n"+
-					"جهت دریافت پنل جدید، ابتدا یکی از پنل‌های قبلی خود را در بخش «🌐 پنل‌های من» حذف فرمایید یا با پشتیبانی در ارتباط باشید.",
-				activeCount, maxPanels,
-			)
+			text := getBotMessage("test_limit_panels", activeCount, maxPanels)
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
@@ -848,12 +808,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		}
 
 		if user.TestUsageCount >= maxTests || (maxTests == 1 && user.HasUsedTest) {
-			text := fmt.Sprintf(
-				"🔒 <b>شما سقف دریافت نمایندگی تست (%d بار) را پر کرده‌اید.</b>\n\n"+
-					"هر کاربر مجاز است حداکثر %d بار پنل نمایندگی تست دریافت کند.\n"+
-					"در صورتی که نیاز به پنل جدید دارید می‌توانید از منوی اصلی اقدام به خرید نمایید یا با پشتیبانی در تماس باشید.",
-				maxTests, maxTests,
-			)
+			text := getBotMessage("test_limit_reached", maxTests, maxTests)
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
@@ -861,16 +816,12 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		adminUser, adminPass, panelURL, err := CreateTestAdmin(ctx, user.TelegramID, user.FirstName)
 		if err != nil {
 			if err.Error() == "MAX_LIMIT_REACHED" {
-				text := fmt.Sprintf(
-					"🔒 <b>سقف تعداد پنل‌های شما تکمیل است</b>\n\n"+
-						"شما در حال حاضر به حداکثر تعداد مجاز پنل (%d عدد) رسیده‌اید.",
-					maxPanels,
-				)
+				text := getBotMessage("test_limit_panels_short", maxPanels)
 				s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 				return
 			}
 			fmt.Printf("[SalesBot] ERROR CreateTestAdmin for tgID %d: %v\n", user.TelegramID, err)
-			text := "❌ <b>خطا در ایجاد پنل نمایندگی تست</b>\n\nمتأسفانه در اتصال به سیستم یا ساخت اکانت خطایی رخ داد. لطفاً چند لحظه بعد مجدداً تلاش فرمایید یا با پشتیبانی در ارتباط باشید."
+			text := getBotMessage("test_error")
 			s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 			return
 		}
@@ -919,12 +870,12 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 	case "deposit":
 		ClearUserState(user.TelegramID)
-		text := "💳 <b>افزایش موجودی کیف پول</b>\n\nلطفاً روش واریز مورد نظر خود را انتخاب نمایید:"
+		text := getBotMessage("deposit_menu")
 		s.editOrSend(ctx, chatID, messageID, text, depositKeyboard())
 
 	case "deposit_5min":
 		if !settingOn("deposit_5min_enabled", true) {
-			s.editOrSend(ctx, chatID, messageID, "⚠️ <b>این روش واریز در حال حاضر غیرفعال است.</b>", backKeyboard())
+			s.editOrSend(ctx, chatID, messageID, getBotMessage("deposit_method_disabled"), backKeyboard())
 			return
 		}
 		SetUserState(user.TelegramID, "awaiting_amount", "")
@@ -935,7 +886,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 
 	case "deposit_receipt":
 		if !settingOn("deposit_receipt_enabled", true) {
-			s.editOrSend(ctx, chatID, messageID, "⚠️ <b>این روش واریز در حال حاضر غیرفعال است.</b>", backKeyboard())
+			s.editOrSend(ctx, chatID, messageID, getBotMessage("deposit_method_disabled"), backKeyboard())
 			return
 		}
 		SetUserState(user.TelegramID, "awaiting_receipt_amount", "")
@@ -944,7 +895,7 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 	case "deposit_crypto":
 		if !settingOn("deposit_crypto_enabled", true) ||
 			(strings.TrimSpace(GetSetting("tether_wallet", "")) == "" && strings.TrimSpace(GetSetting("ton_wallet", "")) == "") {
-			s.editOrSend(ctx, chatID, messageID, "⚠️ <b>این روش واریز در حال حاضر غیرفعال است.</b>", backKeyboard())
+			s.editOrSend(ctx, chatID, messageID, getBotMessage("deposit_method_disabled"), backKeyboard())
 			return
 		}
 		ClearUserState(user.TelegramID)
@@ -959,14 +910,9 @@ func (s *Service) handleCallback(ctx context.Context, cb *CallbackQuery) {
 		ClearUserState(user.TelegramID)
 		supportUser := GetSetting("support_username", "@AdminSupport")
 		channelUser := GetSetting("channel_username", "")
-		text := fmt.Sprintf(
-			"📮 <b>پشتیبانی و ارتباط با ما:</b>\n\n"+
-				"در صورت بروز هرگونه سوال یا مشکل با آیدی زیر در ارتباط باشید:\n"+
-				"👉 <b>%s</b>\n\n",
-			supportUser,
-		)
+		text := getBotMessage("support", supportUser)
 		if channelUser != "" {
-			text += fmt.Sprintf("📢 <b>کانال اطلاع‌رسانی:</b>\n👉 <b>%s</b>\n", channelUser)
+			text += getBotMessage("support_channel", channelUser)
 		}
 		s.editOrSend(ctx, chatID, messageID, text, backKeyboard())
 

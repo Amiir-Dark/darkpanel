@@ -285,12 +285,7 @@ func (s *Service) checkExpiredOrders(ctx context.Context) {
 			notifyCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			text := fmt.Sprintf(
-				"⏰ <b>مهلت پرداخت سفارش شما به پایان رسید!</b>\n\n"+
-					"فاکتور پرداخت به مبلغ %s تومان منقضی گردید.\n"+
-					"اگر واریز را انجام نداده‌اید، می‌توانید از منوی اصلی مجدداً درخواست شارژ دهید.",
-				formatCurrency(exp.amountExact),
-			)
+			text := getBotMessage("deposit_expired", formatCurrency(exp.amountExact))
 			_ = s.tgClient.SendMessage(notifyCtx, s.botToken, exp.userID, text, mainKeyboard())
 		}(item)
 	}
@@ -321,8 +316,45 @@ func (s *Service) runUsageBillingLoop(ctx context.Context) {
 	}
 }
 
+// BroadcastButton describes an inline button attached to a broadcast message.
+// Either Action (a pre-defined bot callback such as "main_menu") or URL must be set.
+type BroadcastButton struct {
+	Text   string
+	Action string
+	URL    string
+}
+
+// buildBroadcastKeyboard turns the requested buttons into a Telegram inline
+// keyboard (one button per row). It returns nil when no valid button exists so
+// the message is sent without any keyboard.
+func buildBroadcastKeyboard(buttons []BroadcastButton) any {
+	if len(buttons) == 0 {
+		return nil
+	}
+	rows := make([][]InlineKeyboardButton, 0, len(buttons))
+	for _, b := range buttons {
+		label := strings.TrimSpace(b.Text)
+		if label == "" {
+			continue
+		}
+		btn := InlineKeyboardButton{Text: label}
+		if url := strings.TrimSpace(b.URL); url != "" {
+			btn.URL = url
+		} else if action := strings.TrimSpace(b.Action); action != "" {
+			btn.CallbackData = action
+		} else {
+			continue
+		}
+		rows = append(rows, []InlineKeyboardButton{btn})
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
 // BroadcastMessage sends a text message to all registered users in sales bot
-func (s *Service) BroadcastMessage(ctx context.Context, text string) (int, int, error) {
+func (s *Service) BroadcastMessage(ctx context.Context, text string, buttons []BroadcastButton) (int, int, error) {
 	s.mu.RLock()
 	token := s.botToken
 	client := s.tgClient
@@ -358,9 +390,11 @@ func (s *Service) BroadcastMessage(ctx context.Context, text string) (int, int, 
 		client = NewTelegramClient()
 	}
 
+	markup := buildBroadcastKeyboard(buttons)
+
 	var sent, failed int
 	for _, id := range userIDs {
-		err := client.SendMessage(ctx, token, id, text, nil)
+		err := client.SendMessage(ctx, token, id, text, markup)
 		if err == nil {
 			sent++
 		} else {

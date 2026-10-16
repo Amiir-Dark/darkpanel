@@ -102,7 +102,7 @@ import {
     ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import { fetch } from "service/http";
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const RevenueChart = lazy(() => import("react-apexcharts"));
 import { useTranslation } from "react-i18next";
@@ -131,6 +131,7 @@ import {
     clearSalesBotWebhookLogs,
     simulateSalesBotWebhook,
     broadcastMessage,
+    getSalesBotMessages,
     getGiftCodes,
     createGiftCode,
     deleteGiftCode,
@@ -209,6 +210,157 @@ const ReceiptImage = ({ receiptId }) => {
             mx="auto"
             objectFit="contain"
         />
+    );
+};
+
+const BROADCAST_BUTTON_PRESETS = [
+    { action: "main_menu", label: "🏠 منوی اصلی" },
+    { action: "my_panels", label: "🌐 پنل‌های من" },
+    { action: "wallet", label: "💳 موجودی" },
+    { action: "buy_panel", label: "⭐ دریافت پنل جدید" },
+    { action: "test_panel", label: "🧪 پنل تست" },
+    { action: "support", label: "📮 پشتیبانی" },
+];
+
+const BOT_MESSAGE_FORMATS = [
+    { label: "B", title: "بولد", tag: "b" },
+    { label: "I", title: "ایتالیک", tag: "i" },
+    { label: "U", title: "زیرخط", tag: "u" },
+    { label: "S", title: "خط‌خوردگی", tag: "s" },
+    { label: "‹›", title: "کد", tag: "code" },
+];
+
+const BotMessageEditor = ({ message, value, onChange, borderColor, textSecondary, bgCard, bgElevated }) => {
+    const [showDefault, setShowDefault] = useState(false);
+    const ref = useRef(null);
+
+    const applyFormat = (tag) => {
+        const el = ref.current;
+        const current = value ?? "";
+        const start = el?.selectionStart ?? current.length;
+        const end = el?.selectionEnd ?? current.length;
+        const selected = current.slice(start, end) || "متن";
+        const next = `${current.slice(0, start)}<${tag}>${selected}</${tag}>${current.slice(end)}`;
+        onChange(next);
+        requestAnimationFrame(() => {
+            if (!el) return;
+            el.focus();
+            const pos = start + tag.length + 2;
+            el.setSelectionRange(pos, pos + selected.length);
+        });
+    };
+
+    return (
+        <Box p={3} borderRadius="lg" border="1px solid" borderColor={borderColor} bg={bgCard}>
+            <Flex justify="space-between" align="center" mb={2} wrap="wrap" gap={2}>
+                <Text fontSize="xs" fontWeight="semibold">{message.label}</Text>
+                <HStack spacing={1}>
+                    {BOT_MESSAGE_FORMATS.map((f) => (
+                        <Button
+                            key={f.tag}
+                            size="xs"
+                            variant="ghost"
+                            title={f.title}
+                            onClick={() => applyFormat(f.tag)}
+                            minW="26px"
+                            px={1}
+                        >
+                            {f.label}
+                        </Button>
+                    ))}
+                </HStack>
+            </Flex>
+            {message.vars && message.vars.length > 0 && (
+                <Text fontSize="2xs" color={textSecondary} mb={2}>
+                    متغیرها (به همین ترتیب): {message.vars.map((v, i) => `${i + 1}. ${v}`).join("  •  ")}
+                </Text>
+            )}
+            <Textarea
+                ref={ref}
+                rows={4}
+                size="sm"
+                value={value ?? ""}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder="خالی بماند = استفاده از متن پیش‌فرض"
+                borderRadius="md"
+            />
+            <Flex justify="space-between" align="center" mt={2} wrap="wrap" gap={2}>
+                <Button size="xs" variant="link" colorScheme="purple" onClick={() => setShowDefault((s) => !s)}>
+                    {showDefault ? "پنهان کردن متن پیش‌فرض" : "نمایش متن پیش‌فرض"}
+                </Button>
+                <Button size="xs" variant="ghost" colorScheme="red" isDisabled={!value} onClick={() => onChange("")}>
+                    بازگشت به پیش‌فرض
+                </Button>
+            </Flex>
+            {showDefault && (
+                <Box
+                    mt={2}
+                    p={2}
+                    borderRadius="md"
+                    bg={bgElevated}
+                    fontSize="xs"
+                    whiteSpace="pre-wrap"
+                    border="1px dashed"
+                    borderColor={borderColor}
+                >
+                    {message.default}
+                </Box>
+            )}
+        </Box>
+    );
+};
+
+const BotMessagesManager = ({ formSettings, handleSettingChange, borderColor, textSecondary, bgCard, bgElevated }) => {
+    const { data, isLoading } = useQuery("sales-bot-messages", getSalesBotMessages, { staleTime: 60000 });
+    const messages = data?.messages || [];
+
+    const sections = useMemo(() => {
+        const order = [];
+        const map = {};
+        messages.forEach((m) => {
+            if (!map[m.section]) {
+                map[m.section] = { id: m.section, title: m.section_title || m.section, items: [] };
+                order.push(map[m.section]);
+            }
+            map[m.section].items.push(m);
+        });
+        return order;
+    }, [messages]);
+
+    if (isLoading) {
+        return <Flex justify="center" py={6}><Spinner size="md" /></Flex>;
+    }
+    if (!messages.length) {
+        return <Text fontSize="xs" color={textSecondary}>موردی برای ویرایش یافت نشد.</Text>;
+    }
+
+    return (
+        <Accordion allowToggle>
+            {sections.map((section) => (
+                <AccordionItem key={section.id} border="none">
+                    <AccordionButton px={0} py={2}>
+                        <Box flex="1" textAlign="left" fontSize="xs" fontWeight="bold">{section.title}</Box>
+                        <AccordionIcon />
+                    </AccordionButton>
+                    <AccordionPanel px={0} pb={3}>
+                        <VStack spacing={3} align="stretch">
+                            {section.items.map((m) => (
+                                <BotMessageEditor
+                                    key={m.key}
+                                    message={m}
+                                    value={formSettings[m.setting_key]}
+                                    onChange={(val) => handleSettingChange(m.setting_key, val)}
+                                    borderColor={borderColor}
+                                    textSecondary={textSecondary}
+                                    bgCard={bgCard}
+                                    bgElevated={bgElevated}
+                                />
+                            ))}
+                        </VStack>
+                    </AccordionPanel>
+                </AccordionItem>
+            ))}
+        </Accordion>
     );
 };
 
@@ -739,7 +891,10 @@ export const SalesBotPage = () => {
 
     // Broadcast mutation
     const [broadcastText, setBroadcastText] = useState("");
-    const broadcastMutation = useMutation(broadcastMessage, {
+    const [broadcastButtons, setBroadcastButtons] = useState([]);
+    const [broadcastButtonLabel, setBroadcastButtonLabel] = useState("");
+    const [broadcastButtonUrl, setBroadcastButtonUrl] = useState("");
+    const broadcastMutation = useMutation(({ message, buttons }) => broadcastMessage(message, buttons), {
         onSuccess: (res) => {
             toast({
                 title: "ارسال همگانی انجام شد",
@@ -749,6 +904,9 @@ export const SalesBotPage = () => {
                 isClosable: true,
             });
             setBroadcastText("");
+            setBroadcastButtons([]);
+            setBroadcastButtonLabel("");
+            setBroadcastButtonUrl("");
         },
         onError: (err) => {
             toast({
@@ -760,6 +918,43 @@ export const SalesBotPage = () => {
             });
         },
     });
+
+    const addBroadcastPreset = (preset) => {
+        setBroadcastButtons((prev) => {
+            if (prev.length >= 8) {
+                toast({ title: "حداکثر ۸ دکمه برای هر پیام مجاز است", status: "warning", duration: 3000 });
+                return prev;
+            }
+            if (prev.some((b) => b.action === preset.action)) {
+                return prev;
+            }
+            return [...prev, { text: preset.label, action: preset.action }];
+        });
+    };
+    const addBroadcastLinkButton = () => {
+        const label = broadcastButtonLabel.trim();
+        const url = broadcastButtonUrl.trim();
+        if (!label || !url) {
+            toast({ title: "عنوان و لینک دکمه را وارد کنید", status: "warning", duration: 3000 });
+            return;
+        }
+        if (!/^https?:\/\//i.test(url)) {
+            toast({ title: "لینک دکمه باید با http:// یا https:// شروع شود", status: "warning", duration: 3000 });
+            return;
+        }
+        setBroadcastButtons((prev) => {
+            if (prev.length >= 8) {
+                toast({ title: "حداکثر ۸ دکمه برای هر پیام مجاز است", status: "warning", duration: 3000 });
+                return prev;
+            }
+            return [...prev, { text: label, url }];
+        });
+        setBroadcastButtonLabel("");
+        setBroadcastButtonUrl("");
+    };
+    const removeBroadcastButton = (index) => {
+        setBroadcastButtons((prev) => prev.filter((_, i) => i !== index));
+    };
 
     // Test access reset mutations
     const resetUserTestMutation = useMutation(resetUserTestAccess, {
@@ -2379,6 +2574,92 @@ export const SalesBotPage = () => {
                                     />
                                 </FormControl>
 
+                                <Box
+                                    mb={4}
+                                    p={4}
+                                    borderRadius="lg"
+                                    border="1px solid"
+                                    borderColor={borderColor}
+                                    bg={bgElevated}
+                                >
+                                    <HStack justify="space-between" mb={2}>
+                                        <Text fontSize="xs" fontWeight="semibold">دکمه‌های پیام (اختیاری)</Text>
+                                        <Text fontSize="2xs" color={textSecondary}>{broadcastButtons.length}/۸ دکمه</Text>
+                                    </HStack>
+                                    <Text fontSize="2xs" color={textSecondary} mb={3}>
+                                        می‌توانید دکمه‌های آماده زیر را اضافه کنید یا یک دکمه لینک دلخواه بسازید. اگر هیچ دکمه‌ای اضافه نکنید، پیام بدون دکمه ارسال می‌شود.
+                                    </Text>
+                                    <HStack spacing={2} wrap="wrap" mb={3}>
+                                        {BROADCAST_BUTTON_PRESETS.map((preset) => {
+                                            const added = broadcastButtons.some((b) => b.action === preset.action);
+                                            return (
+                                                <Button
+                                                    key={preset.action}
+                                                    size="xs"
+                                                    variant={added ? "solid" : "outline"}
+                                                    colorScheme="purple"
+                                                    isDisabled={added}
+                                                    leftIcon={<PlusIcon width={12} height={12} />}
+                                                    onClick={() => addBroadcastPreset(preset)}
+                                                >
+                                                    {preset.label}
+                                                </Button>
+                                            );
+                                        })}
+                                    </HStack>
+                                    <Flex gap={2} mb={broadcastButtons.length > 0 ? 3 : 0} direction={{ base: "column", md: "row" }}>
+                                        <Input
+                                            size="sm"
+                                            placeholder="عنوان دکمه (مثلاً کانال ما)"
+                                            value={broadcastButtonLabel}
+                                            onChange={(e) => setBroadcastButtonLabel(e.target.value)}
+                                            maxLength={64}
+                                        />
+                                        <Input
+                                            size="sm"
+                                            placeholder="لینک دکمه (https://...)"
+                                            value={broadcastButtonUrl}
+                                            onChange={(e) => setBroadcastButtonUrl(e.target.value)}
+                                        />
+                                        <Button size="sm" colorScheme="blue" onClick={addBroadcastLinkButton} flexShrink={0}>
+                                            افزودن دکمه لینک
+                                        </Button>
+                                    </Flex>
+                                    {broadcastButtons.length > 0 && (
+                                        <VStack spacing={2} align="stretch">
+                                            {broadcastButtons.map((btn, index) => (
+                                                <HStack
+                                                    key={`${btn.action || btn.url}-${index}`}
+                                                    justify="space-between"
+                                                    px={3}
+                                                    py={2}
+                                                    borderRadius="md"
+                                                    bg={bgCard}
+                                                    border="1px solid"
+                                                    borderColor={borderColor}
+                                                >
+                                                    <HStack spacing={2}>
+                                                        <Text fontSize="xs" fontWeight="medium">{btn.text}</Text>
+                                                        {btn.url ? (
+                                                            <Badge colorScheme="blue" variant="subtle" fontSize="2xs">لینک</Badge>
+                                                        ) : (
+                                                            <Badge colorScheme="purple" variant="subtle" fontSize="2xs">دکمه ربات</Badge>
+                                                        )}
+                                                    </HStack>
+                                                    <IconButton
+                                                        size="xs"
+                                                        variant="ghost"
+                                                        colorScheme="red"
+                                                        icon={<TrashIcon width={14} height={14} />}
+                                                        aria-label="حذف دکمه"
+                                                        onClick={() => removeBroadcastButton(index)}
+                                                    />
+                                                </HStack>
+                                            ))}
+                                        </VStack>
+                                    )}
+                                </Box>
+
                                 <Flex justify="flex-end">
                                     <Button
                                         colorScheme="purple"
@@ -2390,7 +2671,7 @@ export const SalesBotPage = () => {
                                                 return;
                                             }
                                             if (window.confirm("آیا مطمئن هستید که می‌خواهید این پیام برای تمام کاربران ارسال شود؟")) {
-                                                broadcastMutation.mutate(broadcastText.trim());
+                                                broadcastMutation.mutate({ message: broadcastText.trim(), buttons: broadcastButtons });
                                             }
                                         }}
                                     >
@@ -3143,7 +3424,7 @@ export const SalesBotPage = () => {
                                     <Flex align="center" gap={2} flex="1" textAlign="left">
                                         <ChatBubbleBottomCenterTextIcon width={20} height={20} color="#A78BFA" />
                                         <Heading size="sm" color="purple.300">
-                                            ✍️ متن‌های ربات و تعرفه نمایشی
+                                            ✍️ مدیریت پیام‌های ربات
                                         </Heading>
                                     </Flex>
                                     <AccordionIcon />
@@ -3151,34 +3432,18 @@ export const SalesBotPage = () => {
 
                                 <AccordionPanel px={5} pb={5}>
                                 <VStack spacing={4} align="stretch">
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">پیام خوش‌آمدگویی (/start)</FormLabel>
-                                        <Textarea
-                                            rows={3}
-                                            size="sm"
-                                            value={formSettings.welcome_message || ""}
-                                            onChange={(e) => handleSettingChange("welcome_message", e.target.value)}
-                                            placeholder="اگر خالی بماند، متن پیش‌فرض برند نمایش داده می‌شود."
-                                            borderRadius="md"
-                                        />
-                                    </FormControl>
-
-                                    <FormControl>
-                                        <FormLabel fontSize="xs">متن قوانین و شرایط (پیش از خرید پنل)</FormLabel>
-                                        <Textarea
-                                            rows={5}
-                                            size="sm"
-                                            value={formSettings.terms_message || ""}
-                                            onChange={(e) => handleSettingChange("terms_message", e.target.value)}
-                                            placeholder="اگر خالی بماند، متن پیش‌فرض شرایط Pay-As-You-Go نمایش داده می‌شود."
-                                            borderRadius="md"
-                                        />
-                                    </FormControl>
-
                                     <Alert status="info" borderRadius="lg" fontSize="11px">
                                         <AlertIcon />
-                                        قیمت هر گیگابایت در پیام‌های ربات به‌صورت خودکار از نرخ واقعی «نرخ‌گذاری ← قیمت هر گیگابایت» خوانده و نمایش داده می‌شود.
+                                        متن پیش‌فرض هر پیام را داخل خودش می‌توانید ببینید؛ اگر فیلد خالی بماند، همان متن پیش‌فرض ارسال می‌شود. از دکمه‌های B / I / U / S / کد برای قالب‌بندی HTML تلگرام روی متن انتخاب‌شده استفاده کنید.
                                     </Alert>
+                                    <BotMessagesManager
+                                        formSettings={formSettings}
+                                        handleSettingChange={handleSettingChange}
+                                        borderColor={borderColor}
+                                        textSecondary={textSecondary}
+                                        bgCard={bgCard}
+                                        bgElevated={bgElevated}
+                                    />
                                 </VStack>
                                 </AccordionPanel>
                             </AccordionItem>

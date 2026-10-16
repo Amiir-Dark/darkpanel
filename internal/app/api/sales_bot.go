@@ -27,6 +27,7 @@ func (s *Server) registerSalesBotRoutes(r chi.Router) {
 	r.HandleFunc("/sales-bot/service/stop", s.requireSalesBotAccess(s.handleSalesBotServiceStop))
 	r.HandleFunc("/sales-bot/service/restart", s.requireSalesBotAccess(s.handleSalesBotServiceRestart))
 	r.HandleFunc("/sales-bot/settings", s.requireSalesBotAccess(s.handleSalesBotSettings))
+	r.HandleFunc("/sales-bot/messages", s.requireSalesBotAccess(s.handleSalesBotMessages))
 	r.HandleFunc("/sales-bot/orders/*", s.requireSalesBotAccess(s.handleSalesBotOrderAction))
 	r.HandleFunc("/sales-bot/orders", s.requireSalesBotAccess(s.handleSalesBotOrders))
 	r.HandleFunc("/sales-bot/receipts/*", s.requireSalesBotAccess(s.handleSalesBotReceiptAction))
@@ -397,6 +398,16 @@ func (s *Server) handleSalesBotSettings(w http.ResponseWriter, r *http.Request) 
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+// handleSalesBotMessages returns the catalog of editable bot messages with their
+// built-in defaults and the currently configured overrides.
+func (s *Server) handleSalesBotMessages(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"messages": salesbot.ListBotMessages()})
 }
 
 // -------------------------------------------------------------
@@ -1327,6 +1338,17 @@ func (s *Server) handleSalesBotResetAllTests(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": fmt.Sprintf("دسترسی تست برای %d کاربر با موفقیت ریست شد", affected)})
 }
 
+var broadcastButtonActions = map[string]bool{
+	"main_menu":  true,
+	"buy_panel":  true,
+	"my_panels":  true,
+	"wallet":     true,
+	"test_panel": true,
+	"support":    true,
+	"deposit":    true,
+	"gift_code":  true,
+}
+
 func (s *Server) handleSalesBotBroadcast(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -1335,6 +1357,11 @@ func (s *Server) handleSalesBotBroadcast(w http.ResponseWriter, r *http.Request)
 
 	var payload struct {
 		Message string `json:"message"`
+		Buttons []struct {
+			Text   string `json:"text"`
+			Action string `json:"action"`
+			URL    string `json:"url"`
+		} `json:"buttons"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json: "+err.Error())
@@ -1347,7 +1374,38 @@ func (s *Server) handleSalesBotBroadcast(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sent, failed, err := salesbot.GetService().BroadcastMessage(r.Context(), msg)
+	if len(payload.Buttons) > 8 {
+		writeError(w, http.StatusBadRequest, "حداکثر ۸ دکمه برای پیام همگانی مجاز است")
+		return
+	}
+
+	buttons := make([]salesbot.BroadcastButton, 0, len(payload.Buttons))
+	for _, b := range payload.Buttons {
+		text := strings.TrimSpace(b.Text)
+		if text == "" {
+			continue
+		}
+		if len([]rune(text)) > 64 {
+			writeError(w, http.StatusBadRequest, "متن دکمه نمی‌تواند بیشتر از ۶۴ کاراکتر باشد")
+			return
+		}
+		if url := strings.TrimSpace(b.URL); url != "" {
+			if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+				writeError(w, http.StatusBadRequest, "لینک دکمه باید با http:// یا https:// شروع شود")
+				return
+			}
+			buttons = append(buttons, salesbot.BroadcastButton{Text: text, URL: url})
+			continue
+		}
+		action := strings.TrimSpace(b.Action)
+		if !broadcastButtonActions[action] {
+			writeError(w, http.StatusBadRequest, "دکمه نامعتبر: "+text)
+			return
+		}
+		buttons = append(buttons, salesbot.BroadcastButton{Text: text, Action: action})
+	}
+
+	sent, failed, err := salesbot.GetService().BroadcastMessage(r.Context(), msg, buttons)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
