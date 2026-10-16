@@ -1169,17 +1169,22 @@ func (s *Service) processChargeAmount(ctx context.Context, u *User, input string
 		shabaLine = fmt.Sprintf("شبا: <code>%s</code>\n", shabaNumber)
 	}
 
+	rialAmount := order.AmountExact * 10
+
 	text := fmt.Sprintf(
 		"⏱️ <b>فاکتور پرداخت (اعتبار ۵ دقیقه)</b>\n\n"+
 			"🔴 <b>مبلغ دقیق جهت انتقال:</b>\n"+
-			"<code>%s</code> تومان\n"+
+			"<code>%s</code> ریال\n"+
+			"<i>(معادل %s تومان)</i>\n"+
 			"<i>(روی مبلغ بزنید تا کپی شود)</i>\n\n"+
+			"⚠️ <b>مبلغ را دقیقاً تا ریال آخر واریز کنید.</b>\n\n"+
 			"💳 <b>اطلاعات کارت بانکی مقصد:</b>\n"+
 			"شماره کارت: <code>%s</code>\n"+
 			"به نام: <b>%s</b>\n"+
 			"بانک: <b>%s</b>\n"+
 			"%s\n"+
 			"⏳ <b>مهلت پرداخت:</b> ۵ دقیقه",
+		formatCurrency(rialAmount),
 		formatCurrency(order.AmountExact),
 		cardNumber,
 		cardHolder,
