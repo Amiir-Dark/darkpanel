@@ -128,6 +128,9 @@ func (s Service) RenderSubscription(ctx context.Context, req SubscriptionRenderR
 	settings := s.effectiveSettings(ctx, user.AdminID, user.ServiceID)
 	detectedApp := identifySubscriptionClientApp(req)
 	if isClientAppBlocked(detectedApp, settings.BlockedClientApps) {
+		if message := strings.TrimSpace(settings.BlockedClientMessage); message != "" {
+			return s.blockedClientPlaceholder(ctx, user, req, settings, detectedApp, message), nil
+		}
 		return SubscriptionHTTPResponse{
 			Status:    403,
 			MediaType: "text/plain; charset=utf-8",
@@ -680,6 +683,38 @@ func subscriptionPlaceholderLink(remark string, format string) string {
 		"net": "tcp", "path": "", "port": "1", "ps": remark, "scy": "auto", "tls": "", "type": "none", "v": "2",
 	})
 	return "vmess://" + base64.StdEncoding.EncodeToString(payload)
+}
+
+// blockedClientPlaceholder returns a placeholder subscription (a single dummy
+// config whose name is the configured message) so that a blocked client app
+// shows the "please use ..." message instead of a bare "not allowed" error.
+func (s Service) blockedClientPlaceholder(ctx context.Context, user UserDetail, req SubscriptionRenderRequest, settings SubscriptionSettings, detectedApp string, message string) SubscriptionHTTPResponse {
+	clientType := req.ClientType
+	if clientType == "" {
+		if override := resolveClientAppFormatOverride(detectedApp, settings); override != "" {
+			clientType = override
+		} else {
+			clientType = selectSubscriptionClientType(req.UserAgent, settings)
+		}
+	}
+	config, ok := subscriptionClientConfigs[clientType]
+	if !ok || config.Format == "openvpn" || config.Format == "wireguard" || config.Format == "amneziawg" || config.Format == "outline" {
+		config = subscriptionClientConfigs["v2ray"]
+	}
+	body, err := s.generateSubscriptionConfig(ctx, user, config, message)
+	if err != nil || strings.TrimSpace(body) == "" {
+		return SubscriptionHTTPResponse{
+			Status:    403,
+			MediaType: "text/plain; charset=utf-8",
+			Body:      []byte(message),
+		}
+	}
+	return SubscriptionHTTPResponse{
+		Status:    200,
+		MediaType: config.Media,
+		Headers:   subscriptionHeaders(user, req, settings),
+		Body:      []byte(body),
+	}
 }
 
 func subscriptionPlaceholderProfile(user UserDetail, req SubscriptionRenderRequest, settings SubscriptionSettings, remark string, mediaType string, extension string) SubscriptionHTTPResponse {

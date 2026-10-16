@@ -754,6 +754,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			subscription_placeholder_enabled INTEGER DEFAULT 0,
 			subscription_placeholder_remark TEXT DEFAULT 'disabled',
 			blocked_client_apps TEXT DEFAULT '[]',
+			blocked_client_message TEXT DEFAULT '',
 			client_app_formats TEXT DEFAULT '{}'
 		)`,
 		`CREATE TABLE admins (
@@ -1129,6 +1130,70 @@ func TestSubscriptionBlockedClientAppWithBrowserLikeRequest(t *testing.T) {
 	}
 	if res.Status != 200 {
 		t.Fatalf("expected 200 for allowed browser, got %d", res.Status)
+	}
+}
+
+func TestSubscriptionBlockedClientMessagePlaceholder(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	ctx := context.Background()
+
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET blocked_client_apps = '["v2rayng"]', blocked_client_message = 'Please use Happ' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "v2rayNG/1.10.28",
+		ClientType: "clash-meta",
+	})
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if res.Status != 200 {
+		t.Fatalf("expected 200 with placeholder message, got %d", res.Status)
+	}
+	if !strings.Contains(string(res.Body), "Please use Happ") {
+		t.Fatalf("expected body to contain the configured message, got %q", string(res.Body))
+	}
+
+	// A blocked app that resolves to a base64 format must still carry the message.
+	res, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "v2rayNG/1.10.28",
+		ClientType: "v2ray",
+	})
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if res.Status != 200 {
+		t.Fatalf("expected 200 with placeholder message, got %d", res.Status)
+	}
+	decoded, decErr := base64.StdEncoding.DecodeString(strings.TrimSpace(string(res.Body)))
+	if decErr != nil {
+		decoded, decErr = base64.RawStdEncoding.DecodeString(strings.TrimSpace(string(res.Body)))
+	}
+	plain := strings.TrimSpace(string(decoded))
+	if decErr != nil || !strings.HasPrefix(plain, "vmess://") {
+		t.Fatalf("expected a placeholder vmess config, got %q (err %v)", plain, decErr)
+	}
+	inner, innerErr := base64.StdEncoding.DecodeString(strings.TrimPrefix(plain, "vmess://"))
+	if innerErr != nil || !strings.Contains(string(inner), "Please use Happ") {
+		t.Fatalf("expected placeholder config to carry the message, got %q (err %v)", string(inner), innerErr)
+	}
+
+	// With no message configured the app must fall back to a 403 response.
+	if _, err := service.repo.db.Exec(`UPDATE subscription_settings SET blocked_client_message = '' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	res, err = service.RenderSubscription(ctx, SubscriptionRenderRequest{
+		Identifier: key,
+		UserAgent:  "v2rayNG/1.10.28",
+	})
+	if err != nil {
+		t.Fatalf("expected nil err, got %v", err)
+	}
+	if res.Status != 403 {
+		t.Fatalf("expected 403 when no message configured, got %d", res.Status)
 	}
 }
 

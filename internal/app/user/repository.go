@@ -169,6 +169,7 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 	result.SubscriptionAliases = normalizeAliases(row["subscription_aliases"])
 	result.ClientRoutingRules = normalizeClientRoutingRules(row["client_routing_rules"])
 	result.BlockedClientApps = normalizeBlockedClientApps(row["blocked_client_apps"])
+	result.BlockedClientMessage = strings.TrimSpace(stringValue(row["blocked_client_message"]))
 	result.ClientAppFormats = normalizeClientAppFormats(row["client_app_formats"])
 	result.SubscriptionPlaceholderEnabled = truthy(row["subscription_placeholder_enabled"])
 	result.SubscriptionPlaceholderRemark = firstNonEmptyString(stringValue(row["subscription_placeholder_remark"]), "disabled")

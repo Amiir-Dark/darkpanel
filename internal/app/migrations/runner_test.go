@@ -1689,7 +1689,7 @@ func TestMigration64EnsuresUsersTableWhenMissing(t *testing.T) {
 
 	assertTableColumns(t, ctx, db, "sqlite", "users", []string{"id", "username", "device_limit_type"})
 	assertTableColumns(t, ctx, db, "sqlite", "user_hwids", []string{"id", "user_id", "hwid", "user_agent", "last_seen_at"})
-	assertTableColumns(t, ctx, db, "sqlite", "subscription_settings", []string{"default_device_limit_type", "blocked_client_apps", "client_app_formats"})
+	assertTableColumns(t, ctx, db, "sqlite", "subscription_settings", []string{"default_device_limit_type", "blocked_client_apps", "blocked_client_message", "client_app_formats"})
 }
 
 func TestGooseVersionClearedWhenNodesTableMissing(t *testing.T) {

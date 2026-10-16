@@ -107,6 +107,7 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 		SubscriptionAliases:            append([]string{}, base.SubscriptionAliases...),
 		ClientRoutingRules:             append([]ClientRoutingRule{}, base.ClientRoutingRules...),
 		BlockedClientApps:              append([]string{}, base.BlockedClientApps...),
+		BlockedClientMessage:           base.BlockedClientMessage,
 		ClientAppFormats:               copyStringMap(base.ClientAppFormats),
 		SubscriptionPlaceholderEnabled: base.SubscriptionPlaceholderEnabled,
 		SubscriptionPlaceholderRemark:  firstNonEmptyString(base.SubscriptionPlaceholderRemark, "disabled"),
@@ -211,6 +212,10 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 			}
 		case "blocked_client_apps":
 			effective.BlockedClientApps = normalizeBlockedClientApps(value)
+		case "blocked_client_message":
+			if text, ok := coerceString(value); ok {
+				effective.BlockedClientMessage = strings.TrimSpace(text)
+			}
 		case "announce_url":
 			if text, ok := coerceString(value); ok && strings.TrimSpace(text) != "" {
 				effective.AnnounceURL = ensureScheme(text)

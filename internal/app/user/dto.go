@@ -325,6 +325,7 @@ type SubscriptionSettings struct {
 	HappAnnouncementTargetType     string                         `json:"happ_announcement_target_type"`
 	HappAnnouncementTargetUsers    string                         `json:"happ_announcement_target_users"`
 	BlockedClientApps              []string                       `json:"blocked_client_apps"`
+	BlockedClientMessage           string                         `json:"blocked_client_message"`
 	ClientAppFormats               map[string]string              `json:"client_app_formats,omitempty"`
 	AnnounceURL                    string                         `json:"announce_url,omitempty"`
 	MaxLinksPerUser                int                            `json:"max_links_per_user,omitempty"`

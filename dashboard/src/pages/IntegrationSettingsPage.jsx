@@ -458,6 +458,7 @@ const buildSubscriptionDefaults = (settings) => ({
     client_routing_rules: settings?.client_routing_rules ?? [],
     default_device_limit_type: settings?.default_device_limit_type ?? "ip",
     blocked_client_apps: settings?.blocked_client_apps ?? [],
+    blocked_client_message: settings?.blocked_client_message ?? "",
     client_app_formats: settings?.client_app_formats ?? {},
     client_app_stats: settings?.client_app_stats ?? {},
 });
@@ -560,6 +561,7 @@ const buildSubscriptionPayload = (values) => ({
     happ_sub_expire_button_link: values.happ_sub_expire_button_link?.trim() || "",
     default_device_limit_type: values.default_device_limit_type === "hwid" ? "hwid" : "ip",
     blocked_client_apps: values.blocked_client_apps ?? [],
+    blocked_client_message: (values.blocked_client_message ?? "").trim(),
     client_app_formats: values.client_app_formats ?? {},
 });
 const buildAdminSubscriptionPayload = (admin) => ({
@@ -2677,6 +2679,15 @@ export const IntegrationSettingsPage = () => {
 											</Box>
 										</HStack>
 									</Flex>
+									<FormControl mb={4}>
+										<FormLabel fontSize="sm">
+											{t("settings.subscriptions.blockedClientMessage", "Message for blocked apps")}
+										</FormLabel>
+										<Input placeholder={t("settings.subscriptions.blockedClientMessagePlaceholder", "Please switch to the Happ app")} {...subscriptionRegister("blocked_client_message")}/>
+										<FormHelperText>
+											{t("settings.subscriptions.blockedClientMessageHint", "Shown as a subscription config to blocked apps. Leave empty to return \"not allowed\".")}
+										</FormHelperText>
+									</FormControl>
 									<SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={3.5}>
 										{CLIENT_APPS_LIST.map((app) => {
                         const currentBlocked = watchSubscription("blocked_client_apps") || [];

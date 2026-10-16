@@ -44,6 +44,7 @@ func TestReadTemplateContentIgnoresPersistentDirectoryWhenDBDirectoryIsEmpty(t *
 		subscription_ports TEXT NULL,
 		default_device_limit_type TEXT NULL,
 		blocked_client_apps TEXT NULL,
+		blocked_client_message TEXT NULL,
 		client_app_formats TEXT NULL,
 		created_at DATETIME NULL,
 		updated_at DATETIME NULL
@@ -91,6 +92,7 @@ func TestReadTemplateContentIgnoresPersistentDirectoryWhenDBDirectoryIsEmpty(t *
 		subscription_ports,
 		client_routing_rules,
 		blocked_client_apps,
+		blocked_client_message,
 		client_app_formats
 	) VALUES (
 		'', 'Subscription', 'https://t.me/', '12', NULL,
@@ -102,6 +104,7 @@ func TestReadTemplateContentIgnoresPersistentDirectoryWhenDBDirectoryIsEmpty(t *
 		'mux/default.json',
 		0, 'disabled', 'sub', '[]', '[]', '` + defaultClientRoutingRules + `',
 		'[]',
+		'',
 		'{}'
 	)`); err != nil {
 		t.Fatal(err)
@@ -177,6 +180,7 @@ func TestReadTemplateContentRowTemplateFallback(t *testing.T) {
 		happ_sub_expire_button_link TEXT NULL,
 		default_device_limit_type TEXT NULL,
 		blocked_client_apps TEXT NULL,
+		blocked_client_message TEXT NULL,
 		client_app_formats TEXT NULL,
 		created_at TIMESTAMP NULL,
 		updated_at TIMESTAMP NULL

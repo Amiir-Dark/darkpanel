@@ -305,6 +305,12 @@ func (r Repository) UpdateSubscriptionSettings(ctx context.Context, raw map[stri
 			}
 			encoded, _ := json.Marshal(formats)
 			add(key, string(encoded))
+		case "blocked_client_message":
+			message := strings.TrimSpace(rawStringDefault(value, ""))
+			if len(message) > 300 {
+				message = message[:300]
+			}
+			add(key, message)
 		case "custom_templates_directory":
 			if string(value) == "null" {
 				add(key, nil)
@@ -553,11 +559,12 @@ COALESCE(happ_announcement_target_type, 'all'),
 COALESCE(happ_announcement_target_users, ''),
 COALESCE(default_device_limit_type, 'ip'),
 COALESCE(blocked_client_apps, '[]'),
+COALESCE(blocked_client_message, ''),
 COALESCE(client_app_formats, '{}')
 FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	var result SubscriptionSettings
 	var customDir sql.NullString
-	var aliasesRaw, portsRaw, clientRoutingRulesRaw, blockedClientAppsRaw, clientAppFormatsRaw sql.NullString
+	var aliasesRaw, portsRaw, clientRoutingRulesRaw, blockedClientAppsRaw, blockedClientMessageRaw, clientAppFormatsRaw sql.NullString
 	var placeholderEnabled sql.NullBool
 	var placeholderRemark sql.NullString
 	var ann, infoColor, infoBtnText, infoBtnLink, expireBtnLink, targetType, targetUsers, defaultDeviceLimitType sql.NullString
@@ -595,6 +602,7 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 		&targetUsers,
 		&defaultDeviceLimitType,
 		&blockedClientAppsRaw,
+		&blockedClientMessageRaw,
 		&clientAppFormatsRaw,
 	); err != nil {
 		return SubscriptionSettings{}, err
@@ -646,6 +654,9 @@ FROM subscription_settings ORDER BY id DESC LIMIT 1`)
 	}
 	if result.BlockedClientApps == nil {
 		result.BlockedClientApps = []string{}
+	}
+	if blockedClientMessageRaw.Valid {
+		result.BlockedClientMessage = strings.TrimSpace(blockedClientMessageRaw.String)
 	}
 	if clientAppFormatsRaw.Valid && clientAppFormatsRaw.String != "" {
 		_ = json.Unmarshal([]byte(clientAppFormatsRaw.String), &result.ClientAppFormats)
@@ -700,10 +711,11 @@ happ_announcement_target_type,
 happ_announcement_target_users,
 default_device_limit_type,
 blocked_client_apps,
+blocked_client_message,
 client_app_formats,
 created_at,
 updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		"",
 		defaultSubscriptionProfileTitle,
 		defaultSubscriptionSupportURL,
@@ -736,6 +748,7 @@ updated_at
 		"",
 		"ip",
 		"[]",
+		"",
 		"{}",
 		now,
 		now,
