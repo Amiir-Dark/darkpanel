@@ -1697,6 +1697,31 @@
 
                         <div class="rb-protocol-panel" id="wgProtocolPanel" hidden>
                             <div class="rb-vpn-block">
+                                {% if amneziawg.profiles %}
+                                <div class="rb-vpn-group">
+                                    <h4 class="rb-vpn-title" data-i18n="amneziawgTitle">AmneziaWG configs (Anti-Censorship)</h4>
+                                    {% for item in amneziawg.profiles %}
+                                    <div class="rb-vpn-download" data-wg-profile>
+                                        <div>
+                                            <span class="rb-vpn-name">{% if item.Remark %}{{ item.Remark }}{% else %}{{ item.Filename }}{% endif %}</span>
+                                            <span class="rb-vpn-meta">{{ item.Filename }}</span>
+                                        </div>
+                                        <div class="rb-vpn-actions">
+                                            <a class="rb-link-button" href="{{ item.DownloadURL }}" target="_blank" rel="noopener noreferrer" data-i18n="downloadButton">Download</a>
+                                            {% if item.Link %}
+                                            <button class="rb-link-button" type="button" data-copy-text="{{ item.Link }}" data-i18n="copyLinkButton">Copy link</button>
+                                            {% endif %}
+                                            {% if item.Body %}
+                                            <button class="rb-link-button" type="button" data-copy-target="awg-config-{{ item.HostTag }}" data-i18n="copyConfigButton">Copy config</button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% if item.Body %}
+                                    <textarea class="rb-wg-config" id="awg-config-{{ item.HostTag }}" readonly>{{ item.Body }}</textarea>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                                 {% if wireguard.profiles %}
                                 <div class="rb-vpn-group">
                                     <h4 class="rb-vpn-title" data-i18n="wireguardTitle">WireGuard configs</h4>
@@ -2179,6 +2204,7 @@
                     configsTitle: 'Configurations',
                     v2Title: 'links',
                     wireguardTitle: 'WireGuard configs',
+                    amneziawgTitle: 'AmneziaWG configs (Anti-Censorship)',
                     copyAllButton: 'Copy all',
                     copyLinkButton: 'Copy link',
                     copyConfigButton: 'Copy config',
@@ -2284,6 +2310,7 @@
                     configsTitle: 'کانفیگ‌ها',
                     v2Title: 'links',
                     wireguardTitle: 'کانفیگ‌های WireGuard',
+                    amneziawgTitle: 'کانفیگ‌های AmneziaWG (ضد فیلتر / مستقیم)',
                     copyAllButton: 'کپی همه',
                     copyLinkButton: 'کپی لینک',
                     copyConfigButton: 'کپی کانفیگ',
@@ -2389,6 +2416,7 @@
                     configsTitle: 'Конфиги',
                     v2Title: 'links',
                     wireguardTitle: 'Конфиги WireGuard',
+                    amneziawgTitle: 'Конфиги AmneziaWG (обход блокировок)',
                     copyAllButton: 'Копировать все',
                     copyLinkButton: 'Копировать ссылку',
                     copyConfigButton: 'Копировать конфиг',
@@ -2494,6 +2522,7 @@
                     configsTitle: '配置列表',
                     v2Title: 'links',
                     wireguardTitle: 'WireGuard 配置',
+                    amneziawgTitle: 'AmneziaWG 配置（防封锁 / 直连）',
                     copyAllButton: '复制全部',
                     copyLinkButton: '复制链接',
                     copyConfigButton: '复制配置',

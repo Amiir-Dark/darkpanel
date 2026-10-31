@@ -312,20 +312,30 @@ func buildWGConfigBody(privateKey string, clientAddress string, serverPublicKey 
 	writeWGLine(&b, "[Interface]")
 	writeWGLine(&b, "PrivateKey = "+privateKey)
 	writeWGLine(&b, "Address = "+clientAddress)
-	if dns := stringList(settings["dns_servers"]); len(dns) > 0 {
-		writeWGLine(&b, "DNS = "+strings.Join(dns, ", "))
+	dns := stringList(settings["dns_servers"])
+	if len(dns) == 0 {
+		dns = []string{"1.1.1.1", "1.0.0.1"}
 	}
-	if mtu := intValue(settings["mtu"]); mtu > 0 {
-		writeWGLine(&b, "MTU = "+fmt.Sprint(mtu))
+	writeWGLine(&b, "DNS = "+strings.Join(dns, ", "))
+	mtu := intValue(settings["mtu"])
+	if mtu <= 0 {
+		mtu = 1360
 	}
+	writeWGLine(&b, "MTU = "+fmt.Sprint(mtu))
 	writeWGLine(&b, "")
 	writeWGLine(&b, "[Peer]")
 	writeWGLine(&b, "PublicKey = "+serverPublicKey)
 	writeWGLine(&b, "Endpoint = "+endpoint)
-	writeWGLine(&b, "AllowedIPs = "+strings.Join(stringList(settings["allowed_ips"]), ", "))
-	if keepalive := intValue(settings["persistent_keepalive"]); keepalive > 0 {
-		writeWGLine(&b, "PersistentKeepalive = "+fmt.Sprint(keepalive))
+	allowed := stringList(settings["allowed_ips"])
+	if len(allowed) == 0 {
+		allowed = []string{"0.0.0.0/0"}
 	}
+	writeWGLine(&b, "AllowedIPs = "+strings.Join(allowed, ", "))
+	keepalive := intValue(settings["persistent_keepalive"])
+	if keepalive <= 0 {
+		keepalive = 25
+	}
+	writeWGLine(&b, "PersistentKeepalive = "+fmt.Sprint(keepalive))
 	return b.String()
 }
 
@@ -334,23 +344,48 @@ func buildAWGConfigBody(privateKey string, clientAddress string, serverPublicKey
 	writeWGLine(&b, "[Interface]")
 	writeWGLine(&b, "PrivateKey = "+privateKey)
 	writeWGLine(&b, "Address = "+clientAddress)
-	if dns := stringList(settings["dns_servers"]); len(dns) > 0 {
-		writeWGLine(&b, "DNS = "+strings.Join(dns, ", "))
+	dns := stringList(settings["dns_servers"])
+	if len(dns) == 0 {
+		dns = []string{"1.1.1.1", "1.0.0.1"}
 	}
-	if mtu := intValue(settings["mtu"]); mtu > 0 {
-		writeWGLine(&b, "MTU = "+fmt.Sprint(mtu))
+	writeWGLine(&b, "DNS = "+strings.Join(dns, ", "))
+	mtu := intValue(settings["mtu"])
+	if mtu <= 0 {
+		mtu = 1360
 	}
-	for _, item := range []struct{ name, key string }{{"Jc", "jc"}, {"Jmin", "jmin"}, {"Jmax", "jmax"}, {"S1", "s1"}, {"S2", "s2"}, {"H1", "h1"}, {"H2", "h2"}, {"H3", "h3"}, {"H4", "h4"}} {
-		writeWGLine(&b, item.name+" = "+fmt.Sprint(intValue(settings[item.key])))
+	writeWGLine(&b, "MTU = "+fmt.Sprint(mtu))
+
+	awgDefaults := map[string]int{
+		"jc": 4, "jmin": 40, "jmax": 70, "s1": 65, "s2": 85,
+		"h1": 123456789, "h2": 234567891, "h3": 345678912, "h4": 456789123,
+	}
+	for _, item := range []struct{ name, key string }{
+		{"Jc", "jc"}, {"Jmin", "jmin"}, {"Jmax", "jmax"},
+		{"S1", "s1"}, {"S2", "s2"},
+		{"H1", "h1"}, {"H2", "h2"}, {"H3", "h3"}, {"H4", "h4"},
+	} {
+		val := intValue(settings[item.key])
+		if val <= 0 {
+			if def, ok := awgDefaults[item.key]; ok {
+				val = def
+			}
+		}
+		writeWGLine(&b, item.name+" = "+fmt.Sprint(val))
 	}
 	writeWGLine(&b, "")
 	writeWGLine(&b, "[Peer]")
 	writeWGLine(&b, "PublicKey = "+serverPublicKey)
 	writeWGLine(&b, "Endpoint = "+endpoint)
-	writeWGLine(&b, "AllowedIPs = "+strings.Join(stringList(settings["allowed_ips"]), ", "))
-	if keepalive := intValue(settings["persistent_keepalive"]); keepalive > 0 {
-		writeWGLine(&b, "PersistentKeepalive = "+fmt.Sprint(keepalive))
+	allowed := stringList(settings["allowed_ips"])
+	if len(allowed) == 0 {
+		allowed = []string{"0.0.0.0/0"}
 	}
+	writeWGLine(&b, "AllowedIPs = "+strings.Join(allowed, ", "))
+	keepalive := intValue(settings["persistent_keepalive"])
+	if keepalive <= 0 {
+		keepalive = 25
+	}
+	writeWGLine(&b, "PersistentKeepalive = "+fmt.Sprint(keepalive))
 	return b.String()
 }
 
@@ -370,9 +405,13 @@ func buildWGURI(remark string, address string, port string, privateKey string, c
 	}
 	if mtu := intValue(settings["mtu"]); mtu > 0 {
 		values.Set("mtu", fmt.Sprint(mtu))
+	} else {
+		values.Set("mtu", "1360")
 	}
 	if keepalive := intValue(settings["persistent_keepalive"]); keepalive > 0 {
 		values.Set("keepalive", fmt.Sprint(keepalive))
+	} else {
+		values.Set("keepalive", "25")
 	}
 	u := url.URL{
 		Scheme:   "wireguard",

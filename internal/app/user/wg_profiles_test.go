@@ -296,3 +296,50 @@ func TestBuildConfigLinksEmitsWireGuardURI(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildAWGProfileMaterialWithAntiCensorshipDefaults(t *testing.T) {
+	material, err := buildWGProfileMaterialForProtocol(
+		ConfigLinkUser{ID: 42, Username: "alice", CredentialKey: "0123456789abcdef0123456789abcdef"},
+		"AWG Edge",
+		"awg.example.com",
+		ResolvedInbound{
+			"protocol": "amneziawg",
+			"port":     54321,
+			"settings": map[string]any{
+				"private_key":  testWGPrivateKey(),
+				"address_pool": "10.73.0.0/16",
+			},
+		},
+		Host{DNSPrimary: "1.1.1.1", DNSSecondary: "1.0.0.1"},
+		true,
+		"amneziawg",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedStrings := []string{
+		"[Interface]\n",
+		"PrivateKey = ",
+		"Address = ",
+		"DNS = 1.1.1.1, 1.0.0.1\n",
+		"MTU = 1360\n",
+		"Jc = 4\n",
+		"Jmin = 40\n",
+		"Jmax = 70\n",
+		"S1 = 65\n",
+		"S2 = 85\n",
+		"H1 = 123456789\n",
+		"H2 = 234567891\n",
+		"H3 = 345678912\n",
+		"H4 = 456789123\n",
+		"[Peer]\n",
+		"Endpoint = awg.example.com:54321\n",
+		"AllowedIPs = 0.0.0.0/0\n",
+		"PersistentKeepalive = 25\n",
+	}
+	for _, expected := range expectedStrings {
+		if !strings.Contains(material.Body, expected) {
+			t.Fatalf("expected %q in AmneziaWG profile:\n%s", expected, material.Body)
+		}
+	}
+}
