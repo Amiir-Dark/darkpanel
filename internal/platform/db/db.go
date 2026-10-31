@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,17 +50,25 @@ func Open(databaseURL string) (Pool, error) {
 	}
 
 	if dialect == "sqlite" {
+		cacheSizeKB := envInt("SQLITE_CACHE_SIZE_KB", 4000)
+		maxOpen := envInt("SQLITE_MAX_OPEN_CONNS", 4)
+		maxIdle := envInt("SQLITE_MAX_IDLE_CONNS", 2)
+
 		// WAL permits readers while another connection is writing.
 		_, _ = sqlDB.Exec("PRAGMA journal_mode = WAL;")
 		_, _ = sqlDB.Exec("PRAGMA busy_timeout = 30000;")
 		_, _ = sqlDB.Exec("PRAGMA synchronous = NORMAL;")
-		_, _ = sqlDB.Exec("PRAGMA cache_size = -64000;")
-		sqlDB.SetMaxOpenConns(8)
-		sqlDB.SetMaxIdleConns(4)
+		_, _ = sqlDB.Exec(fmt.Sprintf("PRAGMA cache_size = -%d;", cacheSizeKB))
+		_, _ = sqlDB.Exec("PRAGMA temp_store = FILE;")
+		_, _ = sqlDB.Exec("PRAGMA mmap_size = 33554432;")
+		sqlDB.SetMaxOpenConns(maxOpen)
+		sqlDB.SetMaxIdleConns(maxIdle)
 		sqlDB.SetConnMaxIdleTime(30 * time.Second)
 	} else {
-		sqlDB.SetMaxOpenConns(64)
-		sqlDB.SetMaxIdleConns(16)
+		maxOpen := envInt("MYSQL_MAX_OPEN_CONNS", 16)
+		maxIdle := envInt("MYSQL_MAX_IDLE_CONNS", 4)
+		sqlDB.SetMaxOpenConns(maxOpen)
+		sqlDB.SetMaxIdleConns(maxIdle)
 		sqlDB.SetConnMaxIdleTime(30 * time.Second)
 		sqlDB.SetConnMaxLifetime(5 * time.Minute)
 	}
@@ -103,7 +113,8 @@ func parseDatabaseURL(databaseURL string) (driver string, dsn string, dialect st
 }
 
 func sqliteDSN(path string) string {
-	query := "_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_busy_timeout=30000&_journal_mode=WAL&_synchronous=NORMAL"
+	cacheSizeKB := envInt("SQLITE_CACHE_SIZE_KB", 4000)
+	query := fmt.Sprintf("_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=temp_store(FILE)&_pragma=cache_size(-%d)&_busy_timeout=30000&_journal_mode=WAL&_synchronous=NORMAL", cacheSizeKB)
 	if strings.HasPrefix(path, "file:") {
 		if strings.Contains(path, "?") {
 			return path + "&" + query
@@ -114,6 +125,15 @@ func sqliteDSN(path string) string {
 		return "file:" + path + "&" + query
 	}
 	return "file:" + path + "?" + query
+}
+
+func envInt(name string, defaultValue int) int {
+	if val := strings.TrimSpace(os.Getenv(name)); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+	return defaultValue
 }
 
 func parseMySQLURL(databaseURL string) (driver string, dsn string, dialect string, err error) {

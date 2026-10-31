@@ -36,7 +36,7 @@ func (s *Server) runNodeOperationsWorker(ctx context.Context) {
 	}
 }
 
-const runtimeUserOperationsInterval = 5 * time.Second
+const runtimeUserOperationsInterval = 10 * time.Second
 
 func (s *Server) runRuntimeUserOperationsWorker(ctx context.Context) {
 	timer := time.NewTimer(runtimeUserOperationsInterval)

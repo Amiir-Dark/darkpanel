@@ -1859,6 +1859,54 @@ func TestMergePolicyPreservesIndependentInboundStatsToggles(t *testing.T) {
 	}
 }
 
+func TestMergePolicyLowMemoryDefaults(t *testing.T) {
+	// 1. Verify defaults
+	runtime := map[string]any{}
+	mergePolicy(runtime)
+	levels := mapValue(mapValue(runtime["policy"])["levels"])
+	level0 := mapValue(levels["0"])
+
+	if level0["bufferSize"] != 4 {
+		t.Fatalf("expected bufferSize 4, got %#v", level0["bufferSize"])
+	}
+	if level0["connIdle"] != 60 {
+		t.Fatalf("expected connIdle 60, got %#v", level0["connIdle"])
+	}
+	if level0["handshake"] != 4 {
+		t.Fatalf("expected handshake 4, got %#v", level0["handshake"])
+	}
+	if level0["downlinkOnly"] != 1 || level0["uplinkOnly"] != 1 {
+		t.Fatalf("expected half-close timeouts to be 1, got %#v", level0)
+	}
+	if level0["statsUserOnline"] != true || level0["statsUserUplink"] != true || level0["statsUserDownlink"] != true {
+		t.Fatalf("expected stats toggles to be true, got %#v", level0)
+	}
+
+	// 2. Verify custom overrides are preserved
+	customRuntime := map[string]any{
+		"policy": map[string]any{
+			"levels": map[string]any{
+				"0": map[string]any{
+					"bufferSize": 16,
+					"connIdle":   120,
+				},
+			},
+		},
+	}
+	mergePolicy(customRuntime)
+	customLevels := mapValue(mapValue(customRuntime["policy"])["levels"])
+	custom0 := mapValue(customLevels["0"])
+	if custom0["bufferSize"] != 16 {
+		t.Fatalf("expected custom bufferSize 16, got %#v", custom0["bufferSize"])
+	}
+	if custom0["connIdle"] != 120 {
+		t.Fatalf("expected custom connIdle 120, got %#v", custom0["connIdle"])
+	}
+	if custom0["statsUserOnline"] != true {
+		t.Fatalf("expected statsUserOnline to remain true, got %#v", custom0["statsUserOnline"])
+	}
+}
+
 func TestNormalizePayloadForXrayVersionMigrates2698OutboundsOnly(t *testing.T) {
 	payload := map[string]any{"outbounds": []any{
 		map[string]any{"tag": "chain", "protocol": "vless", "proxySettings": map[string]any{"tag": "hop"}},

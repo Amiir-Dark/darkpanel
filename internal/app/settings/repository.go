@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rebeccapanel/rebecca/internal/app/rowtemplates"
@@ -61,13 +62,26 @@ var templateKeys = map[string]bool{
 	"mux_template":                  true,
 }
 
+type settingsCache struct {
+	mu             sync.RWMutex
+	runtime        *RuntimeSettings
+	runtimeAt      time.Time
+	subscription   *SubscriptionSettings
+	subscriptionAt time.Time
+}
+
 type Repository struct {
 	db      *sql.DB
 	dialect string
+	cache   *settingsCache
 }
 
 func NewRepository(db *sql.DB, dialect string) Repository {
-	return Repository{db: db, dialect: dialect}
+	return Repository{
+		db:      db,
+		dialect: dialect,
+		cache:   &settingsCache{},
+	}
 }
 
 func (r Repository) PanelSettings(ctx context.Context) (PanelSettings, error) {
@@ -108,10 +122,31 @@ func (r Repository) UpdatePanelSettings(ctx context.Context, raw map[string]json
 }
 
 func (r Repository) RuntimeSettings(ctx context.Context) (RuntimeSettings, error) {
+	if r.cache != nil {
+		r.cache.mu.RLock()
+		if r.cache.runtime != nil && time.Since(r.cache.runtimeAt) < 10*time.Second {
+			cached := *r.cache.runtime
+			r.cache.mu.RUnlock()
+			return cached, nil
+		}
+		r.cache.mu.RUnlock()
+	}
+
 	if err := r.ensureRuntimeSettingsRecord(ctx); err != nil {
 		return RuntimeSettings{}, err
 	}
-	return r.runtimeSettings(ctx)
+	settings, err := r.runtimeSettings(ctx)
+	if err != nil {
+		return RuntimeSettings{}, err
+	}
+
+	if r.cache != nil {
+		r.cache.mu.Lock()
+		r.cache.runtime = &settings
+		r.cache.runtimeAt = time.Now()
+		r.cache.mu.Unlock()
+	}
+	return settings, nil
 }
 
 func (r Repository) UpdateRuntimeSettings(ctx context.Context, raw map[string]json.RawMessage) (RuntimeSettings, error) {
@@ -154,7 +189,17 @@ func (r Repository) UpdateRuntimeSettings(ctx context.Context, raw map[string]js
 			return RuntimeSettings{}, err
 		}
 	}
-	return r.runtimeSettings(ctx)
+	updated, err := r.runtimeSettings(ctx)
+	if err != nil {
+		return RuntimeSettings{}, err
+	}
+	if r.cache != nil {
+		r.cache.mu.Lock()
+		r.cache.runtime = &updated
+		r.cache.runtimeAt = time.Now()
+		r.cache.mu.Unlock()
+	}
+	return updated, nil
 }
 
 func (r Repository) SubscriptionBundle(ctx context.Context) (SubscriptionBundle, error) {
@@ -180,8 +225,24 @@ func (r Repository) SubscriptionBundle(ctx context.Context) (SubscriptionBundle,
 }
 
 func (r Repository) SubscriptionSettings(ctx context.Context) (SubscriptionSettings, error) {
+	if r.cache != nil {
+		r.cache.mu.RLock()
+		if r.cache.subscription != nil && time.Since(r.cache.subscriptionAt) < 10*time.Second {
+			cached := *r.cache.subscription
+			r.cache.mu.RUnlock()
+			return cached, nil
+		}
+		r.cache.mu.RUnlock()
+	}
+
 	settings, err := r.subscriptionSettings(ctx)
 	if err == nil {
+		if r.cache != nil {
+			r.cache.mu.Lock()
+			r.cache.subscription = &settings
+			r.cache.subscriptionAt = time.Now()
+			r.cache.mu.Unlock()
+		}
 		return settings, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -190,7 +251,17 @@ func (r Repository) SubscriptionSettings(ctx context.Context) (SubscriptionSetti
 	if err := r.ensureSubscriptionRecord(ctx); err != nil {
 		return SubscriptionSettings{}, err
 	}
-	return r.subscriptionSettings(ctx)
+	settings, err = r.subscriptionSettings(ctx)
+	if err != nil {
+		return SubscriptionSettings{}, err
+	}
+	if r.cache != nil {
+		r.cache.mu.Lock()
+		r.cache.subscription = &settings
+		r.cache.subscriptionAt = time.Now()
+		r.cache.mu.Unlock()
+	}
+	return settings, nil
 }
 
 func (r Repository) UpdateSubscriptionSettings(ctx context.Context, raw map[string]json.RawMessage) (SubscriptionSettings, error) {
@@ -336,7 +407,17 @@ func (r Repository) UpdateSubscriptionSettings(ctx context.Context, raw map[stri
 			return SubscriptionSettings{}, err
 		}
 	}
-	return r.subscriptionSettings(ctx)
+	updated, err := r.subscriptionSettings(ctx)
+	if err != nil {
+		return SubscriptionSettings{}, err
+	}
+	if r.cache != nil {
+		r.cache.mu.Lock()
+		r.cache.subscription = &updated
+		r.cache.subscriptionAt = time.Now()
+		r.cache.mu.Unlock()
+	}
+	return updated, nil
 }
 
 func (r Repository) UpdateAdminSubscriptionSettings(ctx context.Context, adminID int64, raw map[string]json.RawMessage) (AdminSubscriptionSettings, error) {

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/netip"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -171,6 +172,9 @@ func NormalizePayload(payload map[string]any) map[string]any {
 	}
 	if _, ok := logCfg["error"]; !ok {
 		logCfg["error"] = ""
+	}
+	if _, ok := logCfg["loglevel"]; !ok {
+		logCfg["loglevel"] = "warning"
 	}
 	logCfg["accessCleanupInterval"] = normalizeLogCleanupInterval(logCfg["accessCleanupInterval"])
 	logCfg["errorCleanupInterval"] = normalizeLogCleanupInterval(logCfg["errorCleanupInterval"])
@@ -2580,12 +2584,44 @@ func mergePolicy(runtime map[string]any) {
 	if _, ok := system["statsInboundUplink"]; !ok {
 		systemDefaults["statsInboundUplink"] = true
 	}
+
+	currentLevels := mapValue(current["levels"])
+	current0 := mapValue(currentLevels["0"])
+
+	bufferSize := 4
+	if envVal := strings.TrimSpace(os.Getenv("XRAY_BUFFER_SIZE_KB")); envVal != "" {
+		if parsed, err := strconv.Atoi(envVal); err == nil && parsed > 0 {
+			bufferSize = parsed
+		}
+	}
+	connIdle := 60
+	if envVal := strings.TrimSpace(os.Getenv("XRAY_CONN_IDLE_SECONDS")); envVal != "" {
+		if parsed, err := strconv.Atoi(envVal); err == nil && parsed > 0 {
+			connIdle = parsed
+		}
+	}
+
+	level0 := map[string]any{
+		"statsUserUplink":   true,
+		"statsUserDownlink": true,
+		"statsUserOnline":   true,
+		"bufferSize":        bufferSize,
+		"connIdle":          connIdle,
+		"handshake":         4,
+		"downlinkOnly":      1,
+		"uplinkOnly":        1,
+	}
+	for k, v := range current0 {
+		level0[k] = v
+	}
+	level0["statsUserUplink"] = true
+	level0["statsUserDownlink"] = true
+	level0["statsUserOnline"] = true
+
 	forced := map[string]any{
-		"levels": map[string]any{"0": map[string]any{
-			"statsUserUplink":   true,
-			"statsUserDownlink": true,
-			"statsUserOnline":   true,
-		}},
+		"levels": map[string]any{
+			"0": level0,
+		},
 		"system": systemDefaults,
 	}
 	runtime["policy"] = mergeMaps(current, forced)

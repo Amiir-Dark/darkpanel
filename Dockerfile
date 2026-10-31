@@ -48,4 +48,8 @@ COPY --from=builder /src/dist/rebecca-server /usr/local/bin/rebecca-server
 COPY --from=builder /src/dist/rebecca-cli /usr/local/bin/rebecca-cli
 COPY templates ./templates
 
+ENV GOMEMLIMIT=128MiB \
+    GOGC=40 \
+    GODEBUG=madvdontneed=1
+
 ENTRYPOINT ["rebecca-server"]

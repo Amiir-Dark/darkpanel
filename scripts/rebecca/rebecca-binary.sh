@@ -3568,7 +3568,44 @@ write_binary_release_metadata() {
         }' > "$BINARY_METADATA_FILE"
 }
 
+ensure_swap() {
+    local total_ram_kb total_swap_kb
+    total_ram_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+    total_swap_kb=$(awk '/SwapTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+
+    if [ "$total_ram_kb" -gt 0 ] && [ "$total_ram_kb" -le 1572864 ] && [ "$total_swap_kb" -lt 1048576 ]; then
+        if [ ! -f /swapfile ] && command -v swapon >/dev/null 2>&1; then
+            colorized_echo yellow "Low RAM detected ($((total_ram_kb / 1024))MB). Creating 1GB swapfile to prevent OOM..."
+            if fallocate -l 1G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=1024 2>/dev/null; then
+                chmod 600 /swapfile
+                mkswap /swapfile >/dev/null 2>&1
+                swapon /swapfile 2>/dev/null || true
+                if ! grep -q '/swapfile' /etc/fstab 2>/dev/null; then
+                    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+                fi
+                sysctl -w vm.swappiness=10 >/dev/null 2>&1 || true
+                colorized_echo green "1GB swapfile successfully enabled."
+            fi
+        fi
+    fi
+}
+
 create_binary_service() {
+    local total_ram_kb mem_limit="128MiB" go_gc="40"
+    total_ram_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+    if [ "$total_ram_kb" -gt 0 ] && [ "$total_ram_kb" -le 1048576 ]; then
+        # 1GB or 512MB VPS
+        mem_limit="96MiB"
+        go_gc="35"
+    elif [ "$total_ram_kb" -gt 1048576 ] && [ "$total_ram_kb" -le 2097152 ]; then
+        # 2GB VPS
+        mem_limit="140MiB"
+        go_gc="40"
+    else
+        mem_limit="160MiB"
+        go_gc="50"
+    fi
+
     cat > "$BINARY_SERVICE_UNIT" <<EOF
 [Unit]
 Description=DarkPanel
@@ -3584,7 +3621,8 @@ Environment=REBECCA_ENV_FILE=$ENV_FILE
 Environment=REBECCA_INSTALL_MODE=binary
 Environment=REBECCA_BINARY_METADATA_FILE=$BINARY_METADATA_FILE
 Environment=REBECCA_DATA_DIR=$DATA_DIR
-Environment=GOMEMLIMIT=160MiB
+Environment=GOMEMLIMIT=${GOMEMLIMIT:-$mem_limit}
+Environment=GOGC=${GOGC:-$go_gc}
 Environment=GODEBUG=madvdontneed=1
 LimitNOFILE=65535
 ExecStart=$BINARY_SERVER
@@ -4104,7 +4142,10 @@ local-infile=0
 symbolic-links=0
 character-set-server=utf8mb4
 collation-server=utf8mb4_unicode_ci
-max_connections=200
+performance_schema=OFF
+innodb_buffer_pool_size=32M
+innodb_log_buffer_size=4M
+max_connections=50
 EOF
     systemctl restart "$service_name" >/dev/null 2>&1 || systemctl restart mysql >/dev/null 2>&1 || true
 
@@ -4260,6 +4301,7 @@ install_command() {
     fi
     set_rebecca_source_for_version "$rebecca_version"
     detect_os
+    ensure_swap
     if ! command -v jq >/dev/null 2>&1; then
         install_package jq
     fi

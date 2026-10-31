@@ -1255,7 +1255,37 @@ write_node_binary_release_metadata() {
         }' > "$BINARY_METADATA_FILE"
 }
 
+ensure_swap() {
+    local total_ram_kb total_swap_kb
+    total_ram_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+    total_swap_kb=$(awk '/SwapTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+
+    if [ "$total_ram_kb" -gt 0 ] && [ "$total_ram_kb" -le 1572864 ] && [ "$total_swap_kb" -lt 1048576 ]; then
+        if [ ! -f /swapfile ] && command -v swapon >/dev/null 2>&1; then
+            colorized_echo yellow "Low RAM detected ($((total_ram_kb / 1024))MB). Creating 1GB swapfile to prevent OOM..."
+            if fallocate -l 1G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=1024 2>/dev/null; then
+                chmod 600 /swapfile
+                mkswap /swapfile >/dev/null 2>&1
+                swapon /swapfile 2>/dev/null || true
+                if ! grep -q '/swapfile' /etc/fstab 2>/dev/null; then
+                    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+                fi
+                sysctl -w vm.swappiness=10 >/dev/null 2>&1 || true
+                colorized_echo green "1GB swapfile successfully enabled."
+            fi
+        fi
+    fi
+}
+
 create_binary_rebecca_node_service() {
+    local total_ram_kb node_mem_limit="80MiB" xray_mem_limit="96MiB" go_gc="35"
+    total_ram_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+    if [ "$total_ram_kb" -gt 1048576 ]; then
+        node_mem_limit="100MiB"
+        xray_mem_limit="140MiB"
+        go_gc="40"
+    fi
+
     cat > "$BINARY_SERVICE_UNIT" <<EOF
 [Unit]
 Description=DarkPanel-node
@@ -1271,8 +1301,11 @@ Environment=REBECCA_NODE_DATA_DIR=$DATA_DIR
 Environment=REBECCA_DATA_DIR=$DATA_DIR
 Environment=REBECCA_NODE_INSTALL_MODE=binary
 Environment=REBECCA_NODE_BINARY_METADATA_FILE=$BINARY_METADATA_FILE
-Environment=GOMEMLIMIT=120MiB
+Environment=GOMEMLIMIT=${GOMEMLIMIT:-$node_mem_limit}
+Environment=GOGC=${GOGC:-$go_gc}
 Environment=GODEBUG=madvdontneed=1
+Environment=XRAY_GOMEMLIMIT=${XRAY_GOMEMLIMIT:-$xray_mem_limit}
+Environment=XRAY_GOGC=${XRAY_GOGC:-$go_gc}
 LimitNOFILE=65535
 ExecStart=$BINARY_NODE
 Restart=always
@@ -1378,6 +1411,19 @@ configure_binary_node_env() {
     set_env_value "SSL_KEY_FILE" "$CERT_KEY_FILE"
     set_env_value "XRAY_EXECUTABLE_PATH" "$DATA_DIR/xray-core/xray"
     set_env_value "XRAY_ASSETS_PATH" "$DATA_DIR/xray-core"
+
+    local total_ram_kb node_mem_limit="80MiB" xray_mem_limit="96MiB" go_gc="35"
+    total_ram_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+    if [ "$total_ram_kb" -gt 1048576 ]; then
+        node_mem_limit="100MiB"
+        xray_mem_limit="140MiB"
+        go_gc="40"
+    fi
+    set_env_value "GOMEMLIMIT" "$node_mem_limit"
+    set_env_value "GOGC" "$go_gc"
+    set_env_value "GODEBUG" "madvdontneed=1"
+    set_env_value "XRAY_GOMEMLIMIT" "$xray_mem_limit"
+    set_env_value "XRAY_GOGC" "$go_gc"
 }
 
 normalize_node_dev_artifact() {
@@ -1854,6 +1900,7 @@ install_command() {
     fi
 
     detect_os
+    ensure_swap
     if ! command -v jq >/dev/null 2>&1; then
         install_package jq
     fi

@@ -9,8 +9,8 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 )
 
-const defaultNodeUsageCollectionInterval = 5 * time.Second
-const defaultNodeUsageFlushInterval = 2 * time.Second
+const defaultNodeUsageCollectionInterval = 10 * time.Second
+const defaultNodeUsageFlushInterval = 5 * time.Second
 const nodeUsageHistoryFlushInterval = 30 * time.Second
 const nodeUsageQueueCleanupInterval = time.Minute
 const nodeUsageQueueRetention = 5 * time.Minute

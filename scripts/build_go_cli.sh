@@ -23,7 +23,7 @@ fi
 
 (
     cd "$GO_DIR"
-    CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$output" ./cmd/rebecca_cli
+    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-s -w" -o "$output" ./cmd/rebecca_cli
 )
 
 echo "Rebecca Go CLI built at $output"
