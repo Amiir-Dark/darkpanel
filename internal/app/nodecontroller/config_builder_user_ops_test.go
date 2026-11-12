@@ -12,7 +12,7 @@ import (
 
 func TestAddUserWithoutMatchingServiceInboundIsNoOp(t *testing.T) {
 	ctx := context.Background()
-	db, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "no-matching-inbound.db")+"?_busy_timeout=30000")
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "no-matching-inbound.db")+"?_busy_timeout=30000")
 	if err != nil {
 		t.Fatal(err)
 	}

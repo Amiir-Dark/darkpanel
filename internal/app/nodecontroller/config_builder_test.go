@@ -12,7 +12,7 @@ import (
 	"reflect"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func TestRuntimeConfigPreparationHonorsOccupiedSlot(t *testing.T) {
@@ -35,7 +35,7 @@ func TestRuntimeConfigPreparationHonorsOccupiedSlot(t *testing.T) {
 }
 
 func TestRuntimeConfigRequestUsesProvidedInbounds(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
