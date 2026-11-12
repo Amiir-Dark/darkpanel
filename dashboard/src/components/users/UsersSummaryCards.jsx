@@ -36,7 +36,7 @@ const UserStatCard = ({ label, icon, value, totalValue, percent, beaconColor, gr
     const rawId = useId();
     const ringId = useMemo(() => rawId.replace(/[^a-zA-Z0-9]/g, ""), [rawId]);
     const accentBeacon = beaconColor || "var(--rb-panel-accent)";
-    return (<Box role="group" bg="panel.surface" background="linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0.005) 100%), var(--chakra-colors-panel-surface)" backdropFilter="blur(16px)" borderWidth="1px" borderColor="panel.border" borderRadius={{ base: "14px", sm: "16px", md: "20px" }} p={{ base: 2.5, sm: 3.5, md: 5 }} position="relative" overflow="hidden" display="flex" flexDirection="column" justifyContent="space-between" boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.06), 0 8px 24px -6px rgba(0, 0, 0, 0.16)" transition="all 0.35s cubic-bezier(0.16, 1, 0.3, 1)" _before={{
+    return (<Box role="group" bg="panel.surface" background="linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0.005) 100%), var(--chakra-colors-panel-surface)" borderWidth="1px" borderColor="panel.border" borderRadius={{ base: "14px", sm: "16px", md: "20px" }} p={{ base: 2.5, sm: 3.5, md: 5 }} position="relative" overflow="hidden" display="flex" flexDirection="column" justifyContent="space-between" boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.06), 0 8px 24px -6px rgba(0, 0, 0, 0.16)" transition="all 0.35s cubic-bezier(0.16, 1, 0.3, 1)" _before={{
             content: '""',
             position: "absolute",
             top: 0,

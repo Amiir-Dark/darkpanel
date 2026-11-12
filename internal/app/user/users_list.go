@@ -369,17 +369,10 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	u.username,
 	u.status,
 	COALESCE(u.used_traffic, 0),
-	COALESCE(u.used_traffic, 0) + COALESCE((
-		SELECT SUM(uul.used_traffic_at_reset)
-		FROM user_usage_logs uul
-		WHERE uul.user_id = u.id
-	), 0),
 	u.created_at,
 	u.expire,
 	u.data_limit,
 	u.data_limit_reset_strategy,
-	CASE WHEN ` + online.UserPredicate + ` THEN CURRENT_TIMESTAMP ELSE ` + online.LastSeenExpression + ` END,
-	CASE WHEN ` + online.UserPredicate + ` THEN 1 ELSE 0 END,
 	u.service_id,
 	s.name,
 	u.admin_id,
@@ -389,7 +382,7 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	u.flow,
 	u.on_hold_expire_duration,
 	usa.user_agent` + usersRowsFromSQL() + filter.whereSQL() + " ORDER BY " + usersOrderSQL(req.Sort)
-	args := append([]any{cutoff, cutoff, cutoff, cutoff, cutoff, cutoff}, filter.args...)
+	args := append([]any{}, filter.args...)
 	if req.Offset != nil {
 		limit := int64(9223372036854775807)
 		if req.Limit != nil {
@@ -412,8 +405,6 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 	for rows.Next() {
 		var row usersListRow
 		var createdAt any
-		var onlineAt any
-		var isOnline int
 		var expire, dataLimit, serviceID, adminID, holdDuration sql.NullInt64
 		var serviceName, adminUsername, credentialKey, subadress, flow, resetStrategy, subUserAgent sql.NullString
 		if err := rows.Scan(
@@ -421,13 +412,10 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 			&row.item.Username,
 			&row.item.Status,
 			&row.item.UsedTraffic,
-			&row.item.LifetimeUsedTraffic,
 			&createdAt,
 			&expire,
 			&dataLimit,
 			&resetStrategy,
-			&onlineAt,
-			&isOnline,
 			&serviceID,
 			&serviceName,
 			&adminID,
@@ -441,16 +429,13 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 			return nil, err
 		}
 		row.item.ID = row.id
+		row.item.LifetimeUsedTraffic = row.item.UsedTraffic
 		row.item.CreatedAt = dbTimeString(createdAt)
 		row.item.Expire = int64Ptr(expire)
 		row.item.DataLimit = int64Ptr(dataLimit)
 		if resetStrategy.Valid {
 			row.item.DataLimitResetStrategy = resetStrategy.String
 		}
-		if online := dbTimeString(onlineAt); online != "" {
-			row.item.OnlineAt = &online
-		}
-		row.item.IsOnline = isOnline != 0
 		row.item.ServiceID = int64Ptr(serviceID)
 		row.item.ServiceName = stringPtr(serviceName)
 		row.item.AdminID = int64Ptr(adminID)
@@ -467,7 +452,122 @@ func (r Repository) usersRows(ctx context.Context, filter usersFilter, req Users
 		row.onHoldExpireDuration = int64Ptr(holdDuration)
 		result = append(result, row)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.populateUsersRowStats(ctx, result, cutoff); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (r Repository) populateUsersRowStats(ctx context.Context, rows []usersListRow, cutoff string) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	userIDs := make([]int64, len(rows))
+	inArgs := make([]any, len(rows))
+	for i, row := range rows {
+		userIDs[i] = row.id
+		inArgs[i] = row.id
+	}
+	inClause := placeholders(len(userIDs))
+
+	resetTotals := make(map[int64]int64, len(userIDs))
+	usageRows, err := r.db.QueryContext(ctx, `SELECT user_id, COALESCE(SUM(used_traffic_at_reset), 0) FROM user_usage_logs WHERE user_id IN (`+inClause+`) GROUP BY user_id`, inArgs...)
+	if err != nil {
+		return err
+	}
+	for usageRows.Next() {
+		var userID, total int64
+		if err := usageRows.Scan(&userID, &total); err != nil {
+			usageRows.Close()
+			return err
+		}
+		resetTotals[userID] = total
+	}
+	if err := usageRows.Close(); err != nil {
+		return err
+	}
+
+	onlineSet := make(map[int64]bool, len(userIDs))
+	lastSeenMap := make(map[int64]string, len(userIDs))
+
+	presenceArgs := make([]any, 0, len(inArgs)+1)
+	presenceArgs = append(presenceArgs, cutoff)
+	presenceArgs = append(presenceArgs, inArgs...)
+	presenceRows, err := r.db.QueryContext(ctx, `SELECT user_id, online_at, CASE WHEN online_at >= ? THEN 1 ELSE 0 END FROM user_presence WHERE user_id IN (`+inClause+`)`, presenceArgs...)
+	if err != nil {
+		return err
+	}
+	for presenceRows.Next() {
+		var userID int64
+		var onlineAt any
+		var isOnline int
+		if err := presenceRows.Scan(&userID, &onlineAt, &isOnline); err != nil {
+			presenceRows.Close()
+			return err
+		}
+		if ts := dbTimeString(onlineAt); ts != "" {
+			lastSeenMap[userID] = ts
+		}
+		if isOnline != 0 {
+			onlineSet[userID] = true
+		}
+	}
+	if err := presenceRows.Close(); err != nil {
+		return err
+	}
+
+	cutoffArgs := make([]any, 0, len(inArgs)+1)
+	cutoffArgs = append(cutoffArgs, cutoff)
+	cutoffArgs = append(cutoffArgs, inArgs...)
+
+	ipRows, err := r.db.QueryContext(ctx, `SELECT DISTINCT uoi.user_id FROM user_online_ips uoi WHERE uoi.last_seen_at >= ? AND uoi.user_id IN (`+inClause+`) AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = uoi.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')`, cutoffArgs...)
+	if err != nil {
+		return err
+	}
+	for ipRows.Next() {
+		var userID int64
+		if err := ipRows.Scan(&userID); err != nil {
+			ipRows.Close()
+			return err
+		}
+		onlineSet[userID] = true
+	}
+	if err := ipRows.Close(); err != nil {
+		return err
+	}
+
+	sessRows, err := r.db.QueryContext(ctx, `SELECT DISTINCT vus.user_id FROM vpn_user_sessions vus WHERE vus.ended_at IS NULL AND vus.last_seen_at >= ? AND vus.user_id IN (`+inClause+`) AND NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = vus.node_id AND LOWER(COALESCE(n.status, '')) = 'deleted')`, cutoffArgs...)
+	if err != nil {
+		return err
+	}
+	for sessRows.Next() {
+		var userID int64
+		if err := sessRows.Scan(&userID); err != nil {
+			sessRows.Close()
+			return err
+		}
+		onlineSet[userID] = true
+	}
+	if err := sessRows.Close(); err != nil {
+		return err
+	}
+
+	nowStr := dbTimeString(time.Now().UTC())
+	for i := range rows {
+		uid := rows[i].id
+		rows[i].item.LifetimeUsedTraffic = rows[i].item.UsedTraffic + resetTotals[uid]
+		if onlineSet[uid] {
+			rows[i].item.IsOnline = true
+			ts := nowStr
+			rows[i].item.OnlineAt = &ts
+		} else if ts := lastSeenMap[uid]; ts != "" {
+			rows[i].item.OnlineAt = &ts
+		}
+	}
+	return nil
 }
 
 func (r Repository) OnlineUsernames(ctx context.Context, req UsersListRequest) ([]string, error) {

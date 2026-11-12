@@ -227,7 +227,7 @@ export const UsersPage = () => {
     }
     return (<Box position="relative" w="full">
 			{/* Ambient Aurora Top Glow matching Dashboard */}
-			<Box position="absolute" top="-90px" left="10%" right="10%" height="280px" bg="radial-gradient(ellipse 65% 55% at 50% 0%, var(--rb-panel-accent-glow) 0%, transparent 72%)" opacity={0.35} filter="blur(55px)" pointerEvents="none" zIndex={0}/>
+			<Box position="absolute" top="-90px" left="10%" right="10%" height="240px" bg="radial-gradient(ellipse 65% 55% at 50% 0%, var(--rb-panel-accent-glow) 0%, transparent 72%)" opacity={0.22} pointerEvents="none" zIndex={0}/>
 
 			<VStack className="rb-users-section" spacing={5} align="stretch" dir={isRTL ? "rtl" : "ltr"} position="relative" zIndex={1}>
 				{/* Top Summary Resource Metric Cards */}

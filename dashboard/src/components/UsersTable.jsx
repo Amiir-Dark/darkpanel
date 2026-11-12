@@ -1311,14 +1311,25 @@ const ActionButtons = ({ user, onDelete, onEdit, isRTL, menuActions, compact = f
     const setSubLink = useDashboard((state) => state.setSubLink);
     const linkTemplates = useDashboard((state) => state.linkTemplates);
     const userLinks = generateUserLinks(user, linkTemplates);
+    const resolveUserLinks = async () => {
+        if (userLinks.length > 0) {
+            return userLinks;
+        }
+        try {
+            const detail = await fetch(`/user/${encodeURIComponent(user.username)}`);
+            return Array.isArray(detail?.links) ? detail.links : [];
+        }
+        catch {
+            return [];
+        }
+    };
     const formatLink = (link) => {
         if (!link)
             return "";
         return link.startsWith("/") ? window.location.origin + link : link;
     };
     const subscriptionLink = formatLink(user.subscription_url);
-    const configLinksText = userLinks.join("\n");
-    const hasConfigLinks = userLinks.length > 0;
+    const hasConfigLinks = userLinks.length > 0 || Boolean(user.username);
     const [copied, setCopied] = useState(false);
     const [copiedConfigs, setCopiedConfigs] = useState(false);
     useEffect(() => {
@@ -1369,9 +1380,10 @@ const ActionButtons = ({ user, onDelete, onEdit, isRTL, menuActions, compact = f
             }} _active={{
                 transform: "scale(0.95)",
             }} onClick={() => {
-                const links = generateUserLinks(user, linkTemplates);
-                setQRCode(links, user.username);
                 setSubLink(subscriptionLink);
+                void resolveUserLinks().then((links) => {
+                    setQRCode(links, user.username);
+                });
             }}/>
 				</Tooltip>
 				{menuActions && menuActions.length > 0 && (<RowActionsMenu actions={menuActions} label={t("actions")}/>)}
@@ -1411,7 +1423,8 @@ const ActionButtons = ({ user, onDelete, onEdit, isRTL, menuActions, compact = f
         }} _active={{
             transform: "scale(0.95)",
         }} onClick={() => {
-            void copyTextToClipboard(configLinksText)
+            void resolveUserLinks()
+                .then((links) => copyTextToClipboard(links.join("\n")))
                 .then(() => setCopiedConfigs(true))
                 .catch(() => undefined);
         }}/>
@@ -1427,9 +1440,10 @@ const ActionButtons = ({ user, onDelete, onEdit, isRTL, menuActions, compact = f
         }} _active={{
             transform: "scale(0.95)",
         }} onClick={() => {
-            const links = generateUserLinks(user, linkTemplates);
-            setQRCode(links, user.username);
             setSubLink(subscriptionLink);
+            void resolveUserLinks().then((links) => {
+                setQRCode(links, user.username);
+            });
         }}/>
 			</Tooltip>
 			{onEdit && (<Tooltip label={t("userDialog.editUser")}>

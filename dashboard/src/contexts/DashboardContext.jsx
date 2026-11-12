@@ -159,7 +159,7 @@ const fetchUsers = (query, options = {}) => {
     }
     requestQuery.match_case = Boolean(sanitizedQuery.matchCase);
     requestQuery.match_whole_word = Boolean(sanitizedQuery.matchWholeWord);
-    requestQuery.links = true;
+    requestQuery.links = false;
     delete requestQuery.advancedFilters;
     delete requestQuery.owner;
     delete requestQuery.serviceId;
