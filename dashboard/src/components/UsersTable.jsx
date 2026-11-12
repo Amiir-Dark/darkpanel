@@ -1380,7 +1380,12 @@ const ActionButtons = ({ user, onDelete, onEdit, isRTL, menuActions, compact = f
             }} _active={{
                 transform: "scale(0.95)",
             }} onClick={() => {
-                setSubLink(subscriptionLink);
+                if (subscriptionLink) {
+                    setSubLink(subscriptionLink);
+                    setQRCode(userLinks, user.username);
+                    return;
+                }
+                setSubLink(null);
                 void resolveUserLinks().then((links) => {
                     setQRCode(links, user.username);
                 });

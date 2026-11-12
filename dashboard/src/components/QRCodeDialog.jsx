@@ -65,8 +65,8 @@ export const QRCodeDialog = () => {
         const timer = window.setTimeout(() => setCopied(false), 1200);
         return () => window.clearTimeout(timer);
     }, [copied]);
-    return (<Modal isOpen={isOpen} onClose={onClose} isCentered>
-			<ModalOverlay bg="blackAlpha.600" backdropFilter="blur(4px)"/>
+    return (<Modal isOpen={isOpen} onClose={onClose} isCentered motionPreset="none">
+			<ModalOverlay bg="blackAlpha.600"/>
 			<ModalContent mx={{ base: 3, md: 4 }} w="full" maxW={{ base: "90vw", sm: "360px", md: "380px" }} borderRadius="20px" overflow="hidden" bg="panel.surface" borderColor="panel.border" borderWidth="1px" boxShadow="0 20px 50px rgba(0, 0, 0, 0.6)">
 				<ModalHeader pt={5} pb={2}>
 					<HStack spacing={3} align="center">

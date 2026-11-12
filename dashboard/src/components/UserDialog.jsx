@@ -1262,9 +1262,8 @@ export const UserDialog = () => {
                 serviceBody.next_plans = [nextPlanPayload];
             }
             createUserWithService(serviceBody)
-                .then(() => {
+                .then((createdUser) => {
                 setSubmitStatus("success");
-                const qrUserPromise = fetchUserForQr(values.username);
                 toast({
                     title: t("userDialog.userCreated", { username: values.username }),
                     status: "success",
@@ -1272,13 +1271,15 @@ export const UserDialog = () => {
                     position: "top",
                     duration: 3000,
                 });
-                successCloseTimerRef.current = window.setTimeout(() => {
-                    onClose();
-                    successCloseTimerRef.current = null;
-                    qrUserPromise.then((qrUser) => {
-                        window.setTimeout(() => openUserQrDialog(qrUser), 0);
+                onClose();
+                if (createdUser && (createdUser.subscription_url || createdUser.key_subscription_url || createdUser.links?.length)) {
+                    openUserQrDialog(createdUser);
+                }
+                else {
+                    void fetchUserForQr(values.username).then((qrUser) => {
+                        openUserQrDialog(qrUser);
                     });
-                }, 1000);
+                }
             })
                 .catch((err) => {
                 if (err?.response?.status === 409 || err?.response?.status === 400) {
@@ -1343,10 +1344,7 @@ export const UserDialog = () => {
                 position: "top",
                 duration: 3000,
             });
-            successCloseTimerRef.current = window.setTimeout(() => {
-                onClose();
-                successCloseTimerRef.current = null;
-            }, 1000);
+            onClose();
         })
             .catch((err) => {
             if (err?.response?.status === 409 || err?.response?.status === 400) {
@@ -1443,7 +1441,7 @@ export const UserDialog = () => {
         }
         return result;
     };
-    return (<Modal isOpen={isOpen} onClose={onClose} size={isMobileDialog ? "full" : shouldCompactModal ? "lg" : "2xl"} scrollBehavior="inside">
+    return (<Modal isOpen={isOpen} onClose={onClose} size={isMobileDialog ? "full" : shouldCompactModal ? "lg" : "2xl"} scrollBehavior="inside" motionPreset="none">
 			<ModalOverlay bg="blackAlpha.300"/>
 
 			<FormProvider {...form}>

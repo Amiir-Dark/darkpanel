@@ -372,17 +372,19 @@ export const useDashboard = create(subscribeWithSelector((set, get) => ({
         });
     },
     createUser: (body) => {
-        return fetch(`/user`, { method: "POST", body }).then(() => {
+        return fetch(`/user`, { method: "POST", body }).then((createdUser) => {
             set({ editingUser: null });
             get().refetchUsers(true);
             queryClient.invalidateQueries(StatisticsQueryKey);
+            return createdUser;
         });
     },
     createUserWithService: (body) => {
-        return fetch(`/v2/users`, { method: "POST", body }).then(() => {
+        return fetch(`/v2/users`, { method: "POST", body }).then((createdUser) => {
             set({ editingUser: null });
             get().refetchUsers(true);
             queryClient.invalidateQueries(StatisticsQueryKey);
+            return createdUser;
         });
     },
     editUser: (username, body) => {
