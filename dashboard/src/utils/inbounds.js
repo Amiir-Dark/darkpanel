@@ -42,14 +42,6 @@ export const protocolOptions = [
     "openvpn",
     "wireguard",
     "amneziawg",
-    "ssh",
-    "sstp",
-    "gre",
-    "l2tp",
-    "pptp",
-    "ikev2",
-    "anyconnect",
-    "web",
 ];
 export const shadowsocksNetworkOptions = ["tcp,udp", "tcp", "udp"];
 export const streamNetworks = [
