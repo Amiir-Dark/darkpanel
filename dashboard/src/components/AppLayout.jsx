@@ -872,7 +872,7 @@ export function AppLayout() {
 								</Box>
 							</Box>)}
 						<Box position="fixed" left="0" right="0" bottom="0" zIndex={1500} px="3" pb="calc(env(safe-area-inset-bottom) + 8px)" pointerEvents="none">
-							<Box mx="auto" maxW="min(480px, 100%)" p="1.5" bg={dockBg} borderColor={dockBorder} borderWidth="1px" borderRadius="30px" boxShadow={dockShadow} backdropFilter="saturate(180%) blur(20px)" pointerEvents="auto">
+							<Box mx="auto" maxW="min(480px, 100%)" p="1.5" bg={dockBg} borderColor={dockBorder} borderWidth="1px" borderRadius="30px" boxShadow={dockShadow} pointerEvents="auto">
 								<HStack justify="space-between" position="relative" align="center" spacing={0} dir={isRTL ? "rtl" : "ltr"} onPointerDown={handleNavPointerDown} onPointerMove={handleNavPointerMove} onPointerUp={handleNavPointerUp} onPointerCancel={handleNavPointerCancel} sx={{
                 touchAction: "pan-y",
             }}>
@@ -942,7 +942,7 @@ export function AppLayout() {
 														</Button>
 													</PopoverTrigger>
 													<Portal>
-														<PopoverContent w="min(210px, calc(100vw - 24px))" maxW="calc(100vw - 24px)" maxH="calc(100vh - 160px)" overflowY="auto" borderRadius="22px" backdropFilter="saturate(180%) blur(20px)" bg={dockBg} borderColor={dockBorder} borderWidth="1px" boxShadow={dockShadow}>
+														<PopoverContent w="min(210px, calc(100vw - 24px))" maxW="calc(100vw - 24px)" maxH="calc(100vh - 160px)" overflowY="auto" borderRadius="22px" bg={dockBg} borderColor={dockBorder} borderWidth="1px" boxShadow={dockShadow}>
 															<PopoverBody position="relative" zIndex={1} p="2">
 																<VStack align="stretch" spacing={1}>
 																	{settingsMenuItems.map((entry) => {
@@ -997,7 +997,7 @@ export function AppLayout() {
 														</Button>
 													</PopoverTrigger>
 													<Portal>
-														<PopoverContent w="min(180px, calc(100vw - 24px))" maxW="calc(100vw - 24px)" maxH="calc(100vh - 160px)" overflowY="auto" borderRadius="22px" backdropFilter="saturate(180%) blur(20px)" bg={dockBg} borderColor={dockBorder} borderWidth="1px" boxShadow={dockShadow}>
+														<PopoverContent w="min(180px, calc(100vw - 24px))" maxW="calc(100vw - 24px)" maxH="calc(100vh - 160px)" overflowY="auto" borderRadius="22px" bg={dockBg} borderColor={dockBorder} borderWidth="1px" boxShadow={dockShadow}>
 															<PopoverBody position="relative" zIndex={1} p="2">
 																<Button variant="ghost" size="sm" w="full" justifyContent="flex-start" leftIcon={<LogoutIcon />} color="red.500" _hover={{ bg: menuHover }} _active={{ bg: menuHover }} _focus={{ bg: "transparent" }} _focusVisible={{ bg: menuHover }} onClick={async () => {
                             handleAccountMenuClose();
