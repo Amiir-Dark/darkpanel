@@ -10,28 +10,30 @@ import { AppLayout } from "../components/AppLayout";
 import { DashboardPage } from "./DashboardPage";
 import { UsersPage } from "./UsersPage";
 const AccessInsightsPage = lazy(() => import("./AccessInsightsPage"));
-import AdminsPage from "./AdminsPage";
+const AdminsPage = lazy(() => import("./AdminsPage"));
 const ApiDocsPage = lazy(async () => ({
     default: (await import("./ApiDocsPage")).ApiDocsPage,
 }));
 const BulkActionsPage = lazy(() => import("./BulkActionsPage"));
-import CoreSettingsPage from "./CoreSettingsPage";
-import HostsPage from "./HostsPage";
+const CoreSettingsPage = lazy(() => import("./CoreSettingsPage"));
+const HostsPage = lazy(() => import("./HostsPage"));
 const HAProxyPage = lazy(() => import("./HAProxyPage"));
-import { IntegrationSettingsPage } from "./IntegrationSettingsPage";
+const IntegrationSettingsPage = lazy(async () => ({
+    default: (await import("./IntegrationSettingsPage")).IntegrationSettingsPage,
+}));
 const PlaceholderSettingsPage = lazy(() => import("./PlaceholderSettingsPage"));
 const RecentActionsPage = lazy(async () => ({
     default: (await import("./RecentActionsPage")).RecentActionsPage,
 }));
 const MyAccountPage = lazy(() => import("./MyAccountPage"));
-import NodesPage from "./NodesPage";
+const NodesPage = lazy(() => import("./NodesPage"));
 const PhpMyAdminPage = lazy(async () => ({
     default: (await import("./PhpMyAdminPage")).PhpMyAdminPage,
 }));
 const ExternalAppsPage = lazy(async () => ({
     default: (await import("./ExternalAppsPage")).ExternalAppsPage,
 }));
-import ServicesPage from "./ServicesPage";
+const ServicesPage = lazy(() => import("./ServicesPage"));
 const TutorialsPage = lazy(async () => ({
     default: (await import("./TutorialsPage")).TutorialsPage,
 }));
@@ -182,7 +184,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "admins",
-                element: <AdminsPage />,
+                element: <LazyPage Page={AdminsPage}/>,
             },
             {
                 path: "myaccount",
@@ -198,11 +200,11 @@ export const router = createBrowserRouter([
             },
             {
                 path: "services",
-                element: <ServicesPage />,
+                element: <LazyPage Page={ServicesPage}/>,
             },
             {
                 path: "hosts",
-                element: <HostsPage />,
+                element: <LazyPage Page={HostsPage}/>,
             },
             {
                 path: "haproxy",
@@ -210,11 +212,11 @@ export const router = createBrowserRouter([
             },
             {
                 path: "node-settings",
-                element: <NodesPage />,
+                element: <LazyPage Page={NodesPage}/>,
             },
             {
                 path: "settings",
-                element: <IntegrationSettingsPage />,
+                element: <LazyPage Page={IntegrationSettingsPage}/>,
             },
             {
                 path: "placeholders",
@@ -226,7 +228,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "xray-settings",
-                element: <CoreSettingsPage />,
+                element: <LazyPage Page={CoreSettingsPage}/>,
             },
             {
                 path: "xray-logs",
