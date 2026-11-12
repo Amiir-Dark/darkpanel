@@ -1,263 +1,156 @@
-import { Box, Button, chakra, Flex, Spinner, Text, useToast, VStack, } from "@chakra-ui/react";
-import { ArrowPathIcon, LockClosedIcon, } from "@heroicons/react/24/outline";
-import { AppDialog } from "components/dialogs/AppDialog";
-import { Icon } from "components/Icon";
-import { Pagination } from "components/Pagination";
-import { UsersTable } from "components/UsersTable";
-import { PageHeader, PageLoadingSkeleton, } from "components/ui";
-import { UsersFilterBar, UsersSummaryCards } from "components/users";
-import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
-import useGetUser from "hooks/useGetUser";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, } from "react";
-import { Trans, useTranslation } from "react-i18next";
-import { fetch } from "service/http";
-import { AdminStatus } from "types/Admin";
-const AUTO_REFRESH_INTERVALS = [3_000, 5_000, 10_000, 30_000];
-import { UserDialog } from "components/UserDialog";
+import {
+	ArrowPathIcon,
+	MagnifyingGlassIcon,
+	PlusIcon,
+} from "@heroicons/react/24/outline";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { QRCodeDialog } from "components/QRCodeDialog";
-import { UserQuickEditModal } from "components/users/UserQuickEditModal";
-const ResetIcon = chakra(ArrowPathIcon, {
-    baseStyle: { w: 5, h: 5 },
-});
-const DisabledIcon = chakra(LockClosedIcon, {
-    baseStyle: { h: 12, w: 12 },
-});
-const UserActionDialog = ({ action }) => {
-    const { t } = useTranslation();
-    const toast = useToast();
-    const { resetUsageUser, revokeSubscriptionUser, resetDataUsage, revokeSubscription, } = {
-        resetUsageUser: useDashboard((state) => state.resetUsageUser),
-        revokeSubscriptionUser: useDashboard((state) => state.revokeSubscriptionUser),
-        resetDataUsage: useDashboard((state) => state.resetDataUsage),
-        revokeSubscription: useDashboard((state) => state.revokeSubscription),
-    };
-    const [loading, setLoading] = useState(false);
-    const user = action === "reset" ? resetUsageUser : revokeSubscriptionUser;
-    const isRevoke = action === "revoke";
-    const onClose = () => {
-        useDashboard.setState(isRevoke ? { revokeSubscriptionUser: null } : { resetUsageUser: null });
-    };
-    const onSubmit = () => {
-        if (user) {
-            setLoading(true);
-            (isRevoke ? revokeSubscription(user) : resetDataUsage(user))
-                .then(() => {
-                toast({
-                    title: t(isRevoke ? "revokeUserSub.success" : "resetUserUsage.success", { username: user.username }),
-                    status: "success",
-                    isClosable: true,
-                    position: "top",
-                    duration: 3000,
-                });
-            })
-                .catch(() => {
-                toast({
-                    title: t(isRevoke ? "revokeUserSub.error" : "resetUserUsage.error"),
-                    status: "error",
-                    isClosable: true,
-                    position: "top",
-                    duration: 3000,
-                });
-            })
-                .finally(() => {
-                setLoading(false);
-            });
-        }
-    };
-    return (<AppDialog isCentered isOpen={Boolean(user)} onClose={onClose} size="sm" title={<Icon color="blue">
-					<ResetIcon />
-				</Icon>} overlayProps={{ bg: "blackAlpha.300" }} contentProps={{ mx: "3" }} headerProps={{ pt: 6 }} closeButtonProps={{ mt: 3 }} footerProps={{ display: "flex" }} footer={<>
-					<Button size="sm" onClick={onClose} mr={3} w="full" variant="outline">
-						{t("cancel")}
-					</Button>
-					<Button size="sm" w="full" colorScheme="blue" onClick={onSubmit} leftIcon={loading ? <Spinner size="xs"/> : undefined}>
-						{t(isRevoke ? "revoke" : "reset")}
-					</Button>
-				</>}>
-			<Text fontWeight="semibold" fontSize="lg">
-				{t(isRevoke ? "revokeUserSub.title" : "resetUserUsage.title")}
-			</Text>
-			{user && (<Text mt={1} fontSize="sm" _dark={{ color: "gray.400" }} color="gray.600">
-					<Trans components={{ b: <b /> }}>
-						{t(isRevoke ? "revokeUserSub.prompt" : "resetUserUsage.prompt", {
-                username: user.username,
-            })}
-					</Trans>
-				</Text>)}
-		</AppDialog>);
-};
+import { UserDialog } from "components/UserDialog";
+import { UsersTable } from "components/UsersTable";
+import { UsersSummaryCards } from "components/users/UsersSummaryCards";
+import { Button, Input, Select } from "components/linear/UI";
+import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
+import { fetch } from "service/http";
+
 export const UsersPage = () => {
-    const { t, i18n } = useTranslation();
-    const isRTL = i18n.dir(i18n.language) === "rtl";
-    const loading = useDashboard((state) => state.loading);
-    const refetchUsers = useDashboard((state) => state.refetchUsers);
-    const isUserDialogOpen = useDashboard((state) => state.isCreatingNewUser || Boolean(state.editingUser));
-    const isQRCodeDialogOpen = useDashboard((state) => state.QRcodeLinks !== null);
-    const isQuickEditOpen = useDashboard((state) => state.quickEditUser !== null);
-    const { userData, getUserIsPending } = useGetUser();
-    const isAdminDisabled = userData.status === AdminStatus.Disabled;
-    const [autoRefreshInterval, setAutoRefreshInterval] = useState(5_000);
-    const topSpeedUsernameRef = useRef(undefined);
-    const onlineRefreshInFlightRef = useRef(false);
-    const refreshOnlineUsers = useCallback(async () => {
-        if (onlineRefreshInFlightRef.current ||
-            document.visibilityState === "hidden" ||
-            !navigator.onLine) {
-            return;
-        }
-        onlineRefreshInFlightRef.current = true;
-        try {
-            const dashboard = useDashboard.getState();
-            const needsGlobalSpeeds = dashboard.filters.advancedFilters?.includes("top_speed");
-            const visibleUsernames = dashboard.users.users.map((user) => user.username);
-            if (!needsGlobalSpeeds && visibleUsernames.length === 0)
-                return;
-            const response = await fetch("/users/onlines", {
-                query: {
-                    details: true,
-                    usernames: needsGlobalSpeeds ? undefined : visibleUsernames.join(","),
-                },
-            });
-            const usernames = Array.isArray(response) ? response : response.users;
-            const speeds = Array.isArray(response) ? {} : response.speeds;
-            const online = new Set(usernames);
-            let topSpeedUsername = "";
-            let topSpeed = 0;
-            for (const [username, speed] of Object.entries(speeds)) {
-                const total = (speed.upload_speed ?? 0) + (speed.download_speed ?? 0);
-                if (total > topSpeed) {
-                    topSpeed = total;
-                    topSpeedUsername = username;
-                }
-            }
-            const previousTopSpeedUsername = topSpeedUsernameRef.current;
-            topSpeedUsernameRef.current = topSpeedUsername;
-            useDashboard.setState((state) => {
-                const liveUserStats = Object.fromEntries(state.users.users.map((user) => {
-                    const speed = speeds[user.username];
-                    return [
-                        user.username,
-                        {
-                            is_online: online.has(user.username),
-                            upload_speed: speed?.upload_speed ?? 0,
-                            download_speed: speed?.download_speed ?? 0,
-                        },
-                    ];
-                }));
-                return { liveUserStats };
-            });
-            const state = useDashboard.getState();
-            if (previousTopSpeedUsername !== undefined &&
-                previousTopSpeedUsername !== topSpeedUsername &&
-                state.filters.advancedFilters?.includes("top_speed")) {
-                state.refetchUsers(true);
-            }
-        }
-        catch {
-            // Keep the last successful snapshot during a transient poll failure.
-        }
-        finally {
-            onlineRefreshInFlightRef.current = false;
-        }
-    }, []);
-    useEffect(() => {
-        if (getUserIsPending || isAdminDisabled)
-            return;
-        useDashboard.getState().refetchUsers(true);
-        fetchInbounds();
-    }, [getUserIsPending, isAdminDisabled]);
-    useEffect(() => {
-        if (getUserIsPending || isAdminDisabled || !autoRefreshInterval)
-            return;
-        void refreshOnlineUsers();
-        const timer = window.setInterval(() => void refreshOnlineUsers(), autoRefreshInterval);
-        return () => window.clearInterval(timer);
-    }, [
-        autoRefreshInterval,
-        getUserIsPending,
-        isAdminDisabled,
-        refreshOnlineUsers,
-    ]);
-    useEffect(() => {
-        if (getUserIsPending || isAdminDisabled || !autoRefreshInterval)
-            return;
-        const refreshWhenActive = () => {
-            if (document.visibilityState === "visible" && navigator.onLine) {
-                void refreshOnlineUsers();
-            }
-        };
-        document.addEventListener("visibilitychange", refreshWhenActive);
-        window.addEventListener("online", refreshWhenActive);
-        return () => {
-            document.removeEventListener("visibilitychange", refreshWhenActive);
-            window.removeEventListener("online", refreshWhenActive);
-        };
-    }, [
-        autoRefreshInterval,
-        getUserIsPending,
-        isAdminDisabled,
-        refreshOnlineUsers,
-    ]);
-    useEffect(() => {
-        if (getUserIsPending || isAdminDisabled)
-            return;
-        const shouldOpenCreate = sessionStorage.getItem("openCreateUser");
-        if (shouldOpenCreate === "true") {
-            sessionStorage.removeItem("openCreateUser");
-            useDashboard.getState().onCreateUser(true);
-        }
-    }, [getUserIsPending, isAdminDisabled]);
-    if (getUserIsPending) {
-        return <PageLoadingSkeleton />;
-    }
-    if (isAdminDisabled) {
-        return (<VStack spacing={5} align="stretch" dir={isRTL ? "rtl" : "ltr"}>
-				<PageHeader title={t("users")}/>
-				<Flex align="center" border="1px solid" borderColor="panel.border" borderRadius="8px" direction="column" justify="center" minH="420px" px={6} py={10} textAlign="center">
-					<DisabledIcon color="red.400" mb={5}/>
-					<Text fontSize="xl" fontWeight="bold" mb={2}>
-						{t("usersTable.adminDisabledTitle")}
-					</Text>
-					<Text color="panel.textSecondary" maxW="520px">
-						{userData.disabled_reason ||
-                t("usersTable.adminDisabledDescription")}
-					</Text>
-				</Flex>
-			</VStack>);
-    }
-    return (<Box position="relative" w="full">
-			{/* Ambient Aurora Top Glow matching Dashboard */}
-			<Box position="absolute" top="-90px" left="10%" right="10%" height="240px" bg="radial-gradient(ellipse 65% 55% at 50% 0%, var(--rb-panel-accent-glow) 0%, transparent 72%)" opacity={0.22} pointerEvents="none" zIndex={0}/>
+	const { t } = useTranslation();
+	const filters = useDashboard((s) => s.filters);
+	const loading = useDashboard((s) => s.loading);
+	const onFilterChange = useDashboard((s) => s.onFilterChange);
+	const refetchUsers = useDashboard((s) => s.refetchUsers);
+	const onCreateUser = useDashboard((s) => s.onCreateUser);
+	const isUserLimitReached = useDashboard((s) => s.isUserLimitReached);
+	const isUserDialogOpen = useDashboard((s) => s.isCreatingNewUser || Boolean(s.editingUser));
+	const isQRCodeDialogOpen = useDashboard((s) => s.QRcodeLinks !== null);
 
-			<VStack className="rb-users-section" spacing={5} align="stretch" dir={isRTL ? "rtl" : "ltr"} position="relative" zIndex={1}>
-				{/* Top Summary Resource Metric Cards */}
-				<UsersSummaryCards />
+	const [searchText, setSearchText] = useState(filters.search || "");
+	const [autoRefreshMs, setAutoRefreshMs] = useState(5000);
+	const searchTimerRef = useRef(null);
 
-				{/* Main Users Table Glassmorphic Shell */}
-				<Box className="rb-users-table-shell" position="relative" bg="panel.surface" background="linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%), var(--chakra-colors-panel-surface)" borderWidth="1px" borderColor="panel.border" borderRadius={{ base: "14px", sm: "16px", md: "20px" }} p={{ base: 2.5, sm: 4, md: 5 }} boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.06), 0 8px 32px -6px rgba(0, 0, 0, 0.2)" _before={{
-            content: '""',
-            position: "absolute",
-            top: 0,
-            left: "8%",
-            right: "8%",
-            height: "2px",
-            bg: "linear-gradient(90deg, transparent, var(--rb-panel-accent), var(--rb-panel-accent-glow), transparent)",
-            opacity: 0.85,
-        }}>
-					<UsersTable toolbar={<UsersFilterBar onRefresh={() => {
-                refetchUsers(true);
-                void refreshOnlineUsers();
-            }} isRefreshing={loading} autoRefreshInterval={autoRefreshInterval} onAutoRefreshChange={setAutoRefreshInterval}/>}/>
-				</Box>
+	const refreshOnlineUsers = useCallback(async () => {
+		if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+			return;
+		}
+		try {
+			const usernames = (useDashboard.getState().users?.users || []).map((u) => u.username);
+			if (!usernames.length) return;
+			const response = await fetch("/users/onlines", {
+				query: { details: true, usernames },
+			});
+			const onlineSet = new Set(Array.isArray(response?.users) ? response.users : []);
+			const speeds = response?.speeds || {};
+			const liveUserStats = {};
+			for (const name of usernames) {
+				liveUserStats[name] = {
+					is_online: onlineSet.has(name),
+					upload_speed: speeds[name]?.upload_speed,
+					download_speed: speeds[name]?.download_speed,
+				};
+			}
+			useDashboard.setState({ liveUserStats });
+		} catch {}
+	}, []);
 
-				<Pagination />
-			</VStack>
+	useEffect(() => {
+		useDashboard.getState().refetchUsers(true);
+		fetchInbounds();
+	}, []);
+
+	useEffect(() => {
+		if (!autoRefreshMs) return undefined;
+		const timer = window.setInterval(() => void refreshOnlineUsers(), autoRefreshMs);
+		return () => window.clearInterval(timer);
+	}, [autoRefreshMs, refreshOnlineUsers]);
+
+	const handleSearchChange = (value) => {
+		setSearchText(value);
+		if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+		searchTimerRef.current = window.setTimeout(() => {
+			onFilterChange({ search: value, offset: 0 });
+		}, 220);
+	};
+
+	return (
+		<div className="space-y-4">
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<h1 className="text-lg font-semibold tracking-tight text-ink">
+						{t("users") || "Users"}
+					</h1>
+				</div>
+				<div className="flex items-center gap-2">
+					<Select
+						value={autoRefreshMs}
+						onChange={(e) => setAutoRefreshMs(Number(e.target.value))}
+						className="!h-8 !w-36 text-xs"
+						aria-label="Auto refresh"
+					>
+						<option value={5000}>Auto refresh · 5s</option>
+						<option value={15000}>Auto refresh · 15s</option>
+						<option value={0}>Auto refresh · Off</option>
+					</Select>
+					<Button size="sm" onClick={() => refetchUsers(true)} loading={loading}>
+						<ArrowPathIcon className="h-3.5 w-3.5" />
+					</Button>
+					<Button
+						variant="primary"
+						size="sm"
+						disabled={isUserLimitReached}
+						onClick={() => onCreateUser(true)}
+					>
+						<PlusIcon className="h-4 w-4" />
+						<span>{t("createUser") || "Create User"}</span>
+					</Button>
+				</div>
+			</div>
+
+			<UsersSummaryCards />
+
+			<div className="flex flex-wrap items-center gap-2">
+				<div className="relative min-w-[200px] flex-1">
+					<MagnifyingGlassIcon className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-ink-tertiary" />
+					<Input
+						value={searchText}
+						onChange={(e) => handleSearchChange(e.target.value)}
+						placeholder={t("searchUsers") || "Search users..."}
+						className="ps-9"
+					/>
+				</div>
+
+				<Select
+					value={filters.status || ""}
+					onChange={(e) => onFilterChange({ status: e.target.value || undefined, offset: 0 })}
+					className="!w-36"
+					aria-label="Status filter"
+				>
+					<option value="">{t("allStatuses") || "All statuses"}</option>
+					<option value="active">{t("status_active") || "Active"}</option>
+					<option value="on_hold">{t("status_on_hold") || "On Hold"}</option>
+					<option value="limited">{t("status_limited") || "Limited"}</option>
+					<option value="expired">{t("status_expired") || "Expired"}</option>
+					<option value="disabled">{t("status_disabled") || "Disabled"}</option>
+				</Select>
+
+				<Select
+					value={filters.sort || "-created_at"}
+					onChange={(e) => onFilterChange({ sort: e.target.value, offset: 0 })}
+					className="!w-40"
+					aria-label="Sort"
+				>
+					<option value="-created_at">{t("sort.newest") || "Newest"}</option>
+					<option value="created_at">{t("sort.oldest") || "Oldest"}</option>
+					<option value="username">{t("sort.username") || "Username (A-Z)"}</option>
+					<option value="-used_traffic">{t("sort.mostUsed") || "Most Traffic"}</option>
+				</Select>
+			</div>
+
+			<UsersTable />
 
 			{isUserDialogOpen && <UserDialog />}
 			{isQRCodeDialogOpen && <QRCodeDialog />}
-			<UserActionDialog action="reset"/>
-			<UserActionDialog action="revoke"/>
-			{isQuickEditOpen && <UserQuickEditModal />}
-		</Box>);
+		</div>
+	);
 };
+
 export default UsersPage;

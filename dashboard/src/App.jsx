@@ -1,12 +1,14 @@
-import "react-datepicker/dist/react-datepicker.css";
-import { SeasonalOverlay } from "components/SeasonalOverlay";
-import { SeasonalProvider } from "contexts/SeasonalContext";
+import { ToastContainer } from "components/linear/Toast";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./pages/Router";
+
 function App() {
-    return (<SeasonalProvider>
-			<SeasonalOverlay />
-			<RouterProvider router={router} useTransitions={false}/>
-		</SeasonalProvider>);
+	return (
+		<>
+			<ToastContainer />
+			<RouterProvider router={router} useTransitions={false} />
+		</>
+	);
 }
+
 export default App;

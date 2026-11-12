@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+.rb-theme-dark {
+	--rb-canvas: #010102;
+	--rb-surface-1: #0f1011;
+	--rb-surface-2: #141516;
+	--rb-surface-3: #18191a;
+	--rb-hairline: #23252a;
+	--rb-hairline-strong: #34343a;
+	--rb-ink: #f7f8f8;
+	--rb-ink-muted: #d0d6e0;
+	--rb-ink-subtle: #8a8f98;
+	--rb-ink-tertiary: #62666d;
+	--rb-panel-accent: #5e6ad2;
+	--rb-panel-accent-hover: #828fff;
+	--rb-panel-accent-soft: rgba(94, 106, 210, 0.14);
+	color-scheme: dark;
+}
+
+.rb-theme-light {
+	--rb-canvas: #f5f6f7;
+	--rb-surface-1: #ffffff;
+	--rb-surface-2: #f8f9fa;
+	--rb-surface-3: #eff1f4;
+	--rb-hairline: #e2e5ea;
+	--rb-hairline-strong: #cfd4dc;
+	--rb-ink: #0f1011;
+	--rb-ink-muted: #3c4047;
+	--rb-ink-subtle: #666b73;
+	--rb-ink-tertiary: #8a8f98;
+	--rb-panel-accent: #5e6ad2;
+	--rb-panel-accent-hover: #4b57c0;
+	--rb-panel-accent-soft: rgba(94, 106, 210, 0.12);
+	color-scheme: light;
+}
+
+@layer base {
+	html,
+	body {
+		background-color: var(--rb-canvas);
+		color: var(--rb-ink);
+		font-family: Arad, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+		-webkit-font-smoothing: antialiased;
+	}
+}

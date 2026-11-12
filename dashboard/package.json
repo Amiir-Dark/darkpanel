@@ -48,6 +48,7 @@
 		"@biomejs/biome": "^2.3.15",
 		"esbuild": "^0.15.18",
 		"sass": "^1.57.1",
+		"tailwindcss": "^3.4.19",
 		"vitest": "^0.34.6"
 	}
 }

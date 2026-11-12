@@ -1,14 +1,14 @@
-import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
-import { PageLoadingSkeleton } from "../components/ui";
 import { lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { createBrowserRouter, isRouteErrorResponse, Navigate, redirect, useNavigate, useRouteError, } from "react-router-dom";
+import { Button, Spinner } from "../components/linear/UI";
 import { fetch } from "../service/http";
 import { recoverFromStaleChunk } from "../utils/chunkRecovery";
 import { Login } from "./Login";
 import { AppLayout } from "../components/AppLayout";
 import { DashboardPage } from "./DashboardPage";
 import { UsersPage } from "./UsersPage";
+const LegacyChakraWrapper = lazy(() => import("../components/linear/LegacyChakraWrapper"));
 const AccessInsightsPage = lazy(() => import("./AccessInsightsPage"));
 const AdminsPage = lazy(() => import("./AdminsPage"));
 const ApiDocsPage = lazy(async () => ({
@@ -44,10 +44,18 @@ const NotificationsPage = lazy(() => import("./NotificationsPage"));
 const SalesBotPage = lazy(async () => ({
     default: (await import("./SalesBotPage")).SalesBotPage,
 }));
-const PageLoading = () => <PageLoadingSkeleton />;
-const LazyPage = ({ Page }) => (<Suspense fallback={<PageLoading />}>
-		<Page />
-	</Suspense>);
+const PageLoading = () => (
+	<div className="flex h-64 items-center justify-center">
+		<Spinner className="h-6 w-6" />
+	</div>
+);
+const LazyPage = ({ Page }) => (
+	<Suspense fallback={<PageLoading />}>
+		<LegacyChakraWrapper>
+			<Page />
+		</LegacyChakraWrapper>
+	</Suspense>
+);
 const routeErrorMessage = (error) => {
     if (isRouteErrorResponse(error)) {
         return error.statusText || `Request failed with status ${error.status}`;
@@ -64,18 +72,20 @@ const RouteErrorPage = () => {
     useEffect(() => {
         recoverFromStaleChunk(error);
     }, [error]);
-    return (<Box minH="100vh" bg="gray.950" color="white" px={6} py={10}>
-			<VStack align="start" spacing={4} maxW="720px" mx="auto">
-				<Heading size="lg">{t("router.errorTitle")}</Heading>
-				<Text color="gray.300">{t("router.errorDescription")}</Text>
-				<Text bg="whiteAlpha.100" border="1px solid" borderColor="whiteAlpha.200" borderRadius="md" color="red.200" fontFamily="mono" fontSize="sm" p={4} w="full" whiteSpace="pre-wrap">
+    return (
+		<div className="min-h-screen bg-canvas px-6 py-10 text-ink">
+			<div className="mx-auto flex max-w-2xl flex-col items-start gap-4">
+				<h1 className="text-xl font-semibold">{t("router.errorTitle") || "Something went wrong"}</h1>
+				<p className="text-sm text-ink-subtle">{t("router.errorDescription") || "An unexpected error occurred."}</p>
+				<pre className="w-full whitespace-pre-wrap rounded-lg border border-red-500/30 bg-red-500/10 p-4 font-mono text-xs text-red-400">
 					{routeErrorMessage(error)}
-				</Text>
-				<Button colorScheme="blue" onClick={() => navigate("/")}>
-					{t("router.backToDashboard")}
+				</pre>
+				<Button variant="primary" onClick={() => navigate("/")}>
+					{t("router.backToDashboard") || "Back to dashboard"}
 				</Button>
-			</VStack>
-		</Box>);
+			</div>
+		</div>
+	);
 };
 const routeSegments = new Set([
     "login",

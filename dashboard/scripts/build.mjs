@@ -3,6 +3,8 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
+import postcss from "postcss";
+import tailwindcss from "tailwindcss";
 import sass from "sass";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -77,6 +79,25 @@ const jsconfigAliasPlugin = {
 			}
 			const resolved = resolveSrcCandidate(path.join(srcDir, args.path));
 			return resolved ? { path: resolved } : undefined;
+		});
+	},
+};
+
+const tailwindConfigPath = path.join(rootDir, "tailwind.config.cjs");
+
+const tailwindPlugin = {
+	name: "tailwind-css",
+	setup(build) {
+		build.onLoad({ filter: /styles[\\/]tailwind\.css$/ }, async (args) => {
+			const source = fs.readFileSync(args.path, "utf8");
+			const processed = await postcss([
+				tailwindcss(tailwindConfigPath),
+			]).process(source, { from: args.path });
+			return {
+				contents: processed.css,
+				loader: "css",
+				resolveDir: path.dirname(args.path),
+			};
 		});
 	},
 };
@@ -195,7 +216,7 @@ const buildOptions = {
 			...envVars,
 		}),
 	},
-	plugins: [jsconfigAliasPlugin, scssPlugin],
+	plugins: [jsconfigAliasPlugin, tailwindPlugin, scssPlugin],
 	logLevel: "info",
 };
 

@@ -1,4 +1,3 @@
-import { ChakraProvider, localStorageManager } from "@chakra-ui/react";
 import dayjs from "dayjs";
 import Duration from "dayjs/plugin/duration";
 import LocalizedFormat from "dayjs/plugin/localizedFormat";
@@ -11,43 +10,54 @@ import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "react-query";
 import { queryClient } from "utils/react-query";
 import { updateThemeColor } from "utils/themeColor";
-import { theme } from "../chakra.config";
 import App from "./App";
+import "styles/tailwind.css";
 import "index.scss";
+
 dayjs.extend(Timezone);
 dayjs.extend(LocalizedFormat);
 dayjs.extend(utc);
 dayjs.extend(RelativeTime);
 dayjs.extend(Duration);
-const normalizeThemeMode = (value) => value === "light" ? "light" : "dark";
+
+const normalizeThemeMode = (value) => (value === "light" ? "light" : "dark");
 const getInitialThemeMode = () => {
-    try {
-        return normalizeThemeMode(localStorage.getItem("rb-theme") || localStorageManager.get());
-    }
-    catch {
-        return "dark";
-    }
+	try {
+		return normalizeThemeMode(
+			localStorage.getItem("rb-theme") ||
+				localStorage.getItem("chakra-ui-color-mode"),
+		);
+	} catch {
+		return "dark";
+	}
 };
+
 const applyInitialThemeMode = (mode) => {
-    try {
-        localStorage.setItem("rb-theme", mode);
-        localStorage.setItem("chakra-ui-color-mode", mode);
-    }
-    catch { }
-    const targets = [document.documentElement, document.body].filter(Boolean);
-    targets.forEach((target) => {
-        target.classList.remove("rb-theme-light", "rb-theme-dark", "chakra-ui-light", "chakra-ui-dark");
-        target.classList.add(`rb-theme-${mode}`, `chakra-ui-${mode}`);
-        target.dataset.theme = mode;
-        target.style.colorScheme = mode;
-    });
-    updateThemeColor(mode);
+	try {
+		localStorage.setItem("rb-theme", mode);
+		localStorage.setItem("chakra-ui-color-mode", mode);
+	} catch {}
+	const targets = [document.documentElement, document.body].filter(Boolean);
+	targets.forEach((target) => {
+		target.classList.remove(
+			"rb-theme-light",
+			"rb-theme-dark",
+			"chakra-ui-light",
+			"chakra-ui-dark",
+		);
+		target.classList.add(`rb-theme-${mode}`, `chakra-ui-${mode}`);
+		target.dataset.theme = mode;
+		target.style.colorScheme = mode;
+	});
+	updateThemeColor(mode);
 };
+
 applyInitialThemeMode(getInitialThemeMode());
-ReactDOM.createRoot(document.getElementById("root")).render(<React.StrictMode>
-		<ChakraProvider theme={theme} colorModeManager={localStorageManager}>
-			<QueryClientProvider client={queryClient}>
-				<App />
-			</QueryClientProvider>
-		</ChakraProvider>
-	</React.StrictMode>);
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+	<React.StrictMode>
+		<QueryClientProvider client={queryClient}>
+			<App />
+		</QueryClientProvider>
+	</React.StrictMode>,
+);
