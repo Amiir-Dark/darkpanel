@@ -120,7 +120,11 @@ func (r Repository) UsersList(ctx context.Context, req UsersListRequest) (UsersR
 	}
 
 	items := make([]UserListItem, 0, len(rows))
-	for _, row := range rows {
+	var configUsers []*ConfigLinkUser
+	if req.IncludeLinks {
+		configUsers = make([]*ConfigLinkUser, len(rows))
+	}
+	for i, row := range rows {
 		item := row.item
 		item.Links = []string{}
 		admin := AdminLinkSettings{}
@@ -146,7 +150,7 @@ func (r Repository) UsersList(ctx context.Context, req UsersListRequest) (UsersR
 		item.SubscriptionURLs = subscription.Links.Without("primary")
 
 		if req.IncludeLinks {
-			configUser := ConfigLinkUser{
+			configUser := &ConfigLinkUser{
 				ID:                   row.id,
 				Username:             item.Username,
 				Status:               item.Status,
@@ -160,21 +164,26 @@ func (r Repository) UsersList(ctx context.Context, req UsersListRequest) (UsersR
 				Proxies:              proxiesByUser[row.id],
 				ServiceHostOrders:    map[int64]int64{},
 				ServerIP:             serverIP,
+				Hosts:                hosts,
 			}
 			if item.ServiceID != nil {
 				configUser.ServiceHostOrders = serviceOrders[*item.ServiceID]
 			}
-			configUser.Hosts = hosts
-			if err := r.populateWGAddresses(ctx, &configUser, inbounds); err != nil {
-				return UsersResponse{}, err
-			}
-			links, err := BuildConfigLinks(configUser, inbounds, inboundOrder, hosts, masks, false)
+			configUsers[i] = configUser
+		}
+		items = append(items, item)
+	}
+	if req.IncludeLinks && len(configUsers) > 0 {
+		if err := r.populateWGAddressesBatch(ctx, configUsers, inbounds); err != nil {
+			return UsersResponse{}, err
+		}
+		for i, configUser := range configUsers {
+			links, err := BuildConfigLinks(*configUser, inbounds, inboundOrder, hosts, masks, false)
 			if err != nil {
 				return UsersResponse{}, err
 			}
-			item.Links = links.Links
+			items[i].Links = links.Links
 		}
-		items = append(items, item)
 	}
 
 	activeTotal, err := r.usersActiveTotal(ctx, req)

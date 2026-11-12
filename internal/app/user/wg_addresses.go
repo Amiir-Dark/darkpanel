@@ -184,32 +184,62 @@ func isWGAddressConflict(err error) bool {
 }
 
 func (r Repository) populateWGAddresses(ctx context.Context, item *ConfigLinkUser, inbounds map[string]ResolvedInbound) error {
-	return r.populateTunnelAddresses(ctx, item, inbounds, "wireguard")
+	return r.populateTunnelAddressesBatch(ctx, []*ConfigLinkUser{item}, inbounds, "wireguard")
 }
 
 func (r Repository) populateTunnelAddresses(ctx context.Context, item *ConfigLinkUser, inbounds map[string]ResolvedInbound, protocol string) error {
-	if item == nil || item.ServiceID == nil || *item.ServiceID <= 0 {
+	return r.populateTunnelAddressesBatch(ctx, []*ConfigLinkUser{item}, inbounds, protocol)
+}
+
+func (r Repository) populateWGAddressesBatch(ctx context.Context, items []*ConfigLinkUser, inbounds map[string]ResolvedInbound) error {
+	return r.populateTunnelAddressesBatch(ctx, items, inbounds, "wireguard")
+}
+
+func (r Repository) populateTunnelAddressesBatch(ctx context.Context, items []*ConfigLinkUser, inbounds map[string]ResolvedInbound, protocol string) error {
+	if len(items) == 0 {
 		return nil
 	}
-	if item.WireGuardAddresses == nil {
-		item.WireGuardAddresses = map[string]string{}
-	}
-	for _, selected := range selectConfigHosts(item.Hosts, item.ServiceID) {
-		tag := selected.host.InboundTag
-		inbound, ok := inbounds[tag]
-		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != protocol || item.WireGuardAddresses[tag] != "" {
+	itemsByTag := map[string][]*ConfigLinkUser{}
+	userIDsByTag := map[string][]int64{}
+	seenByTag := map[string]map[int64]struct{}{}
+	tagOrder := []string{}
+	for _, item := range items {
+		if item == nil || item.ServiceID == nil || *item.ServiceID <= 0 {
 			continue
 		}
-		settings := normalizeWGProfileSettings(mapValue(inbound["settings"]))
+		if item.WireGuardAddresses == nil {
+			item.WireGuardAddresses = map[string]string{}
+		}
+		for _, selected := range selectConfigHosts(item.Hosts, item.ServiceID) {
+			tag := selected.host.InboundTag
+			inbound, ok := inbounds[tag]
+			if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != protocol || item.WireGuardAddresses[tag] != "" {
+				continue
+			}
+			if _, exists := itemsByTag[tag]; !exists {
+				tagOrder = append(tagOrder, tag)
+				seenByTag[tag] = map[int64]struct{}{}
+			}
+			itemsByTag[tag] = append(itemsByTag[tag], item)
+			if _, seen := seenByTag[tag][item.ID]; !seen {
+				seenByTag[tag][item.ID] = struct{}{}
+				userIDsByTag[tag] = append(userIDsByTag[tag], item.ID)
+			}
+		}
+	}
+	for _, tag := range tagOrder {
+		settings := normalizeWGProfileSettings(mapValue(inbounds[tag]["settings"]))
 		addressTag := tag
 		if protocol != "wireguard" {
 			addressTag = protocol + ":" + tag
 		}
-		addresses, err := r.WGIPv4Addresses(ctx, addressTag, []int64{item.ID}, stringValue(settings["address_pool"]), stringValue(settings["server_address"]))
+		addresses, err := r.WGIPv4Addresses(ctx, addressTag, userIDsByTag[tag], stringValue(settings["address_pool"]), stringValue(settings["server_address"]))
 		if err != nil {
 			return err
 		}
-		item.WireGuardAddresses[tag] = addresses[item.ID]
+		for _, item := range itemsByTag[tag] {
+			item.WireGuardAddresses[tag] = addresses[item.ID]
+		}
 	}
 	return nil
 }
