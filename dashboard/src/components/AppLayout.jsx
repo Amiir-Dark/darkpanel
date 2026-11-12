@@ -3,18 +3,25 @@ import {
 	Bars3Icon,
 	BellIcon,
 	ChartBarIcon,
+	CircleStackIcon,
+	ClockIcon,
 	Cog6ToothIcon,
 	CpuChipIcon,
-	GlobeAltIcon,
+	DocumentTextIcon,
+	ExclamationTriangleIcon,
+	EyeIcon,
 	HomeIcon,
 	LanguageIcon,
+	LinkIcon,
 	MoonIcon,
 	RectangleStackIcon,
 	ServerStackIcon,
 	ShieldCheckIcon,
+	ShoppingBagIcon,
 	SunIcon,
 	UserCircleIcon,
 	UsersIcon,
+	WrenchScrewdriverIcon,
 	XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
@@ -99,31 +106,47 @@ export const AppLayout = () => {
 			items: [
 				{ to: "/", label: t("dashboard") || "Dashboard", icon: HomeIcon, end: true, show: !isDisabled },
 				{ to: "/users", label: t("users") || "Users", icon: UsersIcon, show: true },
-				{ to: "/services", label: t("services.title") || "Services", icon: RectangleStackIcon, show: !isDisabled && isFullAccess },
-				{ to: "/hosts", label: t("hosts") || "Hosts", icon: GlobeAltIcon, show: !isDisabled && isFullAccess },
-				{ to: "/node-settings", label: t("nodes.title") || "Nodes", icon: ServerStackIcon, show: !isDisabled && isFullAccess },
-				{ to: "/xray-settings", label: t("xraySettings.title") || "Core Settings", icon: CpuChipIcon, show: !isDisabled && isFullAccess },
+				{ to: "/sales-bot", label: t("salesBot.title") || "Sales Bot", icon: ShoppingBagIcon, show: !isDisabled && isFullAccess },
+				{ to: "/usage", label: t("usage.title") || "Usage", icon: ChartBarIcon, show: !isDisabled },
 			],
 		},
 		{
-			label: t("management") || "System",
+			items: [
+				{ to: "/node-settings", label: t("nodes.title") || "Node", icon: ServerStackIcon, show: !isDisabled && isFullAccess },
+				{ to: "/services", label: t("services.title") || "Services", icon: RectangleStackIcon, show: !isDisabled && isFullAccess },
+				{ to: "/hosts", label: t("hosts") || "Inbounds & Hosts", icon: LinkIcon, show: !isDisabled && isFullAccess },
+			],
+		},
+		{
+			items: [
+				{ to: "/settings", label: t("settings.title") || "Settings", icon: Cog6ToothIcon, show: !isDisabled && isFullAccess },
+				{ to: "/xray-settings", label: t("xraySettings.title") || "Xray Settings", icon: WrenchScrewdriverIcon, show: !isDisabled && isFullAccess },
+				{ to: "/xray-logs", label: t("xrayLogs.title") || "Logs", icon: DocumentTextIcon, show: !isDisabled && isFullAccess },
+				{ to: "/access-insights", label: t("accessInsights.title") || "Live connections", icon: EyeIcon, show: !isDisabled && isFullAccess },
+				{ to: "/recent-actions", label: t("recentActions.title") || "Recent Actions", icon: ClockIcon, show: !isDisabled },
+				{ to: "/errors", label: t("errors.title") || "Errors", icon: ExclamationTriangleIcon, show: !isDisabled && isFullAccess },
+				{ to: "/phpmyadmin", label: "phpMyAdmin", icon: CircleStackIcon, show: !isDisabled && isFullAccess },
+			],
+		},
+		{
 			items: [
 				{ to: "/admins", label: t("admins.title") || "Admins", icon: ShieldCheckIcon, show: !isDisabled && isFullAccess },
-				{ to: "/usage", label: t("usage.title") || "Usage", icon: ChartBarIcon, show: !isDisabled },
-				{ to: "/notifications", label: t("notifications.title") || "Notifications", icon: BellIcon, badge: unreadCount, show: !isDisabled },
-				{ to: "/settings", label: t("settings.title") || "Settings", icon: Cog6ToothIcon, show: !isDisabled && isFullAccess },
 				{ to: "/myaccount", label: t("myAccount.title") || "My Account", icon: UserCircleIcon, show: !isDisabled },
+				{ to: "/notifications", label: t("notifications.title") || "Notifications", icon: BellIcon, badge: unreadCount, show: !isDisabled },
 			],
 		},
 	];
 
 	const renderNav = () => (
-		<nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-2.5 py-3">
+		<nav className="flex flex-1 flex-col gap-3 overflow-y-auto px-2.5 py-3">
 			{navGroups.map((group, gi) => {
 				const visible = group.items.filter((i) => i.show);
 				if (!visible.length) return null;
 				return (
-					<div key={gi} className="flex flex-col gap-0.5">
+					<div
+						key={gi}
+						className={`flex flex-col gap-0.5 ${gi > 0 ? "border-t border-hairline pt-3" : ""}`}
+					>
 						{group.label && (
 							<div className="mb-1 px-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-tertiary">
 								{group.label}
