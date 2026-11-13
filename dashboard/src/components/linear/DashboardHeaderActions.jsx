@@ -81,6 +81,7 @@ export const DashboardHeaderActions = () => {
 
 	const panel = info.data?.panel;
 	const update = panel?.update;
+	const updateAvailable = Boolean(update?.available);
 	const installMode = panel?.mode || panel?.install_mode;
 	const isBinary = installMode === "binary";
 
@@ -310,9 +311,20 @@ export const DashboardHeaderActions = () => {
 					</Button>
 				</Link>
 
-				<Button size="xs" variant="secondary" onClick={() => setModal("update")}>
+				<Button
+					size="xs"
+					variant={updateAvailable ? "primary" : "secondary"}
+					onClick={() => setModal("update")}
+				>
 					<ArrowUpCircleIcon className="h-3.5 w-3.5" />
-					<span>{t("dashboard.maintenance.updatePanel", "Update panel")}</span>
+					<span>
+						{updateAvailable
+							? t("dashboard.maintenance.updateAvailable", "Update available")
+							: t("dashboard.maintenance.updatePanel", "Update panel")}
+					</span>
+					{updateAvailable && (
+						<span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+					)}
 				</Button>
 
 				<div className="relative">
