@@ -185,6 +185,8 @@ func (s *Server) handleSubscriptionSettings(w http.ResponseWriter, r *http.Reque
 		(principal.Role == string(adminapp.RoleSudo) && principal.Context.Admin.Permissions.Sudo.Subscriptions) ||
 		principal.Context.Admin.Permissions.Sections.Integrations
 	hasSelfSub := hasSelfPermission(principal.Context.Admin, "self_subscription") ||
+		hasSelfPermission(principal.Context.Admin, "self_client_apps") ||
+		hasSelfPermission(principal.Context.Admin, "self_config_remarks") ||
 		principal.Role == string(adminapp.RoleReseller) ||
 		principal.Role == string(adminapp.RoleFullAccess) ||
 		principal.Context.Admin.Permissions.Sections.Integrations
@@ -268,6 +270,8 @@ func (s *Server) handleAdminSubscriptionSettingsPath(w http.ResponseWriter, r *h
 	if !manageAll {
 		isSelf := adminID == principal.ID || adminID == 0
 		hasSelfSub := hasSelfPermission(principal.Context.Admin, "self_subscription") ||
+			hasSelfPermission(principal.Context.Admin, "self_client_apps") ||
+			hasSelfPermission(principal.Context.Admin, "self_config_remarks") ||
 			principal.Role == string(adminapp.RoleReseller) ||
 			principal.Role == string(adminapp.RoleFullAccess) ||
 			principal.Context.Admin.Permissions.Sections.Integrations

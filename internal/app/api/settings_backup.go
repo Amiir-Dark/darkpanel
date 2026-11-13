@@ -26,10 +26,6 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	if !s.isBinaryRuntime() {
-		writeError(w, http.StatusConflict, backupapp.DisabledDetail)
-		return
-	}
 	service := s.backup()
 	result, err := service.Export(r.Context(), r.URL.Query().Get("scope"))
 	if err != nil {
@@ -49,10 +45,6 @@ func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-	if !s.isBinaryRuntime() {
-		writeError(w, http.StatusConflict, backupapp.DisabledDetail)
 		return
 	}
 	uploadPath, cleanup, err := saveBackupUpload(w, r)

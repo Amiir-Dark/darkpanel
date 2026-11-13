@@ -1,5 +1,6 @@
 import { Alert, AlertDescription, AlertIcon, Badge, Box, Button, Checkbox, Flex, FormControl, FormHelperText, FormLabel, HStack, IconButton, Modal, ModalCloseButton, ModalOverlay, Radio, RadioGroup, SimpleGrid, Stack, Text, Tooltip, useColorModeValue, useDisclosure, useToast, VStack, } from "@chakra-ui/react";
-import { ArrowDownIcon, ArrowPathIcon, ArrowUpIcon, EyeIcon, PencilSquareIcon, PlusIcon, TrashIcon, } from "@heroicons/react/24/outline";
+import { ArrowDownIcon, ArrowPathIcon, ArrowUpIcon, Bars2Icon, CheckIcon, EyeIcon, MagnifyingGlassIcon, PencilSquareIcon, PlusIcon, ServerStackIcon, TrashIcon, } from "@heroicons/react/24/outline";
+import { Badge as LinearBadge, Button as LinearButton, IconButton as LinearIconButton, Input as LinearInput, Modal as LinearModal } from "components/linear/UI";
 import { AppleEmojiText } from "components/common/AppleEmojiText";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
@@ -13,7 +14,7 @@ import { fetchInbounds, useDashboard, } from "contexts/DashboardContext";
 import { useHosts } from "contexts/HostsContext";
 import { useServicesStore, } from "contexts/ServicesContext";
 import { Pagination } from "components/Pagination";
-import { motion } from "framer-motion";
+import { motion, Reorder } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -232,201 +233,309 @@ const ServiceDialog = ({ isOpen, onClose, onSubmit, isSaving, allHosts, allAdmin
             setAutoInboundBusy(false);
         }
     };
-    return (<Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
-			<ModalOverlay bg="blackAlpha.400"/>
-			<XrayModalContent mx="3" sx={{
-            ".service-dialog-section .chakra-form-control": {
-                display: "block",
-                gridTemplateColumns: "none",
-            },
-            ".service-dialog-list": {
-                borderColor,
-                bg: subtleBg,
-            },
-        }}>
-				<XrayModalHeader>
-					{initialService ? t("services.editTitle") : t("services.createTitle")}
-				</XrayModalHeader>
-				<ModalCloseButton />
-				<XrayModalBody>
-					<Stack spacing={4}>
-						<Box className="xray-dialog-section service-dialog-section">
-							<Text fontSize="sm" fontWeight="semibold" mb={3}>
-								{t("services.basicInfo")}
-							</Text>
-							<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-								<Input label={t("services.fields.name")} value={name} onChange={(event) => setName(event.target.value)} maxLength={128} isRequired/>
-								<Input label={t("services.fields.description")} value={description ?? ""} onChange={(event) => setDescription(event.target.value)} maxLength={256}/>
-							</SimpleGrid>
-						</Box>
+    return (
+		<LinearModal
+			open={isOpen}
+			onClose={onClose}
+			title={
+				<span className="flex items-center gap-2">
+					<span className="flex h-7 w-7 items-center justify-center rounded-lg border border-accent/25 bg-accent/15 text-accent">
+						<ServerStackIcon className="h-4 w-4" />
+					</span>
+					<span>{initialService ? t("services.editTitle", "Edit Service") : t("services.createTitle", "Create Service")}</span>
+				</span>
+			}
+			maxWidth="max-w-2xl"
+			footer={
+				<div className="flex w-full items-center justify-end gap-2">
+					<LinearButton size="sm" onClick={onClose}>
+						{t("cancel", "Cancel")}
+					</LinearButton>
+					<LinearButton variant="primary" size="sm" loading={isSaving} onClick={submit}>
+						{initialService ? t("saveChanges", "Save Changes") : t("create", "Create")}
+					</LinearButton>
+				</div>
+			}
+		>
+			<div className="space-y-4">
+				{/* Basic Info */}
+				<div className="grid gap-3 sm:grid-cols-2">
+					<div>
+						<label className="mb-1 block text-xs font-medium text-ink-muted">
+							{t("services.fields.name", "Name")} <span className="text-red-400">*</span>
+						</label>
+						<LinearInput
+							value={name}
+							onChange={(event) => setName(event.target.value)}
+							maxLength={128}
+							placeholder={t("services.fields.name", "Service name")}
+							className="!h-9"
+						/>
+					</div>
+					<div>
+						<label className="mb-1 block text-xs font-medium text-ink-muted">
+							{t("services.fields.description", "Description")}
+						</label>
+						<LinearInput
+							value={description ?? ""}
+							onChange={(event) => setDescription(event.target.value)}
+							maxLength={256}
+							placeholder={t("services.fields.description", "Optional description")}
+							className="!h-9"
+						/>
+					</div>
+				</div>
 
-						<Box className="xray-dialog-section service-dialog-section">
-							<Flex justify="space-between" align="center" gap={3} mb={3}>
-								<Text fontSize="sm" fontWeight="semibold">
-									{t("services.fields.admins")}
-								</Text>
-								<Badge borderRadius="md" variant="subtle" colorScheme="primary">
-									{selectedAdmins.length} / {allAdmins.length}
-								</Badge>
-							</Flex>
-							<Stack spacing={2}>
-								<Checkbox isChecked={selectedAdmins.length === allAdmins.length &&
-            allAdmins.length > 0} onChange={handleToggleAllAdmins} isDisabled={allAdmins.length === 0}>
-									{t("services.selectAllAdmins")}
-								</Checkbox>
-								<SearchInput value={adminSearch} onChange={(event) => setAdminSearch(event.target.value)} placeholder={t("services.searchAdmins")} matchOptions={adminSearchMatch} onMatchOptionsChange={setAdminSearchMatch} onClear={() => setAdminSearch("")}/>
-								<VStack className="service-dialog-list" align="stretch" spacing={1.5} maxH="170px" overflowY="auto" borderWidth="1px" borderRadius="md" p={2}>
-									{allAdmins.length === 0 ? (<Text fontSize="sm" color={labelColor}>
-											{t("services.noAdminsFound")}
-										</Text>) : filteredAdmins.length === 0 ? (<Text fontSize="sm" color={labelColor}>
-											{t("services.noAdminsMatching")}
-										</Text>) : (filteredAdmins.map((admin) => {
-            const isSelected = selectedAdminsSet.has(admin.id);
-            return (<Box key={admin.id} borderWidth="1px" borderRadius="md" px={2.5} py={2} borderColor={isSelected ? "primary.400" : borderColor} bg={isSelected ? selectedBg : "transparent"} _hover={{
-                    borderColor: "primary.300",
-                    cursor: "pointer",
-                }} transition="background-color 0.1s ease-in-out, border-color 0.1s ease-in-out" onClick={() => handleAdminToggle(admin.id)} onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        handleAdminToggle(admin.id);
-                    }
-                }} role="button" tabIndex={0}>
-													<Flex align="center" justify="space-between" gap={3}>
-														<Text fontWeight="medium" noOfLines={1}>
-															{admin.username}
-														</Text>
-														{isSelected && (<Badge colorScheme="primary" borderRadius="md">
-																{t("services.selected")}
-															</Badge>)}
-													</Flex>
-												</Box>);
-        }))}
-								</VStack>
-							</Stack>
-							<Text fontSize="xs" color={labelColor} mt={2}>
-								{t("services.adminHint")}
-							</Text>
-						</Box>
+				{/* Hosts */}
+				<div className="border-t border-hairline pt-3.5">
+					<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+						<div className="flex items-center gap-2">
+							<span className="text-xs font-medium text-ink-muted">
+								{t("services.hosts", "Hosts")}
+							</span>
+							<LinearBadge variant="accent">
+								{selectedHosts.length} {t("services.selected", "selected")}
+							</LinearBadge>
+						</div>
+						<div className="relative w-52">
+							<MagnifyingGlassIcon className="pointer-events-none absolute start-2.5 top-2 h-3.5 w-3.5 text-ink-tertiary" />
+							<LinearInput
+								value={hostSearch}
+								onChange={(event) => setHostSearch(event.target.value)}
+								placeholder={t("services.searchHosts", "Search hosts...")}
+								className="!h-7 ps-8 !text-xs"
+							/>
+						</div>
+					</div>
 
-						<Box className="xray-dialog-section service-dialog-section">
-							<Flex justify="space-between" align={{ base: "flex-start", md: "center" }} gap={3} flexWrap="wrap" mb={3}>
-								<Box minW={0}>
-									<Text fontSize="sm" fontWeight="semibold">
-										{t("services.autoInbound.title")}
-									</Text>
-									<Text fontFamily="mono" fontSize="xs" color={labelColor} mt={1}>
-										{autoInboundTag ?? t("services.autoInbound.pendingTag")}
-									</Text>
-								</Box>
-								<Badge borderRadius="md" colorScheme={autoInboundExists ? "green" : "gray"}>
-									{autoInboundExists
-            ? t("services.autoInbound.statusCreated")
-            : t("services.autoInbound.statusMissing")}
-								</Badge>
-							</Flex>
-							<HStack spacing={2} flexWrap="wrap">
-								<Button size="sm" onClick={handleCreateAutoInbound} isDisabled={!initialService?.id || autoInboundExists || autoInboundBusy} isLoading={autoInboundBusy}>
-									{t("services.autoInbound.create")}
-								</Button>
-								<Button size="sm" variant="outline" colorScheme="red" onClick={handleDeleteAutoInbound} isDisabled={!initialService?.id || !autoInboundExists || autoInboundBusy} isLoading={autoInboundBusy}>
-									{t("services.autoInbound.delete")}
-								</Button>
-							</HStack>
-							<Text fontSize="xs" color={labelColor} mt={2}>
-								{t("services.autoInbound.helper")}
-							</Text>
-						</Box>
-
-						<SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
-							<Box className="xray-dialog-section service-dialog-section">
-								<Text fontSize="sm" fontWeight="semibold" mb={3}>
-									{t("services.availableHosts")}
-								</Text>
-								<Stack spacing={2}>
-									<SearchInput value={hostSearch} onChange={(event) => setHostSearch(event.target.value)} placeholder={t("services.searchHosts")} matchOptions={hostSearchMatch} onMatchOptionsChange={setHostSearchMatch} onClear={() => setHostSearch("")}/>
-									<VStack className="service-dialog-list" align="stretch" spacing={1.5} maxH="260px" overflowY="auto" borderWidth="1px" borderRadius="md" p={2}>
-										{availableHosts.length === 0 ? (<Text fontSize="sm" color={labelColor}>
-												{t("services.noHostsLeft")}
-											</Text>) : filteredAvailableHosts.length === 0 ? (<Text fontSize="sm" color={labelColor}>
-												{t("services.noHostsMatching")}
-											</Text>) : (filteredAvailableHosts.map((host) => (<Box key={host.id} borderWidth="1px" borderRadius="md" px={2.5} py={2} borderColor={hoveredHost === host.id
-                ? "primary.400"
-                : borderColor} _hover={{
-                borderColor: "primary.300",
-                cursor: "pointer",
-            }} onMouseEnter={() => setHoveredHost(host.id)} onMouseLeave={() => setHoveredHost(null)} onClick={() => handleHostToggle(host.id)}>
-													<Text fontWeight="medium" noOfLines={1}>
+					<div className="max-h-56 divide-y divide-hairline overflow-y-auto rounded-xl border border-hairline bg-surface-2/40">
+						{!hostSearch.trim() ? (
+							<Reorder.Group
+								axis="y"
+								values={selectedHosts}
+								onReorder={setSelectedHosts}
+								as="div"
+								className="divide-y divide-hairline"
+							>
+								{selectedHosts.map((hostId, index) => {
+									const host = hostMap.get(hostId);
+									if (!host) return null;
+									return (
+										<Reorder.Item
+											key={hostId}
+											value={hostId}
+											as="div"
+											whileDrag={{
+												scale: 1.015,
+												backgroundColor: "rgba(94, 106, 210, 0.22)",
+												boxShadow: "0 10px 28px -6px rgba(0, 0, 0, 0.65)",
+												zIndex: 20,
+											}}
+											transition={{ type: "spring", stiffness: 520, damping: 36 }}
+											className="relative flex cursor-grab select-none items-center justify-between gap-3 bg-accent/10 px-3 py-2 active:cursor-grabbing"
+										>
+											<div className="flex min-w-0 flex-1 items-center gap-2.5">
+												<Bars2Icon className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
+												<span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent text-[10px] font-semibold tabular-nums text-white">
+													{index + 1}
+												</span>
+												<div className="min-w-0 flex-1">
+													<div className="flex items-center gap-2">
+														<span className="truncate text-xs font-medium text-ink">
+															<AppleEmojiText>{host.label}</AppleEmojiText>
+														</span>
+														{host.isDisabled && (
+															<LinearBadge variant="danger">
+																{t("services.hostDisabled", "Disabled")}
+															</LinearBadge>
+														)}
+													</div>
+													<div className="text-[11px] text-ink-tertiary">
+														{host.protocol.toUpperCase()} · {host.inboundTag}
+													</div>
+												</div>
+											</div>
+											<div
+												className="flex shrink-0 items-center gap-1"
+												onPointerDown={(e) => e.stopPropagation()}
+											>
+												<LinearIconButton
+													size="sm"
+													title={t("services.moveUp", "Move up")}
+													disabled={index === 0}
+													onClick={() => moveHost(hostId, "up")}
+												>
+													<ArrowUpIcon className="h-3.5 w-3.5" />
+												</LinearIconButton>
+												<LinearIconButton
+													size="sm"
+													title={t("services.moveDown", "Move down")}
+													disabled={index === selectedHosts.length - 1}
+													onClick={() => moveHost(hostId, "down")}
+												>
+													<ArrowDownIcon className="h-3.5 w-3.5" />
+												</LinearIconButton>
+												<LinearIconButton
+													size="sm"
+													title={t("services.removeHost", "Remove")}
+													onClick={() => handleHostToggle(hostId)}
+												>
+													<TrashIcon className="h-3.5 w-3.5 text-red-400" />
+												</LinearIconButton>
+											</div>
+										</Reorder.Item>
+									);
+								})}
+							</Reorder.Group>
+						) : (
+							selectedHosts.map((hostId, index) => {
+								const host = hostMap.get(hostId);
+								if (!host) return null;
+								if (!matchesAnySearch([host.label, host.inboundTag, host.protocol], hostSearch, hostSearchMatch)) {
+									return null;
+								}
+								return (
+									<div
+										key={`sel-${hostId}`}
+										className="flex select-none items-center justify-between gap-3 bg-accent/10 px-3 py-2"
+									>
+										<div className="flex min-w-0 flex-1 items-center gap-2.5">
+											<span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent text-[10px] font-semibold tabular-nums text-white">
+												{index + 1}
+											</span>
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-2">
+													<span className="truncate text-xs font-medium text-ink">
 														<AppleEmojiText>{host.label}</AppleEmojiText>
-													</Text>
-													<Text fontSize="xs" color={labelColor}>
-														{host.protocol.toUpperCase()} - {host.inboundTag}
-													</Text>
-												</Box>)))}
-									</VStack>
-								</Stack>
-							</Box>
+													</span>
+													{host.isDisabled && (
+														<LinearBadge variant="danger">
+															{t("services.hostDisabled", "Disabled")}
+														</LinearBadge>
+													)}
+												</div>
+												<div className="text-[11px] text-ink-tertiary">
+													{host.protocol.toUpperCase()} · {host.inboundTag}
+												</div>
+											</div>
+										</div>
+										<div className="flex shrink-0 items-center gap-1">
+											<LinearIconButton
+												size="sm"
+												title={t("services.removeHost", "Remove")}
+												onClick={() => handleHostToggle(hostId)}
+											>
+												<TrashIcon className="h-3.5 w-3.5 text-red-400" />
+											</LinearIconButton>
+										</div>
+									</div>
+								);
+							})
+						)}
 
-							<Box className="xray-dialog-section service-dialog-section">
-								<Flex justify="space-between" align="center" gap={3} mb={3}>
-									<Text fontSize="sm" fontWeight="semibold">
-										{t("services.selectedHosts")}
-									</Text>
-									<Badge borderRadius="md" variant="subtle">
-										{selectedHosts.length}
-									</Badge>
-								</Flex>
-								<VStack className="service-dialog-list" align="stretch" spacing={1.5} maxH="300px" overflowY="auto" borderWidth="1px" borderRadius="md" p={2}>
-									{selectedHosts.length === 0 && (<Text fontSize="sm" color={labelColor}>
-											{t("services.noHostsSelected")}
-										</Text>)}
-									{selectedHosts.map((hostId, index) => {
-            const host = hostMap.get(hostId);
-            if (!host)
-                return null;
-            return (<motion.div layout key={hostId}>
-												<Flex align="center" justify="space-between" borderWidth="1px" borderRadius="md" borderColor={borderColor} px={2.5} py={2} gap={3}>
-													<Box minW={0}>
-														<HStack spacing={2} align="center">
-															<Text fontWeight="medium" noOfLines={1}>
-																<AppleEmojiText>{host.label}</AppleEmojiText>
-															</Text>
-															{host.isDisabled && (<Badge colorScheme="red" borderRadius="md">
-																	{t("services.hostDisabled")}
-																</Badge>)}
-														</HStack>
-														<Text fontSize="xs" color={labelColor}>
-															{host.protocol.toUpperCase()} - {host.inboundTag}
-														</Text>
-													</Box>
-													<HStack spacing={1} flexShrink={0}>
-														<Tooltip label={t("services.moveUp")}>
-															<IconButton aria-label="Move up" size="sm" variant="ghost" icon={<ArrowUpIcon width={16}/>} onClick={() => moveHost(hostId, "up")} isDisabled={index === 0}/>
-														</Tooltip>
-														<Tooltip label={t("services.moveDown")}>
-															<IconButton aria-label="Move down" size="sm" variant="ghost" icon={<ArrowDownIcon width={16}/>} onClick={() => moveHost(hostId, "down")} isDisabled={index === selectedHosts.length - 1}/>
-														</Tooltip>
-														<Tooltip label={t("services.removeHost")}>
-															<IconButton aria-label="Remove" size="sm" variant="ghost" icon={<TrashIcon width={16}/>} onClick={() => handleHostToggle(hostId)}/>
-														</Tooltip>
-													</HStack>
-												</Flex>
-											</motion.div>);
-        })}
-								</VStack>
-							</Box>
-						</SimpleGrid>
-					</Stack>
-				</XrayModalBody>
-				<XrayModalFooter>
-					<Button variant="ghost" onClick={onClose}>
-						{t("cancel")}
-					</Button>
-					<Button colorScheme="primary" onClick={submit} isLoading={isSaving}>
-						{initialService ? t("saveChanges") : t("create")}
-					</Button>
-				</XrayModalFooter>
-			</XrayModalContent>
-		</Modal>);
+						{filteredAvailableHosts.map((host) => (
+							<button
+								key={`avail-${host.id}`}
+								type="button"
+								onClick={() => handleHostToggle(host.id)}
+								className="group flex w-full items-center justify-between gap-3 px-3 py-2 text-start transition-colors hover:bg-surface-3/60"
+							>
+								<div className="flex min-w-0 flex-1 items-center gap-2.5">
+									<span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-hairline-strong bg-surface-1 text-ink-tertiary transition-colors group-hover:border-accent group-hover:text-accent">
+										<PlusIcon className="h-3 w-3" />
+									</span>
+									<div className="min-w-0 flex-1">
+										<div className="truncate text-xs font-medium text-ink-muted group-hover:text-ink">
+											<AppleEmojiText>{host.label}</AppleEmojiText>
+										</div>
+										<div className="text-[11px] text-ink-tertiary">
+											{host.protocol.toUpperCase()} · {host.inboundTag}
+										</div>
+									</div>
+								</div>
+								<span className="shrink-0 text-[11px] text-ink-tertiary opacity-0 transition-opacity group-hover:opacity-100">
+									Add
+								</span>
+							</button>
+						))}
+
+						{selectedHosts.length === 0 && filteredAvailableHosts.length === 0 && (
+							<div className="py-6 text-center text-xs text-ink-tertiary">
+								{t("services.noHostsMatching", "No hosts found")}
+							</div>
+						)}
+					</div>
+				</div>
+
+				{/* Admins */}
+				<div className="border-t border-hairline pt-3.5">
+					<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+						<div className="flex items-center gap-2">
+							<span className="text-xs font-medium text-ink-muted">
+								{t("services.fields.admins", "Admins")}
+							</span>
+							<LinearBadge variant="accent">
+								{selectedAdmins.length}/{allAdmins.length}
+							</LinearBadge>
+						</div>
+						<div className="flex items-center gap-2">
+							{allAdmins.length > 5 && (
+								<div className="relative w-36">
+									<MagnifyingGlassIcon className="pointer-events-none absolute start-2 top-1.5 h-3.5 w-3.5 text-ink-tertiary" />
+									<LinearInput
+										value={adminSearch}
+										onChange={(event) => setAdminSearch(event.target.value)}
+										placeholder={t("services.searchAdmins", "Search...")}
+										className="!h-6 ps-7 !text-[11px]"
+									/>
+								</div>
+							)}
+							<button
+								type="button"
+								disabled={allAdmins.length === 0}
+								onClick={handleToggleAllAdmins}
+								className="text-[11px] font-medium text-accent hover:underline disabled:opacity-40"
+							>
+								{selectedAdmins.length === allAdmins.length && allAdmins.length > 0
+									? t("unselectAll", "Clear all")
+									: t("services.selectAllAdmins", "Select all")}
+							</button>
+						</div>
+					</div>
+					<div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+						{allAdmins.length === 0 ? (
+							<div className="py-1 text-xs text-ink-tertiary">
+								{t("services.noAdminsFound", "No admins found")}
+							</div>
+						) : filteredAdmins.length === 0 ? (
+							<div className="py-1 text-xs text-ink-tertiary">
+								{t("services.noAdminsMatching", "No matching admins")}
+							</div>
+						) : (
+							filteredAdmins.map((admin) => {
+								const isSelected = selectedAdminsSet.has(admin.id);
+								return (
+									<button
+										key={admin.id}
+										type="button"
+										onClick={() => handleAdminToggle(admin.id)}
+										className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+											isSelected
+												? "border-accent bg-accent/15 text-ink"
+												: "border-hairline bg-surface-2/60 text-ink-muted hover:border-hairline-strong hover:bg-surface-2 hover:text-ink"
+										}`}
+									>
+										<span>{admin.username}</span>
+										{isSelected && <CheckIcon className="h-3 w-3 text-accent" />}
+									</button>
+								);
+							})
+						)}
+					</div>
+				</div>
+			</div>
+		</LinearModal>
+	);
 };
 const ServicesPage = () => {
     const { t } = useTranslation();

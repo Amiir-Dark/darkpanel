@@ -103,7 +103,10 @@ import {
 import { fetch } from "service/http";
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 
-const RevenueChart = lazy(() => import("react-apexcharts"));
+const RevenueChart = lazy(async () => {
+    const mod = await import("react-apexcharts");
+    return { default: mod?.default?.default || mod?.default || mod };
+});
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { Navigate } from "react-router-dom";

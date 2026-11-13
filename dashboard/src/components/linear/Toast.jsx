@@ -52,7 +52,7 @@ export const ToastContainer = () => {
 			{toasts.map((t) => (
 				<div
 					key={t.id}
-					className={`pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-panel border px-3.5 py-2.5 shadow-xl ${statusStyles[t.status] || statusStyles.info}`}
+					className={`rb-anim-toast pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-panel border px-3.5 py-2.5 shadow-xl ${statusStyles[t.status] || statusStyles.info}`}
 				>
 					<div className="mt-0.5">
 						<StatusIcon status={t.status} />
@@ -74,3 +74,4 @@ export const ToastContainer = () => {
 		</div>
 	);
 };
+

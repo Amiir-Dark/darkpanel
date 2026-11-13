@@ -97,6 +97,14 @@ const selfPermissionKeys = [
         key: SelfPermissionToggle.SelfSubscription,
         label: "admins.self.subscription",
     },
+    {
+        key: SelfPermissionToggle.SelfClientApps,
+        label: "admins.self.clientApps",
+    },
+    {
+        key: SelfPermissionToggle.SelfConfigRemarks,
+        label: "admins.self.configRemarks",
+    },
 ];
 const sudoPermissionKeys = [
     { key: AdminSudoScope.Nodes, label: "admins.sudo.nodes" },

@@ -243,7 +243,7 @@ export const AccountSecurity = ({ totpEnabled, canChangePassword, canManageSessi
 										</Text>
 									</Box>
 								</HStack>
-								<Button size="sm" h="10" minW={{ sm: "112px" }} variant="outline" colorScheme={totpEnabled ? "red" : "primary"} isLoading={twoFactorLoading} onClick={totpEnabled ? disableDialog.onOpen : beginSetup} alignSelf={{ base: "flex-end", sm: "center" }}>
+								<Button size="sm" h="10" minW={{ sm: "112px" }} variant="outline" color={totpEnabled ? "#d4d4d8" : "#a5b4fc"} borderColor={totpEnabled ? "rgba(255,255,255,0.12)" : "rgba(99,102,241,0.4)"} _hover={totpEnabled ? { bg: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.35)", color: "#fca5a5" } : { bg: "rgba(99,102,241,0.15)" }} isLoading={twoFactorLoading} onClick={totpEnabled ? disableDialog.onOpen : beginSetup} alignSelf={{ base: "flex-end", sm: "center" }}>
 									{totpEnabled
                     ? t("myaccount.disableTwoFactor")
                     : t("myaccount.enableTwoFactor")}
@@ -295,7 +295,7 @@ export const AccountSecurity = ({ totpEnabled, canChangePassword, canManageSessi
 												</Text>
 											</Box>
 										</HStack>
-										<Button colorScheme="red" isLoading={revoke.isLoading && revoke.variables === session.id} onClick={() => revoke.mutate(session.id)} size="sm" variant="ghost" leftIcon={<ArrowRightStartOnRectangleIcon width={16}/>} alignSelf={{ base: "flex-end", sm: "center" }} aria-label={`${t("header.logout")} ${browserLabel}`}>
+										<Button color="#a1a1aa" _hover={{ color: "#fca5a5", bg: "rgba(239,68,68,0.1)" }} isLoading={revoke.isLoading && revoke.variables === session.id} onClick={() => revoke.mutate(session.id)} size="sm" variant="ghost" leftIcon={<ArrowRightStartOnRectangleIcon width={16}/>} alignSelf={{ base: "flex-end", sm: "center" }} aria-label={`${t("header.logout")} ${browserLabel}`}>
 											{t("header.logout")}
 										</Button>
 									</Flex>
@@ -305,7 +305,7 @@ export const AccountSecurity = ({ totpEnabled, canChangePassword, canManageSessi
 					</Stack>
 				</ChartBox>)}
 
-			<AppDialog isOpen={setupDialog.isOpen} onClose={setupDialog.onClose} title={t("myaccount.enableTwoFactor")} footer={<Button colorScheme="primary" isDisabled={code.length !== 6} isLoading={twoFactorLoading} onClick={confirmSetup}>
+			<AppDialog isOpen={setupDialog.isOpen} onClose={setupDialog.onClose} title={t("myaccount.enableTwoFactor")} footer={<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} isDisabled={code.length !== 6} isLoading={twoFactorLoading} onClick={confirmSetup}>
 						{t("confirm")}
 					</Button>}>
 				<Stack align="center" spacing={4}>

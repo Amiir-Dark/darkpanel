@@ -6,6 +6,18 @@ import { formatBytes } from "utils/formatByte";
 export const UsersSummaryCards = () => {
 	const { t } = useTranslation();
 	const users = useDashboard((state) => state.users);
+	const filters = useDashboard((state) => state.filters);
+	const onFilterChange = useDashboard((state) => state.onFilterChange);
+	const advancedFilters = filters.advancedFilters ?? [];
+	const isOnlineFilterActive = advancedFilters.includes("online");
+
+	const toggleOnlineFilter = () => {
+		const next = advancedFilters.filter((f) => f !== "online" && f !== "offline");
+		if (!isOnlineFilterActive) {
+			next.push("online");
+		}
+		onFilterChange({ advancedFilters: next, offset: 0 });
+	};
 
 	const total = users.total ?? 0;
 	const active = users.status_breakdown?.active ?? 0;
@@ -16,26 +28,28 @@ export const UsersSummaryCards = () => {
 
 	const items = [
 		{
-			label: t("usersSummary.totalUsers") || "Total Users",
+			label: t("usersSummary.totalUsers", "Total Users"),
 			value: total,
-			sub: `${formatBytes(usageTotal)} ${t("total") || "total usage"}`,
+			sub: `${formatBytes(usageTotal)} ${t("total", "total usage")}`,
 		},
 		{
-			label: t("usersSummary.activeUsers") || "Active Users",
+			label: t("usersSummary.activeUsers", "Active Users"),
 			value: active,
 			sub: `${total > 0 ? Math.round((active / total) * 100) : 0}% of total`,
 			badge: total > 0 ? `${Math.round((active / total) * 100)}%` : undefined,
 			badgeVariant: "success",
 		},
 		{
-			label: t("usersSummary.onlineUsers") || "Online Users",
+			label: t("usersSummary.onlineUsers", "Online Users"),
 			value: online,
-			sub: online > 0 ? t("usersSummary.activeConnections") || "Active connections" : t("usersSummary.noActiveConnections") || "No active connections",
+			sub: online > 0 ? t("usersSummary.activeConnections", "Active connections") : t("usersSummary.noActiveConnections", "No active connections"),
 			badge: online > 0 ? "Live" : "Idle",
 			badgeVariant: online > 0 ? "success" : "neutral",
+			onClick: toggleOnlineFilter,
+			active: isOnlineFilterActive,
 		},
 		{
-			label: t("usersSummary.limitedUsers") || "Limited / Expired",
+			label: t("usersSummary.limitedUsers", "Limited / Expired"),
 			value: limited + expired,
 			sub: `${limited} limited · ${expired} expired`,
 			badge: limited + expired > 0 ? `${limited + expired}` : undefined,
@@ -46,7 +60,13 @@ export const UsersSummaryCards = () => {
 	return (
 		<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 			{items.map((item) => (
-				<Card key={item.label} className="p-3.5 sm:p-4">
+				<Card
+					key={item.label}
+					onClick={item.onClick}
+					className={`p-3.5 sm:p-4 ${
+						item.onClick ? "cursor-pointer transition-colors hover:border-hairline-strong" : ""
+					} ${item.active ? "border-indigo-500/60 bg-indigo-500/[0.06]" : ""}`}
+				>
 					<div className="flex items-center justify-between gap-2">
 						<span className="truncate text-xs font-medium text-ink-subtle">{item.label}</span>
 						{item.badge && <Badge variant={item.badgeVariant || "neutral"}>{item.badge}</Badge>}

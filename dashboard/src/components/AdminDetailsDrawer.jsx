@@ -53,8 +53,8 @@ export const AdminDetailsDrawer = () => {
         ? t("nodes.disabled")
         : t("nodes.enabled");
     return (<Modal isCentered isOpen={isAdminDetailsOpen} onClose={closeAdminDetails} scrollBehavior="inside" size="xl">
-			<ModalOverlay bg="blackAlpha.400"/>
-			<XrayModalContent mx="3">
+			<ModalOverlay bg="rgba(4, 5, 10, 0.72)" backdropFilter="blur(8px)"/>
+			<XrayModalContent mx="3" maxW="680px" sx={{ bg: "#11131c", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "16px", boxShadow: "0 24px 64px rgba(0, 0, 0, 0.65)", color: "#f4f4f5", overflow: "hidden", ".chakra-modal__header": { borderBottom: "1px solid rgba(255, 255, 255, 0.06)", bg: "rgba(255, 255, 255, 0.015)" }, ".chakra-modal__footer": { borderTop: "1px solid rgba(255, 255, 255, 0.06)", bg: "rgba(255, 255, 255, 0.015)" } }}>
 				<XrayModalHeader subtitle={admin
             ? t("admins.details.summary", {
                 active: activeUsers,

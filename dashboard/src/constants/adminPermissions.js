@@ -40,6 +40,8 @@ const USER_ONLY_TEMPLATE = {
         self_2fa: true,
         self_placeholders: false,
         self_subscription: false,
+        self_client_apps: false,
+        self_config_remarks: false,
     },
     sudo: {
         [AdminSudoScope.Nodes]: false,
@@ -91,6 +93,8 @@ const RESELLER_TEMPLATE = {
         self_2fa: true,
         self_placeholders: true,
         self_subscription: true,
+        self_client_apps: true,
+        self_config_remarks: true,
     },
     sudo: {
         [AdminSudoScope.Nodes]: false,
@@ -142,6 +146,8 @@ const SUDO_TEMPLATE = {
         self_2fa: true,
         self_placeholders: true,
         self_subscription: true,
+        self_client_apps: true,
+        self_config_remarks: true,
     },
     sudo: {
         [AdminSudoScope.Nodes]: true,
@@ -193,6 +199,8 @@ const FULL_ACCESS_TEMPLATE = {
         self_2fa: true,
         self_placeholders: true,
         self_subscription: true,
+        self_client_apps: true,
+        self_config_remarks: true,
     },
     sudo: {
         [AdminSudoScope.Nodes]: true,

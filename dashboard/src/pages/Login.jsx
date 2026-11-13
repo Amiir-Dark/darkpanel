@@ -65,11 +65,8 @@ export const Login = () => {
 					navigate("/", { replace: true });
 				} else if (session.state === "disabled") {
 					navigate("/users", { replace: true });
-				} else if (session.state === "pending_2fa") {
-					setStep("otp");
-				} else if (session.state === "setup_required") {
-					setSetup(await start2FASetup());
-					setStep("setup");
+				} else if (session.state === "pending_2fa" || session.state === "setup_required") {
+					await logout().catch(() => {});
 				}
 			})
 			.catch(() => {});
@@ -83,20 +80,14 @@ export const Login = () => {
 	const handleCredentialsSubmit = async (e) => {
 		e.preventDefault();
 		if (!username.trim() || !password.trim()) {
-			setError(t("login.fieldRequired") || "Username and password are required");
+			setError(t("login.fieldRequired", "Username and password are required"));
 			return;
 		}
 		setError("");
 		setLoading(true);
 		try {
 			const session = await createSession(username.trim(), password);
-			if (session.state === "pending_2fa") {
-				setStep("otp");
-				setOtp("");
-			} else if (session.state === "setup_required") {
-				setSetup(await start2FASetup());
-				setStep("setup");
-			} else if (session.state === "disabled") {
+			if (session.state === "disabled") {
 				completeLogin("/users");
 			} else {
 				completeLogin("/");
@@ -175,8 +166,8 @@ export const Login = () => {
 						<h1 className="text-base font-semibold tracking-tight text-ink">Rebecca</h1>
 						<p className="text-xs text-ink-subtle">
 							{step === "credentials"
-								? t("login.welcomeDescription") || "Sign in to your admin workspace"
-								: t("login.twoFactorTitle") || "Two-Factor Authentication"}
+								? t("login.welcomeBack", "Welcome back, please enter your details")
+								: t("login.twoFactorTitle", "Two-Factor Authentication")}
 						</p>
 					</div>
 				</div>
@@ -191,7 +182,7 @@ export const Login = () => {
 					<form onSubmit={handleCredentialsSubmit} className="space-y-4">
 						<div>
 							<label className="mb-1.5 block text-xs font-medium text-ink-muted">
-								{t("username") || "Username"}
+								{t("username", "Username")}
 							</label>
 							<div className="relative">
 								<UserIcon className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-ink-tertiary" />
@@ -203,7 +194,7 @@ export const Login = () => {
 										setUsername(e.target.value);
 										if (error) setError("");
 									}}
-									placeholder={t("login.usernamePlaceholder") || "admin"}
+									placeholder={t("login.usernamePlaceholder", "admin")}
 									className="ps-9"
 								/>
 							</div>
@@ -211,7 +202,7 @@ export const Login = () => {
 
 						<div>
 							<label className="mb-1.5 block text-xs font-medium text-ink-muted">
-								{t("password") || "Password"}
+								{t("password", "Password")}
 							</label>
 							<div className="relative">
 								<LockClosedIcon className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-ink-tertiary" />
@@ -245,7 +236,7 @@ export const Login = () => {
 							className="w-full"
 						>
 							<ArrowRightOnRectangleIcon className="h-4 w-4" />
-							<span>{t("login.login") || "Login"}</span>
+							<span>{t("login", "Login")}</span>
 						</Button>
 					</form>
 				) : (
@@ -263,7 +254,7 @@ export const Login = () => {
 
 						<div>
 							<label className="mb-1.5 block text-xs font-medium text-ink-muted">
-								{t("login.otpCode") || "Verification Code"}
+								{t("login.authenticationCode", "Verification Code")}
 							</label>
 							<Input
 								type="text"
@@ -278,10 +269,10 @@ export const Login = () => {
 
 						<div className="flex gap-2">
 							<Button type="button" variant="secondary" onClick={handleCancel2FA} className="flex-1">
-								{t("cancel") || "Back"}
+								{t("cancel", "Back")}
 							</Button>
 							<Button type="submit" variant="primary" loading={loading} disabled={!otp.trim() || loading} className="flex-1">
-								{t("verify") || "Verify"}
+								{t("verify", "Verify")}
 							</Button>
 						</div>
 					</form>

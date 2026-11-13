@@ -126,6 +126,9 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 		AppendUsernameToLinks:          base.AppendUsernameToLinks,
 		SubscriptionTemplateEnabled:    base.SubscriptionTemplateEnabled,
 		InboundRemarks:                 base.InboundRemarks,
+		InboundOrder:                   base.InboundOrder,
+		DisabledInboundIDs:             base.DisabledInboundIDs,
+		InfoConfigs:                    base.InfoConfigs,
 		TelegramBackupEnabled:          base.TelegramBackupEnabled,
 		TelegramBotToken:               base.TelegramBotToken,
 		TelegramChatID:                 base.TelegramChatID,
@@ -249,6 +252,12 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 				}
 				effective.InboundRemarks = remarks
 			}
+		case "inbound_order":
+			effective.InboundOrder = parseInt64Slice(value)
+		case "disabled_inbounds":
+			effective.DisabledInboundIDs = parseInt64Slice(value)
+		case "info_configs":
+			effective.InfoConfigs = parseInfoConfigs(value)
 		case "telegram_backup_enabled":
 			effective.TelegramBackupEnabled = truthy(value)
 		case "telegram_bot_token":
@@ -501,4 +510,84 @@ func copyStringMap(src map[string]string) map[string]string {
 		dst[k] = v
 	}
 	return dst
+}
+
+func parseInfoConfigs(value any) []InfoConfigItem {
+	rawSlice, ok := value.([]any)
+	if !ok {
+		if typed, ok := value.([]InfoConfigItem); ok {
+			return append([]InfoConfigItem(nil), typed...)
+		}
+		return nil
+	}
+	items := make([]InfoConfigItem, 0, len(rawSlice))
+	for _, entry := range rawSlice {
+		switch typed := entry.(type) {
+		case string:
+			if strings.TrimSpace(typed) != "" {
+				items = append(items, InfoConfigItem{Remark: typed, Address: "1.1.1.1", Enabled: true})
+			}
+		case map[string]any:
+			remark, _ := coerceString(typed["remark"])
+			if strings.TrimSpace(remark) == "" {
+				continue
+			}
+			id, _ := coerceString(typed["id"])
+			address, _ := coerceString(typed["address"])
+			if strings.TrimSpace(address) == "" {
+				address = "1.1.1.1"
+			}
+			enabled := true
+			if rawEnabled, exists := typed["enabled"]; exists {
+				enabled = truthy(rawEnabled)
+			}
+			items = append(items, InfoConfigItem{
+				ID:      id,
+				Remark:  remark,
+				Address: address,
+				Enabled: enabled,
+			})
+		}
+	}
+	return items
+}
+
+func parseInt64Slice(value any) []int64 {
+	rawSlice, ok := value.([]any)
+	if !ok {
+		if typed, ok := value.([]int64); ok {
+			return append([]int64(nil), typed...)
+		}
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(rawSlice))
+	out := make([]int64, 0, len(rawSlice))
+	for _, entry := range rawSlice {
+		var id int64
+		switch v := entry.(type) {
+		case float64:
+			id = int64(v)
+		case int64:
+			id = v
+		case int:
+			id = int64(v)
+		case string:
+			parsed, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+			if err != nil {
+				continue
+			}
+			id = parsed
+		default:
+			continue
+		}
+		if id <= 0 {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }

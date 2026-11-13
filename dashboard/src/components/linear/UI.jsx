@@ -31,7 +31,7 @@ export const Button = ({
 		<button
 			type={type}
 			disabled={disabled || loading}
-			className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:pointer-events-none disabled:opacity-50 ${variants[variant] || variants.secondary} ${sizes[size] || sizes.md} ${className}`}
+			className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:pointer-events-none disabled:opacity-50 ${variants[variant] || variants.secondary} ${sizes[size] || sizes.md} ${className}`}
 			{...props}
 		>
 			{loading && (
@@ -66,7 +66,7 @@ export const IconButton = ({
 			type={type}
 			title={title}
 			aria-label={props["aria-label"] || title}
-			className={`inline-flex items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:pointer-events-none disabled:opacity-40 ${variants[variant] || variants.ghost} ${sizes[size] || sizes.sm} ${className}`}
+			className={`inline-flex items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:pointer-events-none disabled:opacity-40 ${variants[variant] || variants.ghost} ${sizes[size] || sizes.sm} ${className}`}
 			{...props}
 		>
 			{children}
@@ -103,7 +103,7 @@ export const Badge = ({ variant = "neutral", className = "", children }) => {
 		success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25",
 		warning: "bg-amber-500/10 text-amber-400 border-amber-500/25",
 		danger: "bg-red-500/10 text-red-400 border-red-500/25",
-		accent: "bg-accent-soft text-accent border-accent/30",
+		accent: "bg-accent-soft text-accent border-indigo-500/30",
 	};
 	return (
 		<span
@@ -145,7 +145,7 @@ export const Modal = ({
 
 	return (
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4"
+			className="rb-anim-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4"
 			onClick={(e) => {
 				if (e.target === e.currentTarget) onClose?.();
 			}}
@@ -153,7 +153,7 @@ export const Modal = ({
 			aria-modal="true"
 		>
 			<div
-				className={`flex max-h-[90vh] w-full ${maxWidth} flex-col overflow-hidden rounded-xl border border-hairline-strong bg-surface-1 shadow-2xl`}
+				className={`rb-anim-modal flex max-h-[90vh] w-full ${maxWidth} flex-col overflow-hidden rounded-xl border border-hairline-strong bg-surface-1 shadow-2xl`}
 			>
 				{(title || onClose) && (
 					<div className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-3.5">
@@ -170,7 +170,7 @@ export const Modal = ({
 				)}
 				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
 				{footer && (
-					<div className="flex items-center justify-end gap-2 border-t border-hairline bg-surface-2/50 px-5 py-3">
+					<div className="flex items-center justify-end gap-2 border-t border-hairline bg-surface-2 px-5 py-3">
 						{footer}
 					</div>
 				)}
@@ -184,3 +184,4 @@ export const Spinner = ({ className = "h-5 w-5" }) => (
 		className={`inline-block animate-spin rounded-full border-2 border-hairline-strong border-t-accent ${className}`}
 	/>
 );
+

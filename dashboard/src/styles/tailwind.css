@@ -45,4 +45,135 @@
 		font-family: Arad, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 		-webkit-font-smoothing: antialiased;
 	}
+
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--rb-hairline-strong) transparent;
+	}
+
+	*::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+
+	*::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	*::-webkit-scrollbar-thumb {
+		background-color: var(--rb-hairline-strong);
+		border-radius: 9999px;
+	}
+
+	*::-webkit-scrollbar-thumb:hover {
+		background-color: var(--rb-ink-tertiary);
+	}
 }
+
+.rb-no-scrollbar {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.rb-no-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+
+@keyframes rb-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes rb-modal-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px) scale(0.97);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes rb-menu-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes rb-drawer-in-ltr {
+	from {
+		opacity: 0;
+		transform: translateX(-18px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes rb-drawer-in-rtl {
+	from {
+		opacity: 0;
+		transform: translateX(18px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes rb-toast-in {
+	from {
+		opacity: 0;
+		transform: translateY(-8px) scale(0.97);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+.rb-anim-backdrop {
+	animation: rb-fade-in 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.rb-anim-modal {
+	animation: rb-modal-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.rb-anim-menu {
+	animation: rb-menu-in 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.rb-anim-drawer {
+	animation: rb-drawer-in-ltr 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+[dir="rtl"] .rb-anim-drawer {
+	animation-name: rb-drawer-in-rtl;
+}
+
+.rb-anim-toast {
+	animation: rb-toast-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rb-anim-backdrop,
+	.rb-anim-modal,
+	.rb-anim-menu,
+	.rb-anim-drawer,
+	.rb-anim-toast {
+		animation: none !important;
+	}
+}
+

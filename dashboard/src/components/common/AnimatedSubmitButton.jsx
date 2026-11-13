@@ -19,12 +19,12 @@ export const AnimatedSubmitButton = ({ compactWidth = 44, containerProps, h = "4
         ? "green.500"
         : status === "error"
             ? "red.500"
-            : "primary.500";
+            : "#6366f1";
     const buttonHoverBg = status === "success"
         ? "green.500"
         : status === "error"
             ? "red.500"
-            : "primary.600";
+            : "#4f46e5";
     const content = (() => {
         if (status === "loading") {
             return (<Box aria-hidden border="2px solid" borderColor="whiteAlpha.600" borderTopColor="white" className="animate-spin" h="20px" rounded="full" w="20px"/>);

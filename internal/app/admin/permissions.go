@@ -72,6 +72,8 @@ func RoleDefaultPermissions(role AdminRole) AdminPermissions {
 	if role.IsGlobal() || role == RoleReseller {
 		selfPermissions["self_placeholders"] = true
 		selfPermissions["self_subscription"] = true
+		selfPermissions["self_client_apps"] = true
+		selfPermissions["self_config_remarks"] = true
 	}
 	return AdminPermissions{
 		Users:           baseUsers,
@@ -125,6 +127,16 @@ func MergePermissions(base AdminPermissions, raw any) (AdminPermissions, error) 
 				result.SelfPermissions["self_subscription"] = true
 			}
 		}
+		if base.SelfPermissions["self_client_apps"] && !result.SelfPermissions["self_client_apps"] {
+			if rawSelf, ok := overrideMap["self_permissions"].(map[string]any); !ok || rawSelf["self_client_apps"] == nil {
+				result.SelfPermissions["self_client_apps"] = true
+			}
+		}
+		if base.SelfPermissions["self_config_remarks"] && !result.SelfPermissions["self_config_remarks"] {
+			if rawSelf, ok := overrideMap["self_permissions"].(map[string]any); !ok || rawSelf["self_config_remarks"] == nil {
+				result.SelfPermissions["self_config_remarks"] = true
+			}
+		}
 	}
 	return result, nil
 }
@@ -138,6 +150,8 @@ func defaultSelfPermissions() map[string]bool {
 		"self_2fa":             true,
 		"self_placeholders":    false,
 		"self_subscription":    false,
+		"self_client_apps":     false,
+		"self_config_remarks":  false,
 	}
 }
 

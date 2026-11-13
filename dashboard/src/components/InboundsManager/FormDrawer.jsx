@@ -10,7 +10,89 @@ import { generateAnyConnectSelfSigned, generateEchCert, generateOVSelfSigned, ge
 import { buildInboundPayload, createDefaultHysteriaUdpMask, createDefaultInboundForm, createDefaultTlsCertificate, protocolOptions, rawInboundToFormValues, shadowsocksNetworkOptions, sniffingOptions, streamNetworks, streamSecurityOptions, tlsAlpnOptions, tlsCipherOptions, tlsFingerprintOptions, tlsUsageOptions, tlsVersionOptions, validateInboundFormFields, validateInboundFormValues, } from "utils/inbounds";
 import { NumericInput } from "../common/NumericInput";
 import { DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
+import { Button as LinearButton } from "components/linear/UI";
 import { XrayModalBody, XrayModalContent, XrayModalFooter, XrayModalHeader, } from "../xray/XrayDialog";
+const INBOUND_MODAL_SX = {
+    bg: "#11131c",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    borderRadius: "16px",
+    boxShadow: "0 24px 64px rgba(0, 0, 0, 0.65)",
+    color: "#f4f4f5",
+    overflow: "hidden",
+    ".chakra-modal__header": {
+        borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+        bg: "rgba(255, 255, 255, 0.015)",
+        py: 3.5,
+        px: 5,
+        fontSize: "15px",
+        fontWeight: 600,
+    },
+    ".chakra-modal__body": {
+        px: 5,
+        py: 4,
+    },
+    ".chakra-modal__footer": {
+        borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+        bg: "rgba(255, 255, 255, 0.015)",
+        px: 5,
+        py: 3,
+    },
+    ".chakra-tabs__tablist": {
+        display: "inline-flex",
+        bg: "rgba(255, 255, 255, 0.04)",
+        border: "1px solid rgba(255, 255, 255, 0.07)",
+        borderRadius: "10px",
+        p: "3px",
+        gap: "4px",
+        mb: 3,
+        borderBottom: "none",
+    },
+    ".chakra-tabs__tab": {
+        px: 3.5,
+        py: 1.5,
+        fontSize: "12px",
+        fontWeight: 500,
+        color: "#a1a1aa",
+        borderRadius: "7px",
+        borderBottom: "none !important",
+        transition: "all 0.15s ease",
+        _hover: { color: "#f4f4f5" },
+        _selected: {
+            bg: "rgba(99, 102, 241, 0.18)",
+            color: "#a5b4fc",
+            borderBottom: "none !important",
+            boxShadow: "inset 0 0 0 1px rgba(99, 102, 241, 0.35)",
+        },
+    },
+    ".xray-dialog-section": {
+        bg: "rgba(255, 255, 255, 0.02)",
+        border: "1px solid rgba(255, 255, 255, 0.06)",
+        borderRadius: "12px",
+        p: 4,
+    },
+    ".xray-dialog-section .chakra-form__label": {
+        fontSize: "12px",
+        color: "#a1a1aa",
+        mb: 1.5,
+    },
+    "input.chakra-input, select.chakra-select, textarea.chakra-textarea": {
+        bg: "rgba(255, 255, 255, 0.03)",
+        borderColor: "rgba(255, 255, 255, 0.09)",
+        borderRadius: "8px",
+        fontSize: "13px",
+        _hover: { borderColor: "rgba(255, 255, 255, 0.18)" },
+        _focus: {
+            borderColor: "#6366f1",
+            boxShadow: "0 0 0 1px #6366f1",
+        },
+    },
+    ".chakra-accordion__item": {
+        bg: "rgba(255, 255, 255, 0.02)",
+        border: "1px solid rgba(255, 255, 255, 0.07)",
+        borderRadius: "10px",
+        overflow: "hidden",
+    },
+};
 const Input = forwardRef((props, ref) => (<ChakraInput size="sm" ref={ref} {...props}/>));
 Input.displayName = "InboundFormInput";
 const Textarea = forwardRef((props, ref) => (<ChakraTextarea size="sm" resize="vertical" ref={ref} {...props}/>));
@@ -1112,9 +1194,9 @@ export const InboundFormModal = ({ isOpen, mode, initialValue, isSubmitting, exi
 					</Button>
 				</HStack>
 			</Stack>) : null;
-    return (<Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside" isCentered>
-			<ModalOverlay bg="blackAlpha.400"/>
-			<XrayModalContent maxW={{ base: "95vw", md: "4xl" }} className="inbound-form-modal">
+    return (<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
+			<ModalOverlay bg="rgba(4, 5, 10, 0.72)" backdropFilter="blur(8px)"/>
+			<XrayModalContent maxW={{ base: "95vw", md: "680px" }} sx={INBOUND_MODAL_SX} className="inbound-form-modal">
 				<XrayModalHeader>
 					{mode === "create"
             ? t("inbounds.add")
@@ -4311,16 +4393,16 @@ export const InboundFormModal = ({ isOpen, mode, initialValue, isSubmitting, exi
 								<Button variant="ghost" onClick={onClose}>
 									{t("hostsPage.cancel")}
 								</Button>
-								<Button colorScheme="primary" isLoading={isSubmitting} isDisabled={hasBlockingErrorsWithJson} onClick={handleSubmit(submitForm)}>
+								<LinearButton size="sm" variant="primary" loading={isSubmitting} disabled={hasBlockingErrorsWithJson} onClick={handleSubmit(submitForm)}>
 									{t("save")}
-								</Button>
+								</LinearButton>
 							</>) : (<>
 								<Button variant="ghost" onClick={onClose}>
 									{t("hostsPage.cancel")}
 								</Button>
-								<Button colorScheme="primary" isLoading={isSubmitting} isDisabled={hasBlockingErrorsWithJson} onClick={handleSubmit(submitForm)}>
+								<LinearButton size="sm" variant="primary" loading={isSubmitting} disabled={hasBlockingErrorsWithJson} onClick={handleSubmit(submitForm)}>
 									{isCloneMode ? t("inbounds.cloneSubmit") : t("create")}
-								</Button>
+								</LinearButton>
 							</>)}
 					</HStack>
 				</XrayModalFooter>

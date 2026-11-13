@@ -84,7 +84,7 @@ export const ADVANCED_FILTER_OPTIONS = [
         fallback: "On-hold users",
     },
 ];
-export const Filters = ({ for: target = "users", actionsSlot, showRefresh = true, ...props }) => {
+export const Filters = ({ for: target = "users", actionsSlot, showRefresh = true, showCreate = true, ...props }) => {
     const usersLoading = useDashboard((state) => state.loading);
     const userFilters = useDashboard((state) => state.filters);
     const onUserFilterChange = useDashboard((state) => state.onFilterChange);
@@ -109,9 +109,9 @@ export const Filters = ({ for: target = "users", actionsSlot, showRefresh = true
         userData.role === AdminRole.FullAccess);
     const canCreateUsers = hasFullAccess ||
         Boolean(userData.permissions?.users?.[UserPermissionToggle.Create]);
-    const showCreateButton = target === "users"
+    const showCreateButton = showCreate && (target === "users"
         ? canCreateUsers && !isCurrentAdminDisabled && !userManagementLocked
-        : canManageAdmins;
+        : canManageAdmins);
     const loading = target === "users" ? usersLoading : adminsLoading;
     const isUserFilters = target === "users";
     const filters = isUserFilters ? userFilters : adminFilters;
@@ -345,7 +345,7 @@ export const Filters = ({ for: target = "users", actionsSlot, showRefresh = true
             (activeFilters.length > 0 ||
                 Boolean(serviceId) ||
                 Boolean(ownerFilter)) && (<Wrap mt={2} spacing={2}>
-								{activeFilters.map((filterKey) => (<Tag key={filterKey} size="sm" borderRadius="full" variant="solid" colorScheme="primary">
+								{activeFilters.map((filterKey) => (<Tag key={filterKey} size="sm" borderRadius="full" variant="subtle" bg="rgba(99, 102, 241, 0.18)" color="#a5b4fc">
 										<TagLabel>{getFilterLabel(filterKey)}</TagLabel>
 										<TagCloseButton onClick={(event) => {
                     event.preventDefault();
@@ -353,7 +353,7 @@ export const Filters = ({ for: target = "users", actionsSlot, showRefresh = true
                     toggleAdvancedFilter(filterKey);
                 }}/>
 									</Tag>))}
-								{serviceId && (<Tag key="service" size="sm" borderRadius="full" variant="solid" colorScheme="primary">
+								{serviceId && (<Tag key="service" size="sm" borderRadius="full" variant="subtle" bg="rgba(99, 102, 241, 0.18)" color="#a5b4fc">
 										<TagLabel>
 											{t("filters.advanced.serviceTag", {
                     name: serviceOptions.find((service) => service.id === serviceId)?.name ?? serviceId,
@@ -365,7 +365,7 @@ export const Filters = ({ for: target = "users", actionsSlot, showRefresh = true
                     handleServiceChange("");
                 }}/>
 									</Tag>)}
-								{ownerFilter && (<Tag key="owner" size="sm" borderRadius="full" variant="solid" colorScheme="primary">
+								{ownerFilter && (<Tag key="owner" size="sm" borderRadius="full" variant="subtle" bg="rgba(99, 102, 241, 0.18)" color="#a5b4fc">
 										<TagLabel>
 											{ownerFilter === userData.username
                     ? t("filters.advanced.adminTagMine")
@@ -383,7 +383,7 @@ export const Filters = ({ for: target = "users", actionsSlot, showRefresh = true
 			<GridItem colSpan={{ base: 1, md: 1, lg: 2 }} order={{ base: 1, md: 2 }}>
 				<Stack direction={{ base: "column", sm: "row" }} spacing={{ base: 2, sm: 3 }} justifyContent={{ base: "flex-start", md: "flex-end" }} alignItems={{ base: "stretch", sm: "center" }} w="full" flexWrap="wrap">
 					{actionsSlot}
-					{showCreateButton && (<Button colorScheme="primary" size="sm" onClick={handleCreate} isDisabled={target === "admins" && !canManageAdmins} leftIcon={isMobile ? undefined : <PlusIconStyled />} h="36px" px={3} borderRadius="4px" minW={isMobile ? "auto" : "8rem"} fontSize={isMobile ? "xs" : "sm"} fontWeight="semibold" whiteSpace="nowrap" w={{ base: "full", sm: "auto" }}>
+					{showCreateButton && (<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} size="sm" onClick={handleCreate} isDisabled={target === "admins" && !canManageAdmins} leftIcon={isMobile ? undefined : <PlusIconStyled />} h="36px" px={3} borderRadius="8px" minW={isMobile ? "auto" : "8rem"} fontSize={isMobile ? "xs" : "sm"} fontWeight="semibold" whiteSpace="nowrap" w={{ base: "full", sm: "auto" }}>
 							{target === "users" ? t("createUser") : t("admins.addAdmin")}
 						</Button>)}
 				</Stack>

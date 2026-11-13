@@ -70,6 +70,8 @@ export const AppSidebar = ({ collapsed, inDrawer = false, onRequestExpand, }) =>
         self_api_keys: false,
         self_placeholders: false,
         self_subscription: false,
+        self_client_apps: false,
+        self_config_remarks: false,
     };
     const baseSelf = userData.permissions?.self_permissions ?? defaultSelfPermissions;
     const selfAccess = isFullAccess
@@ -78,9 +80,7 @@ export const AppSidebar = ({ collapsed, inDrawer = false, onRequestExpand, }) =>
     const canViewUsage = Boolean(sectionAccess?.[AdminSection.Usage]);
     const canViewAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
     const canViewServicesSection = Boolean(sectionAccess?.[AdminSection.Services]);
-    const canViewRecentActions = isFullAccess ||
-        (userData.role === AdminRole.Sudo &&
-            Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
+    const canViewRecentActions = isFullAccess;
     const canManagePlaceholders = isFullAccess ||
         (userData.role === AdminRole.Sudo &&
             Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
@@ -88,7 +88,9 @@ export const AppSidebar = ({ collapsed, inDrawer = false, onRequestExpand, }) =>
     const canManageSubscription = isFullAccess ||
         (userData.role === AdminRole.Sudo &&
             Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
-        Boolean(baseSelf.self_subscription);
+        Boolean(baseSelf.self_subscription) ||
+        Boolean(baseSelf.self_client_apps) ||
+        Boolean(baseSelf.self_config_remarks);
     const [hasNewTutorials, setHasNewTutorials] = useState(false);
     const checkTutorialUpdates = useCallback(async () => {
         const langKey = normalizeTutorialLang(i18n.language);
@@ -246,7 +248,7 @@ export const AppSidebar = ({ collapsed, inDrawer = false, onRequestExpand, }) =>
             icon: SalesBotIconStyled,
         });
     }
-    if (canViewUsage) {
+    if (isFullAccess && canViewUsage) {
         mainItems.push({
             title: t("usage.menu"),
             url: "/usage",
@@ -336,11 +338,13 @@ export const AppSidebar = ({ collapsed, inDrawer = false, onRequestExpand, }) =>
             icon: MyAccountIconStyled,
         });
     }
-    adminAccountItems.push({
-        title: t("notifications.menu"),
-        url: "/notifications",
-        icon: NotificationIconStyled,
-    });
+    if (isFullAccess) {
+        adminAccountItems.push({
+            title: t("notifications.menu"),
+            url: "/notifications",
+            icon: NotificationIconStyled,
+        });
+    }
     const sidebarGroups = [
         { id: "main", items: mainItems },
         { id: "infrastructure", items: infraItems },
@@ -358,6 +362,9 @@ export const AppSidebar = ({ collapsed, inDrawer = false, onRequestExpand, }) =>
             return location.pathname === "/";
         }
         if (itemUrl === "/settings") {
+            if (!sectionAccess?.[AdminSection.Integrations]) {
+                return location.pathname === "/settings";
+            }
             return (location.pathname === "/settings" &&
                 location.hash !== "#subscriptions");
         }

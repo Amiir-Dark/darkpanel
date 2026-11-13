@@ -57,6 +57,8 @@ const adminPermissionsSchema = z.object({
         self_2fa: z.boolean(),
         self_placeholders: z.boolean(),
         self_subscription: z.boolean(),
+        self_client_apps: z.boolean().optional(),
+        self_config_remarks: z.boolean().optional(),
     }),
     sections: z.object({
         usage: z.boolean(),
@@ -937,7 +939,7 @@ export const AdminDialog = () => {
             selectedServices.length < serviceOptions.length} onChange={handleToggleAllServices} isDisabled={serviceOptions.length === 0}>
 									{t("admins.selectAllServices")}
 								</Checkbox>
-								<Badge borderRadius="md" variant="subtle" colorScheme="primary">
+								<Badge borderRadius="md" variant="subtle" bg="rgba(99, 102, 241, 0.16)" color="#a5b4fc">
 									{selectedServices.length} / {serviceOptions.length}
 								</Badge>
 							</HStack>
@@ -949,12 +951,12 @@ export const AdminDialog = () => {
 										{t("admins.noServicesMatching")}
 									</Text>) : (filteredServices.map((service) => {
             const isSelected = selectedServicesSet.has(service.id);
-            return (<Box key={service.id} borderWidth="1px" borderRadius="md" px={2.5} py={2} borderColor={isSelected ? "primary.400" : "gray.200"} bg={isSelected ? "primary.50" : "transparent"} _hover={{
-                    borderColor: "primary.300",
+            return (<Box key={service.id} borderWidth="1px" borderRadius="10px" px={3} py={2.5} borderColor={isSelected ? "rgba(99, 102, 241, 0.55)" : "rgba(255, 255, 255, 0.08)"} bg={isSelected ? "rgba(99, 102, 241, 0.12)" : "rgba(255, 255, 255, 0.02)"} _hover={{
+                    borderColor: "rgba(99, 102, 241, 0.7)",
                     cursor: "pointer",
                 }} _dark={{
-                    borderColor: isSelected ? "primary.300" : "gray.600",
-                    bg: isSelected ? "gray.700" : "transparent",
+                    borderColor: isSelected ? "rgba(99, 102, 241, 0.55)" : "rgba(255, 255, 255, 0.08)",
+                    bg: isSelected ? "rgba(99, 102, 241, 0.12)" : "rgba(255, 255, 255, 0.02)",
                 }} transition="background-color 140ms var(--rb-ease-out), border-color 140ms var(--rb-ease-out), box-shadow 140ms var(--rb-ease-out), transform 120ms var(--rb-ease-out)" _active={{ transform: "scale(0.99)" }} onClick={() => handleServiceToggle(service.id)} onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
@@ -973,7 +975,7 @@ export const AdminDialog = () => {
                 })}
 														</Text>
 													</Box>
-													{isSelected && (<Badge colorScheme="primary" variant="subtle" borderRadius="md" flexShrink={0}>
+													{isSelected && (<Badge bg="rgba(99, 102, 241, 0.16)" color="#a5b4fc" variant="subtle" borderRadius="md" flexShrink={0}>
 															{t("services.selected")}
 														</Badge>)}
 												</HStack>
@@ -1016,7 +1018,7 @@ export const AdminDialog = () => {
 																	{formatBytes(Number(item.deleted_users_usage ?? 0), 2)}
 																</Text>
 															</Box>
-															<Text color="primary.200" fontSize="xs" fontWeight="medium" whiteSpace="nowrap" textAlign="end">
+															<Text color="#a5b4fc" fontSize="xs" fontWeight="medium" whiteSpace="nowrap" textAlign="end">
 																<Box as="span" display="block">
 																	{formatBytes(usageBytes, 2)} /{" "}
 																	{configuredLimitBytes > 0
@@ -1095,9 +1097,66 @@ export const AdminDialog = () => {
 				</Box>)}
 		</VStack>);
     return (<>
-			<Modal isOpen={isOpen} onClose={handleCloseAdminDialog} size="3xl" scrollBehavior="inside">
-				<ModalOverlay bg="blackAlpha.400"/>
-				<XrayModalContent mx="3" sx={{
+			<Modal isOpen={isOpen} onClose={handleCloseAdminDialog} size="2xl" scrollBehavior="inside" isCentered>
+				<ModalOverlay bg="rgba(4, 5, 10, 0.72)" backdropFilter="blur(8px)"/>
+				<XrayModalContent mx="3" maxW="680px" sx={{
+            bg: "#11131c",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: "16px",
+            boxShadow: "0 24px 64px rgba(0, 0, 0, 0.65)",
+            color: "#f4f4f5",
+            overflow: "hidden",
+            ".chakra-modal__header": {
+                borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                bg: "rgba(255, 255, 255, 0.015)",
+                py: 3.5,
+                px: 5,
+                fontSize: "15px",
+                fontWeight: 600,
+            },
+            ".chakra-modal__body": { px: 5, py: 4 },
+            ".chakra-modal__footer": {
+                borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                bg: "rgba(255, 255, 255, 0.015)",
+                px: 5,
+                py: 3,
+            },
+            ".chakra-tabs__tablist": {
+                display: "inline-flex",
+                bg: "rgba(255, 255, 255, 0.04)",
+                border: "1px solid rgba(255, 255, 255, 0.07)",
+                borderRadius: "10px",
+                p: "3px",
+                gap: "4px",
+                mb: 3,
+                borderBottom: "none",
+            },
+            ".chakra-tabs__tab": {
+                px: 3.5,
+                py: 1.5,
+                fontSize: "12px",
+                fontWeight: 500,
+                color: "#a1a1aa",
+                borderRadius: "7px",
+                borderBottom: "none !important",
+                transition: "all 0.15s ease",
+                _hover: { color: "#f4f4f5" },
+                _selected: {
+                    bg: "rgba(99, 102, 241, 0.18) !important",
+                    color: "#a5b4fc !important",
+                    borderBottom: "none !important",
+                    boxShadow: "inset 0 0 0 1px rgba(99, 102, 241, 0.35)",
+                },
+            },
+            "input.chakra-input, select.chakra-select, textarea.chakra-textarea": {
+                bg: "rgba(255, 255, 255, 0.03)",
+                borderColor: "rgba(255, 255, 255, 0.09)",
+                borderRadius: "8px",
+                fontSize: "13px",
+                _focus: { borderColor: "#6366f1", boxShadow: "0 0 0 1px #6366f1" },
+            },
+            ".chakra-switch__track[data-checked]": { bg: "#6366f1 !important" },
+            ".chakra-checkbox__control[data-checked]": { bg: "#6366f1", borderColor: "#6366f1" },
             ".admin-services-section .chakra-form-control": {
                 display: "block",
                 gridTemplateColumns: "none",
@@ -1145,8 +1204,8 @@ export const AdminDialog = () => {
 							<Button variant="ghost" size="sm" onClick={handleCloseAdminDialog}>
 								{t("cancel")}
 							</Button>
-							<AnimatedSubmitButton onClick={handleFormSubmit} status={submitStatus} idleContent={mode === "create" ? t("admins.addAdmin") : t("save")} successLabel={t("userDialog.submitSuccess")} isDisabled={isSubmitting} containerProps={{
-            w: { base: "full", sm: "180px" },
+							<AnimatedSubmitButton h="36px" onClick={handleFormSubmit} status={submitStatus} idleContent={mode === "create" ? t("admins.addAdmin") : t("save")} successLabel={t("userDialog.submitSuccess")} isDisabled={isSubmitting} containerProps={{
+            w: { base: "full", sm: "150px" },
         }}/>
 						</HStack>
 					</XrayModalFooter>

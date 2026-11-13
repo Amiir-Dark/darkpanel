@@ -4,6 +4,7 @@ import { CompactChips, CompactTextWithCopy } from "components/CompactPopover";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
+import { Button as LinearButton } from "components/linear/UI";
 import { DataTable, PageLoadingSkeleton, ResourceListCard, TabSystem, } from "components/ui";
 import { useCoreSettings } from "contexts/CoreSettingsContext";
 import { useDashboard } from "contexts/DashboardContext";
@@ -3094,29 +3095,47 @@ export const CoreSettingsPage = () => {
         setRouteTestRule(rule);
         onRouteTestOpen();
     };
-    return (<VStack spacing={4} align="stretch">
-			<Box borderWidth="1px" borderColor={pageShellBorder} borderRadius="2xl" bg={pageShellBg} p={{ base: 4, md: 5 }} transition="box-shadow 0.2s ease, border-color 0.2s ease" _hover={{
-            "@media (min-width: 768px)": {
-                boxShadow: "sm",
-                borderColor: "panel.borderStrong",
+    return (<VStack className="mx-auto max-w-[1440px]" px={{ base: 4, md: 6 }} py={{ base: 5, md: 6 }} spacing={4} align="stretch" sx={{
+            ".chakra-accordion__item": {
+                bg: "rgba(255, 255, 255, 0.02)",
+                border: "1px solid rgba(255, 255, 255, 0.07) !important",
+                borderRadius: "12px",
+                overflow: "hidden",
+            },
+            ".chakra-accordion__button": {
+                _hover: { bg: "rgba(255, 255, 255, 0.03)" },
+            },
+            "input.chakra-input, select.chakra-select, textarea.chakra-textarea": {
+                bg: "rgba(255, 255, 255, 0.03)",
+                borderColor: "rgba(255, 255, 255, 0.09)",
+                borderRadius: "8px",
+                fontSize: "13px",
+                _focus: {
+                    borderColor: "#6366f1",
+                    boxShadow: "0 0 0 1px #6366f1",
+                },
+            },
+            ".chakra-switch__track[data-checked]": {
+                bg: "#6366f1 !important",
             },
         }}>
+			<Box borderWidth="1px" borderColor="rgba(255, 255, 255, 0.07)" borderRadius="14px" bg="rgba(255, 255, 255, 0.02)" p={{ base: 4, md: 5 }} transition="border-color 0.2s ease" _hover={{ borderColor: "rgba(255, 255, 255, 0.12)" }}>
 				<Stack direction={{ base: "column", lg: "row" }} spacing={4} align={{ base: "stretch", lg: "flex-end" }} justify="space-between">
 					<Box minW={0}>
-						<Text as="h1" fontWeight="semibold" fontSize="2xl">
+						<Text as="h1" fontWeight="semibold" fontSize="xl" color="#f4f4f5">
 							{t("header.coreSettings")}
 						</Text>
-						<Text color={pageHintColor} fontSize="sm" mt={1}>
+						<Text color="#a1a1aa" fontSize="xs" mt={1}>
 							{t("pages.xray.coreDescription")}
 						</Text>
 					</Box>
 					<HStack spacing={2} flexWrap="wrap" justify={{ base: "stretch", lg: "flex-end" }}>
-						<Button size="sm" colorScheme="primary" isLoading={isPostLoading} isDisabled={!hasConfigChanges || isPostLoading} onClick={handleOnSave} w={{ base: "full", sm: "auto" }}>
+						<LinearButton size="sm" variant="primary" loading={isPostLoading} disabled={!hasConfigChanges || isPostLoading} onClick={handleOnSave}>
 							{t("save")}
-						</Button>
-						<Button size="sm" leftIcon={<ReloadIconStyled />} isLoading={isRestarting} onClick={() => handleRestartCore(selectedTarget)} variant="outline" w={{ base: "full", sm: "auto" }}>
+						</LinearButton>
+						<LinearButton size="sm" variant="secondary" loading={isRestarting} onClick={() => handleRestartCore(selectedTarget)}>
 							{t(isRestarting ? "core.restarting" : "core.restartCore")}
-						</Button>
+						</LinearButton>
 					</HStack>
 				</Stack>
 				{hasNodeTargets && (<HStack mt={4} pt={3} borderTopWidth="1px" borderTopColor={pageShellBorder} spacing={3} align="flex-end" flexWrap="wrap" w="full">
@@ -3151,76 +3170,27 @@ export const CoreSettingsPage = () => {
 							</FormControl>)}
 					</HStack>)}
 			</Box>
-			<TabSystem overflowX="auto" overflowY="hidden" maxW="full" sx={{
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-            "&::-webkit-scrollbar": { display: "none" },
-            button: { flexShrink: 0 },
-        }} tabs={[
-            {
-                value: "basic",
-                isActive: activeTab === 0,
-                onClick: () => handleTabChange(0),
-                label: (<HStack spacing={2} align="center">
-								<BasicTabIcon />
-								<Text as="span">{t("pages.xray.basicTemplate")}</Text>
-							</HStack>),
-            },
-            {
-                value: "routing",
-                isActive: activeTab === 1,
-                onClick: () => handleTabChange(1),
-                label: (<HStack spacing={2} align="center">
-								<RoutingTabIcon />
-								<Text as="span">{t("pages.xray.Routings")}</Text>
-							</HStack>),
-            },
-            {
-                value: "outbounds",
-                isActive: activeTab === 2,
-                onClick: () => handleTabChange(2),
-                label: (<HStack spacing={2} align="center">
-								<OutboundTabIcon />
-								<Text as="span">{t("pages.xray.Outbounds")}</Text>
-							</HStack>),
-            },
-            {
-                value: "reverse",
-                isActive: activeTab === 3,
-                onClick: () => handleTabChange(3),
-                label: (<HStack spacing={2} align="center">
-								<ReloadIconStyled />
-								<Text as="span">{t("pages.xray.reverse.title")}</Text>
-							</HStack>),
-            },
-            {
-                value: "balancers",
-                isActive: activeTab === 4,
-                onClick: () => handleTabChange(4),
-                label: (<HStack spacing={2} align="center">
-								<BalancerTabIcon />
-								<Text as="span">{t("pages.xray.Balancers")}</Text>
-							</HStack>),
-            },
-            {
-                value: "dns",
-                isActive: activeTab === 5,
-                onClick: () => handleTabChange(5),
-                label: (<HStack spacing={2} align="center">
-								<DnsTabIcon />
-								<Text as="span">{t("DNS")}</Text>
-							</HStack>),
-            },
-            {
-                value: "advanced",
-                isActive: activeTab === 6,
-                onClick: () => handleTabChange(6),
-                label: (<HStack spacing={2} align="center">
-								<AdvancedTabIcon />
-								<Text as="span">{t("pages.xray.advancedTemplate")}</Text>
-							</HStack>),
-            },
-        ]}/>
+			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline pb-3">
+				<div className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-hairline bg-surface-2 p-1">
+					{[
+                        { value: "basic", idx: 0, Icon: BasicTabIcon, label: t("pages.xray.basicTemplate") },
+                        { value: "routing", idx: 1, Icon: RoutingTabIcon, label: t("pages.xray.Routings") },
+                        { value: "outbounds", idx: 2, Icon: OutboundTabIcon, label: t("pages.xray.Outbounds") },
+                        { value: "reverse", idx: 3, Icon: ReloadIconStyled, label: t("pages.xray.reverse.title") },
+                        { value: "balancers", idx: 4, Icon: BalancerTabIcon, label: t("pages.xray.Balancers") },
+                        { value: "dns", idx: 5, Icon: DnsTabIcon, label: t("DNS") },
+                        { value: "advanced", idx: 6, Icon: AdvancedTabIcon, label: t("pages.xray.advancedTemplate") },
+                    ].map(({ value, idx, Icon, label }) => {
+                        const active = activeTab === idx;
+                        return (<button key={value} type="button" onClick={() => handleTabChange(idx)} className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors ${active
+                                ? "bg-surface-3 text-ink shadow-sm"
+                                : "text-ink-subtle hover:text-ink"}`}>
+								<Icon />
+								<span>{label}</span>
+							</button>);
+                    })}
+				</div>
+			</div>
 			<Box mt={{ base: 2, md: 3 }}>
 				{activeTab === 0 && (<Box p={0} mt={3}>
 						<VStack spacing={4} align="stretch">
@@ -3297,7 +3267,7 @@ export const CoreSettingsPage = () => {
 												</Select>
 												<HStack spacing={2} maxW="320px" flex="1">
 													<Input size="sm" value={warpCustomDomain} onChange={(event) => setWarpCustomDomain(event.target.value)} placeholder="geosite:google"/>
-													<Button size="sm" colorScheme="primary" onClick={() => {
+													<Button size="sm" bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} onClick={() => {
                 handleWarpDomainAdd(warpCustomDomain);
                 setWarpCustomDomain("");
             }} isDisabled={!warpCustomDomain.trim()}>
@@ -3698,7 +3668,7 @@ export const CoreSettingsPage = () => {
             ]} actions={<HStack spacing={2} flexWrap="wrap" justify="flex-end">
 										{advancedJsonModes.map((option) => {
                     const selected = advSettings === option.value;
-                    return (<Button key={option.value} size="xs" variant={selected ? "solid" : "outline"} colorScheme={selected ? "primary" : "gray"} onClick={() => {
+                    return (<Button key={option.value} size="xs" variant={selected ? "solid" : "outline"} bg={selected ? "#6366f1" : undefined} color={selected ? "white" : undefined} _hover={selected ? { bg: "#4f46e5" } : undefined} onClick={() => {
                             setAdvSettings(option.value);
                             setJsonKey((prev) => prev + 1);
                         }}>
@@ -3714,7 +3684,7 @@ export const CoreSettingsPage = () => {
             }}/>
 									</Suspense>
 								</Box>
-								{isFullScreen && isMobile && (<Button position="fixed" bottom={4} left="50%" transform="translateX(-50%)" zIndex={1102} size="sm" colorScheme="primary" onClick={toggleFullScreen}>
+								{isFullScreen && isMobile && (<Button position="fixed" bottom={4} left="50%" transform="translateX(-50%)" zIndex={1102} size="sm" bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} onClick={toggleFullScreen}>
 										{t("pages.xray.exitFullscreen")}
 									</Button>)}
 							</Box>

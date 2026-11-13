@@ -325,7 +325,7 @@ const ChangePasswordModal = ({ isOpen, onClose, onSubmit }) => {
 					<Button mr={3} onClick={onClose} variant="ghost">
 						{t("cancel")}
 					</Button>
-					<Button colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={!newPassword}>
+					<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} onClick={handleSubmit} isLoading={isSubmitting} isDisabled={!newPassword}>
 						{t("save")}
 					</Button>
 				</>}>
@@ -707,7 +707,7 @@ export const MyAccountPage = () => {
 
 					{selfPermissions.self_api_keys && (<TabPanel p={0}>
 							<Stack w="full" maxW="960px" mx="auto">
-								<ChartBox title={t("myaccount.apiKeys")} headerActions={<Button size="sm" h="10" colorScheme="primary" onClick={apiKeyModal.onOpen}>
+								<ChartBox title={t("myaccount.apiKeys")} headerActions={<Button size="sm" h="10" bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} onClick={apiKeyModal.onOpen}>
 											{t("myaccount.createApiKey")}
 										</Button>}>
 									<Text color="panel.textSecondary" fontSize="sm" mb={3}>
@@ -760,13 +760,13 @@ export const MyAccountPage = () => {
 				</TabPanels>
 			</Tabs>
 
-			{selfPermissions.self_api_keys && (<AppDialog isOpen={apiKeyModal.isOpen} onClose={closeApiKeyDialog} isCentered title={t("myaccount.createApiKey")} footer={hasGeneratedKey ? (<Button colorScheme="primary" onClick={closeApiKeyDialog}>
+			{selfPermissions.self_api_keys && (<AppDialog isOpen={apiKeyModal.isOpen} onClose={closeApiKeyDialog} isCentered title={t("myaccount.createApiKey")} footer={hasGeneratedKey ? (<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} onClick={closeApiKeyDialog}>
 								{t("close")}
 							</Button>) : (<>
 								<Button variant="ghost" mr={3} onClick={closeApiKeyDialog}>
 									{t("cancel")}
 								</Button>
-								<Button colorScheme="primary" isLoading={createKeyMutation.isLoading} onClick={() => createKeyMutation.mutate(selectedLifetime)} isDisabled={hasGeneratedKey}>
+								<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} isLoading={createKeyMutation.isLoading} onClick={() => createKeyMutation.mutate(selectedLifetime)} isDisabled={hasGeneratedKey}>
 									{t("create")}
 								</Button>
 							</>)}>

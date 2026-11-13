@@ -300,6 +300,15 @@ func (r Repository) ConfigLinkUser(ctx context.Context, userID int64) (ConfigLin
 					}
 					item.InboundRemarks = remarks
 				}
+				if rawOrder, ok := parsed["inbound_order"]; ok {
+					item.InboundOrder = parseInt64Slice(rawOrder)
+				}
+				if rawDisabled, ok := parsed["disabled_inbounds"]; ok {
+					item.DisabledInboundIDs = parseInt64Slice(rawDisabled)
+				}
+				if rawInfoConfigs, ok := parsed["info_configs"]; ok {
+					item.InfoConfigs = parseInfoConfigs(rawInfoConfigs)
+				}
 			}
 		}
 	}

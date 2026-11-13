@@ -465,7 +465,8 @@ export const AdminsTable = ({ toolbar, footerActions, ...props }) => {
     const tableProps = {
         ...restProps,
         className: tableClassName,
-        sx: { ...baseTableSx, ...(normalizedSx || {}) },
+        w: "full",
+        sx: { tableLayout: "fixed", width: "100%", ...baseTableSx, ...(normalizedSx || {}) },
     };
     const summaryData = useMemo(() => {
         const hasCompleteSummary = adminOptions.length > 0 || total <= admins.length;
@@ -810,7 +811,29 @@ export const AdminsTable = ({ toolbar, footerActions, ...props }) => {
         return actions;
     };
     return (<>
-			<Stack spacing={3}>
+			<Stack spacing={3} sx={{
+                ".chakra-table__container": {
+                    bg: "rgba(255, 255, 255, 0.02)",
+                    border: "1px solid rgba(255, 255, 255, 0.07)",
+                    borderRadius: "14px",
+                    overflowX: { base: "auto", md: "hidden" },
+                    width: "100%",
+                },
+                "table.chakra-table th": {
+                    bg: "rgba(255, 255, 255, 0.02)",
+                    borderColor: "rgba(255, 255, 255, 0.06)",
+                    fontSize: "11px",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    color: "#71717a",
+                },
+                "table.chakra-table td": {
+                    borderColor: "rgba(255, 255, 255, 0.05)",
+                },
+                "table.chakra-table tbody tr:hover": {
+                    bg: "rgba(255, 255, 255, 0.025)",
+                },
+            }}>
 				<ResourceListCard title={t("admins.listHeader")} summaryItems={adminSummaryItems} footerActions={footerActions}>
 					{toolbar}
 				</ResourceListCard>
@@ -839,11 +862,11 @@ export const AdminsTable = ({ toolbar, footerActions, ...props }) => {
             setQuickPassAdmin(null);
         }} onConfirm={confirmQuickPassword} title={t("admins.quickPasswordConfirmTitle")} description={t("admins.quickPasswordConfirm", {
             username: quickPassAdmin?.username ?? "",
-        })} confirmLabel={t("admins.quickPasswordAction")} colorScheme="primary" isLoading={contextAction === "quickPassword"}/>
+        })} confirmLabel={t("admins.quickPasswordAction")} colorScheme="purple" isLoading={contextAction === "quickPassword"}/>
 
 			<Modal isOpen={isQuickPassOpen} onClose={handleCloseQuickPass} isCentered>
-				<ModalOverlay bg="blackAlpha.500"/>
-				<ModalContent bg={dialogBg} borderWidth="1px" borderColor={dialogBorderColor} borderRadius="2xl" boxShadow="2xl" overflow="hidden" mx={{ base: 4, sm: 0 }} maxW={{ base: "calc(100vw - 32px)", sm: "440px" }}>
+				<ModalOverlay bg="rgba(4, 5, 10, 0.72)" backdropFilter="blur(8px)"/>
+				<ModalContent bg="#11131c" borderWidth="1px" borderColor="rgba(255,255,255,0.08)" borderRadius="16px" boxShadow="0 24px 64px rgba(0,0,0,0.65)" color="#f4f4f5" overflow="hidden" mx={{ base: 4, sm: 0 }} maxW={{ base: "calc(100vw - 32px)", sm: "440px" }}>
 					<ModalHeader px={6} pt={6} pb={2}>
 						<HStack spacing={3}>
 							<Box display="inline-flex" alignItems="center" justifyContent="center" w={10} h={10} borderRadius="full" bg="primary.50" color="primary.600" _dark={{ bg: "primary.900", color: "primary.200" }}>
@@ -894,7 +917,7 @@ export const AdminsTable = ({ toolbar, footerActions, ...props }) => {
 						</Stack>
 					</ModalBody>
 					<ModalFooter bg="blackAlpha.50" _dark={{ bg: "whiteAlpha.50" }} borderTopWidth="1px" borderColor={dialogBorderColor} px={6} py={4}>
-						<Button colorScheme="primary" onClick={handleCloseQuickPass}>
+						<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} onClick={handleCloseQuickPass}>
 							{t("close")}
 						</Button>
 					</ModalFooter>

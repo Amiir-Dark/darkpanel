@@ -57,6 +57,8 @@ export const SelfPermissionToggle = {
 	Self2FA: "self_2fa",
 	SelfPlaceholders: "self_placeholders",
 	SelfSubscription: "self_subscription",
+	SelfClientApps: "self_client_apps",
+	SelfConfigRemarks: "self_config_remarks",
 };
 
 export const AdminSudoScope = {

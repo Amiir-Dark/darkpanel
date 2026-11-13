@@ -38,6 +38,12 @@ export const AdminPermissionsModal = ({ isOpen, onClose, admin, }) => {
                 if (baseDraft.self_permissions.self_subscription === undefined) {
                     baseDraft.self_permissions.self_subscription = true;
                 }
+                if (baseDraft.self_permissions.self_client_apps === undefined) {
+                    baseDraft.self_permissions.self_client_apps = true;
+                }
+                if (baseDraft.self_permissions.self_config_remarks === undefined) {
+                    baseDraft.self_permissions.self_config_remarks = true;
+                }
             }
             setPermissionsDraft(baseDraft);
             setMaxDataLimitValue(baseDraft.users?.max_data_limit_per_user

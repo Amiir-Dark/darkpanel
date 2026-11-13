@@ -16,6 +16,7 @@ import { generateErrorMessage, generateSuccessMessage, } from "utils/toastHandle
 import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesAnySearch, } from "utils/searchMatch";
 import { integrationTabKeys, parseSettingsHash, } from "utils/settingsTabs";
 import { PlaceholderSettingsPanel } from "./PlaceholderSettingsPage";
+import { Button as LinearButton } from "components/linear/UI";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import { DataTable, PageLoadingSkeleton, ResourceListCard, TabSystem, } from "../components/ui";
 import { CustomConfigRemarksSection } from "components/CustomConfigRemarksSection";
@@ -585,10 +586,13 @@ export const IntegrationSettingsPage = () => {
     const canManageSubscription = getUserIsSuccess &&
         (canManageIntegrations ||
             Boolean(userData.permissions?.self_permissions?.self_subscription));
+    const canManageClientApps = getUserIsSuccess && (canManageIntegrations || Boolean(userData.permissions?.self_permissions?.self_client_apps ?? userData.permissions?.self_permissions?.self_subscription));
+    const canManageConfigRemarks = getUserIsSuccess && (canManageIntegrations || Boolean(userData.permissions?.self_permissions?.self_config_remarks ?? userData.permissions?.self_permissions?.self_subscription));
+    const canAccessSelfSubscription = canManageSubscription || canManageClientApps || canManageConfigRemarks;
     const canManagePlaceholders = getUserIsSuccess &&
         (canManageIntegrations ||
             Boolean(userData.permissions?.self_permissions?.self_placeholders));
-    const isSelfOnlySubscription = !canManageIntegrations && (canManageSubscription || canManagePlaceholders);
+    const isSelfOnlySubscription = !canManageIntegrations && (canManageSubscription || Boolean(userData.permissions?.self_permissions?.self_client_apps) || Boolean(userData.permissions?.self_permissions?.self_config_remarks) || canManagePlaceholders);
     const currentAdminId = userData.id ?? 0;
     const canReadMaintenance = getUserIsSuccess &&
         (userData.role === "full_access" ||
@@ -601,7 +605,7 @@ export const IntegrationSettingsPage = () => {
             return hashResult.index;
         }
         if (isSelfOnlySubscription) {
-            return canManageSubscription ? 2 : 4;
+            return canAccessSelfSubscription ? 2 : 4;
         }
         return 0;
     });
@@ -681,6 +685,7 @@ export const IntegrationSettingsPage = () => {
     const [certificateAction, setCertificateAction] = useState(null);
     const [isTestingResellerBot, setIsTestingResellerBot] = useState(false);
     const [isBackingUpReseller, setIsBackingUpReseller] = useState(false);
+    const [subSectionTab, setSubSectionTab] = useState("global");
     const [resellerTab, setResellerTab] = useState(() => {
         const hash = window.location.hash.replace("#", "");
         if (hash === "client_apps")
@@ -1149,6 +1154,17 @@ export const IntegrationSettingsPage = () => {
             },
         }));
     };
+    useEffect(() => {
+        if (!isSelfOnlySubscription) return;
+        const allowed = [];
+        if (canManageSubscription) allowed.push("sub_access");
+        if (canManageClientApps) allowed.push("client_apps");
+        if (canManageConfigRemarks) allowed.push("config_remarks");
+        if (allowed.length > 0 && !allowed.includes(resellerTab)) {
+            setResellerTab(allowed[0]);
+        }
+    }, [isSelfOnlySubscription, canManageSubscription, canManageClientApps, canManageConfigRemarks, resellerTab]);
+
     const handleIntegrationTabChange = (index) => {
         setActiveIntegrationTab(index);
         const key = integrationTabKeys[index] || "";
@@ -1454,7 +1470,7 @@ export const IntegrationSettingsPage = () => {
                 value: certificates.filter((certificate) => certificate.serve_tls !== false).length,
                 colorScheme: "blue",
             },
-        ]} actions={<Button colorScheme="primary" leftIcon={<PlusIcon width={16} height={16}/>} onClick={() => setCertificateDialogOpen(true)}>
+        ]} actions={<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} leftIcon={<PlusIcon width={16} height={16}/>} onClick={() => setCertificateDialogOpen(true)}>
 						{t("settings.subscriptions.getNewSSL")}
 					</Button>}>
 				<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
@@ -1486,21 +1502,19 @@ export const IntegrationSettingsPage = () => {
 				</Text>
 			</VStack>);
     }
-    return (<Box px={{ base: 4, md: 8 }} py={{ base: 6, md: 8 }} sx={{
+    return (<Box className="mx-auto max-w-[1440px]" px={{ base: 4, md: 6 }} py={{ base: 5, md: 6 }} sx={{
             ".master-settings-card": {
-                bg: cardBg,
-                border: "1px solid",
-                borderColor,
-                borderRadius: "2xl",
+                bg: "rgba(255, 255, 255, 0.02)",
+                border: "1px solid rgba(255, 255, 255, 0.07)",
+                borderRadius: "14px",
                 p: { base: 4, md: 5 },
-                boxShadow: "sm",
+                boxShadow: "none",
                 overflow: "hidden",
             },
             ".master-settings-subcard": {
-                bg: subCardBg,
-                border: "1px solid",
-                borderColor,
-                borderRadius: "xl",
+                bg: "rgba(255, 255, 255, 0.025)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                borderRadius: "10px",
                 p: { base: 3, md: 4 },
             },
             ".master-settings-action-row": {
@@ -1513,20 +1527,19 @@ export const IntegrationSettingsPage = () => {
                 minW: { base: "calc(50% - 6px)", sm: "auto" },
             },
             ".telegram-settings-form": {
-                "--telegram-row-bg": subCardBg,
+                "--telegram-row-bg": "rgba(255, 255, 255, 0.025)",
             },
             ".telegram-switch-row__inner": {
                 bg: "var(--telegram-row-bg)",
-                border: "1px solid",
-                borderColor,
-                borderRadius: "xl",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                borderRadius: "10px",
                 px: { base: 2.5, md: 3 },
                 py: { base: 2.5, md: 3 },
                 minH: "56px",
             },
             ".telegram-switch-row__title": {
                 fontSize: "sm",
-                fontWeight: "700",
+                fontWeight: "600",
                 color: "panel.text",
                 lineHeight: "1.2",
             },
@@ -1543,13 +1556,29 @@ export const IntegrationSettingsPage = () => {
                 minW: "44px",
             },
             ".master-settings-card input, .master-settings-card select, .master-settings-card textarea, .master-settings-subcard input, .master-settings-subcard select, .master-settings-subcard textarea": {
-                bg: fieldBg,
-                borderRadius: "lg",
+                bg: "rgba(255, 255, 255, 0.03)",
+                borderColor: "rgba(255, 255, 255, 0.09)",
+                borderRadius: "8px",
                 fontSize: "13px",
+                _focus: {
+                    borderColor: "#6366f1",
+                    boxShadow: "0 0 0 1px #6366f1",
+                },
             },
             ".master-settings-card .chakra-form__label, .master-settings-subcard .chakra-form__label": {
                 fontSize: "xs",
-                fontWeight: "semibold",
+                fontWeight: "medium",
+                color: "#a1a1aa",
+            },
+            ".chakra-switch__track[data-checked]": {
+                bg: "#6366f1 !important",
+            },
+            ".chakra-tabs__tablist": {
+                borderBottomColor: "rgba(255, 255, 255, 0.07)",
+            },
+            ".chakra-tabs__tab[aria-selected=true]": {
+                color: "#a5b4fc",
+                borderColor: "#6366f1",
             },
             ".master-settings-tabs": {
                 maxW: "full",
@@ -1559,131 +1588,125 @@ export const IntegrationSettingsPage = () => {
                 WebkitOverflowScrolling: "touch",
                 overscrollBehaviorInline: "contain",
                 scrollbarWidth: "none",
-                scrollPaddingInline: "8px",
-                scrollSnapType: "x proximity",
             },
             ".master-settings-tabs::-webkit-scrollbar": {
                 display: "none",
             },
-            ".master-settings-tabs .chakra-tabs__tab": {
-                flexShrink: 0,
-                scrollSnapAlign: "start",
-                whiteSpace: "nowrap",
-                minH: { base: "40px", md: "36px" },
-                px: { base: 3, md: 4 },
-            },
         }}>
 			<Flex align={{ base: "stretch", md: "center" }} justify="space-between" flexDirection={{ base: "column", md: "row" }} gap={3}>
-				<TabSystem className="master-settings-tabs" overflowX="auto" overflowY="hidden" maxW="full" flex="1" sx={{
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-            "&::-webkit-scrollbar": { display: "none" },
-            button: { flexShrink: 0 },
-        }} tabs={isSelfOnlySubscription
-            ? [
-                ...(canManageSubscription
-                    ? [
-                        {
-                            value: "sub_access",
-                            isActive: activeIntegrationTab === 2 && resellerTab === "sub_access",
-                            onClick: () => {
-                                setActiveIntegrationTab(2);
-                                setResellerTab("sub_access");
-                                window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#sub_access`);
+				{(() => {
+                    const settingsTabs = isSelfOnlySubscription
+                        ? [
+                            ...(canAccessSelfSubscription
+                                ? [
+                                    {
+                                        value: "sub_access",
+                                        isActive: activeIntegrationTab === 2 && resellerTab === "sub_access",
+                                        onClick: () => {
+                                            setActiveIntegrationTab(2);
+                                            setResellerTab("sub_access");
+                                            window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#sub_access`);
+                                        },
+                                        label: "Sub Access",
+                                    },
+                                    {
+                                        value: "client_apps",
+                                        isActive: activeIntegrationTab === 2 && resellerTab === "client_apps",
+                                        onClick: () => {
+                                            setActiveIntegrationTab(2);
+                                            setResellerTab("client_apps");
+                                            window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#client_apps`);
+                                        },
+                                        label: "Client Apps",
+                                    },
+                                    {
+                                        value: "config_remarks",
+                                        isActive: activeIntegrationTab === 2 && resellerTab === "config_remarks",
+                                        onClick: () => {
+                                            setActiveIntegrationTab(2);
+                                            setResellerTab("config_remarks");
+                                            window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#config_remarks`);
+                                        },
+                                        label: "Config Remarks",
+                                    },
+                                    {
+                                        value: "templates",
+                                        isActive: activeIntegrationTab === 5,
+                                        onClick: () => handleIntegrationTabChange(5),
+                                        label: t("settings.templates.tabTitle", "تمپلیت (قالب‌ها)"),
+                                    },
+                                ]
+                                : []),
+                            ...(canManagePlaceholders
+                                ? [
+                                    {
+                                        value: "placeholders",
+                                        isActive: activeIntegrationTab === 4,
+                                        onClick: () => handleIntegrationTabChange(4),
+                                        label: "Placeholder Settings",
+                                    },
+                                ]
+                                : []),
+                        ]
+                        : [
+                            {
+                                value: "panel",
+                                isActive: activeIntegrationTab === 0,
+                                onClick: () => handleIntegrationTabChange(0),
+                                label: t("settings.panel.tabTitle"),
                             },
-                            label: "Sub Access",
-                        },
-                        {
-                            value: "client_apps",
-                            isActive: activeIntegrationTab === 2 && resellerTab === "client_apps",
-                            onClick: () => {
-                                setActiveIntegrationTab(2);
-                                setResellerTab("client_apps");
-                                window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#client_apps`);
+                            {
+                                value: "telegram",
+                                isActive: activeIntegrationTab === 1,
+                                onClick: () => handleIntegrationTabChange(1),
+                                label: t("settings.telegram"),
                             },
-                            label: "Client Apps",
-                        },
-                        {
-                            value: "config_remarks",
-                            isActive: activeIntegrationTab === 2 && resellerTab === "config_remarks",
-                            onClick: () => {
-                                setActiveIntegrationTab(2);
-                                setResellerTab("config_remarks");
-                                window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#config_remarks`);
+                            {
+                                value: "subscriptions",
+                                isActive: activeIntegrationTab === 2,
+                                onClick: () => handleIntegrationTabChange(2),
+                                label: t("settings.subscriptions.tabTitle"),
                             },
-                            label: "Config Remarks",
-                        },
-                        {
-                            value: "templates",
-                            isActive: activeIntegrationTab === 5,
-                            onClick: () => handleIntegrationTabChange(5),
-                            label: t("settings.templates.tabTitle", "تمپلیت (قالب‌ها)"),
-                        },
-                    ]
-                    : []),
-                ...(canManagePlaceholders
-                    ? [
-                        {
-                            value: "placeholders",
-                            isActive: activeIntegrationTab === 4,
-                            onClick: () => handleIntegrationTabChange(4),
-                            label: "Placeholder Settings",
-                        },
-                    ]
-                    : []),
-            ]
-            : [
-                {
-                    value: "panel",
-                    isActive: activeIntegrationTab === 0,
-                    onClick: () => handleIntegrationTabChange(0),
-                    label: t("settings.panel.tabTitle"),
-                },
-                {
-                    value: "telegram",
-                    isActive: activeIntegrationTab === 1,
-                    onClick: () => handleIntegrationTabChange(1),
-                    label: t("settings.telegram"),
-                },
-                {
-                    value: "subscriptions",
-                    isActive: activeIntegrationTab === 2,
-                    onClick: () => handleIntegrationTabChange(2),
-                    label: t("settings.subscriptions.tabTitle"),
-                },
-                {
-                    value: "ssl",
-                    isActive: activeIntegrationTab === 3,
-                    onClick: () => handleIntegrationTabChange(3),
-                    label: t("settings.ssl.tabTitle"),
-                },
-                ...(canManagePlaceholders
-                    ? [
-                        {
-                            value: "placeholders",
-                            isActive: activeIntegrationTab === 4,
-                            onClick: () => handleIntegrationTabChange(4),
-                            label: t("placeholders.settingsMenu", "تنظیمات پلیس‌هولدر"),
-                        },
-                    ]
-                    : []),
-                ...(canManageIntegrations || isSudoOrFull
-                    ? [
-                        {
-                            value: "templates",
-                            isActive: activeIntegrationTab === 5,
-                            onClick: () => handleIntegrationTabChange(5),
-                            label: t("settings.templates.tabTitle", "تمپلیت (قالب‌ها)"),
-                        },
-                    ]
-                    : []),
-            ]}/>
-				{activeIntegrationTab !== 4 && activeIntegrationTab !== 5 && (<Button flexShrink={0} alignSelf={{ base: "flex-end", md: "center" }} colorScheme="primary" leftIcon={<SaveIcon />} onClick={handleSaveAll} isLoading={saveAllMutation.isLoading || adminSelfSaveMutation.isLoading} isDisabled={!hasUnsavedChanges ||
-                saveAllMutation.isLoading ||
-                adminSelfSaveMutation.isLoading}>
+                            {
+                                value: "ssl",
+                                isActive: activeIntegrationTab === 3,
+                                onClick: () => handleIntegrationTabChange(3),
+                                label: t("settings.ssl.tabTitle"),
+                            },
+                            ...(canManagePlaceholders
+                                ? [
+                                    {
+                                        value: "placeholders",
+                                        isActive: activeIntegrationTab === 4,
+                                        onClick: () => handleIntegrationTabChange(4),
+                                        label: t("placeholders.settingsMenu", "تنظیمات پلیس‌هولدر"),
+                                    },
+                                ]
+                                : []),
+                            ...(canManageIntegrations || isSudoOrFull
+                                ? [
+                                    {
+                                        value: "templates",
+                                        isActive: activeIntegrationTab === 5,
+                                        onClick: () => handleIntegrationTabChange(5),
+                                        label: t("settings.templates.tabTitle", "تمپلیت (قالب‌ها)"),
+                                    },
+                                ]
+                                : []),
+                        ];
+                    return (<div className="master-settings-tabs inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-hairline bg-surface-2 p-1">
+							{settingsTabs.filter((tab) => !isSelfOnlySubscription || (tab.value === "client_apps" ? canManageClientApps : tab.value === "config_remarks" ? canManageConfigRemarks : tab.value === "placeholders" ? canManagePlaceholders : canManageSubscription)).map((tab) => (<button key={tab.value} type="button" onClick={tab.onClick} className={`shrink-0 whitespace-nowrap rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors ${tab.isActive
+                                ? "bg-surface-3 text-ink shadow-sm"
+                                : "text-ink-subtle hover:text-ink"}`}>
+									{tab.label}
+								</button>))}
+						</div>);
+                })()}
+				{activeIntegrationTab !== 4 && activeIntegrationTab !== 5 && (<LinearButton variant="primary" size="sm" onClick={handleSaveAll} loading={saveAllMutation.isLoading || adminSelfSaveMutation.isLoading} disabled={!hasUnsavedChanges || saveAllMutation.isLoading || adminSelfSaveMutation.isLoading}>
 						{t("settings.save")}
-					</Button>)}
+					</LinearButton>)}
 			</Flex>
+			<div className="mt-4 border-b border-hairline"/>
 			{activeIntegrationTab === 0 && (<Box px={{ base: 0, md: 2 }} mt={3}>
 					{isPanelLoading && panelData === undefined ? (<Flex align="center" justify="center" py={12}>
 							<Spinner size="lg"/>
@@ -1756,7 +1779,7 @@ export const IntegrationSettingsPage = () => {
                         ...prev,
                         api_docs_enabled: event.target.checked,
                     }))} isDisabled={saveAllMutation.isLoading}/>}/>
-									<Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="md" p={4} gridColumn={{ base: "auto", md: "1 / -1" }}>
+									<Box borderWidth="1px" borderColor={colorMode === "dark" ? "whiteAlpha.100" : "gray.200"} bg={colorMode === "dark" ? "whiteAlpha.50" : "gray.50"} borderRadius="xl" p={4} gridColumn={{ base: "auto", md: "1 / -1" }}>
 										<Flex align={{ base: "flex-start", md: "center" }} justify="space-between" gap={4} flexDirection={{ base: "column", md: "row" }} mb={4}>
 											<Box>
 												<Heading size="xs" mb={1}>
@@ -1777,7 +1800,7 @@ export const IntegrationSettingsPage = () => {
 												</Button>
 												<Button size="sm" colorScheme={runtimeSettingsForm.phpmyadmin_enabled
                     ? "red"
-                    : "primary"} onClick={() => runtimeSettingsForm.phpmyadmin_enabled
+                    : "blue"} bg={runtimeSettingsForm.phpmyadmin_enabled ? undefined : "#5e6ad2"} color={runtimeSettingsForm.phpmyadmin_enabled ? undefined : "white"} _hover={runtimeSettingsForm.phpmyadmin_enabled ? undefined : { bg: "#4e5ac2" }} onClick={() => runtimeSettingsForm.phpmyadmin_enabled
                     ? phpMyAdminDisableMutation.mutate()
                     : phpMyAdminEnableMutation.mutate()} isLoading={phpMyAdminEnableMutation.isLoading ||
                     phpMyAdminDisableMutation.isLoading} isDisabled={isPHPMyAdminStatusLoading ||
@@ -1796,7 +1819,7 @@ export const IntegrationSettingsPage = () => {
 										<SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
 											<FormControl>
 												<FormLabel fontSize="sm">{t("path")}</FormLabel>
-												<Input value={runtimeSettingsForm.phpmyadmin_path} placeholder="/phpmyadmin/" onChange={(event) => setRuntimeSettingsForm((prev) => ({
+												<Input focusBorderColor="#5e6ad2" value={runtimeSettingsForm.phpmyadmin_path} placeholder="/phpmyadmin/" onChange={(event) => setRuntimeSettingsForm((prev) => ({
                     ...prev,
                     phpmyadmin_path: event.target.value,
                 }))} isDisabled={phpMyAdminEnableMutation.isLoading ||
@@ -1809,7 +1832,7 @@ export const IntegrationSettingsPage = () => {
 												<FormLabel fontSize="sm">
 													{t("phpmyadmin.loginMode")}
 												</FormLabel>
-												<Select value={runtimeSettingsForm.phpmyadmin_login_mode} onChange={(event) => setRuntimeSettingsForm((prev) => ({
+												<Select focusBorderColor="#5e6ad2" value={runtimeSettingsForm.phpmyadmin_login_mode} onChange={(event) => setRuntimeSettingsForm((prev) => ({
                     ...prev,
                     phpmyadmin_login_mode: event.target.value,
                 }))} isDisabled={phpMyAdminEnableMutation.isLoading ||
@@ -1832,7 +1855,7 @@ export const IntegrationSettingsPage = () => {
 												<FormLabel fontSize="sm">
 													{t("phpmyadmin.username")}
 												</FormLabel>
-												<Input value={runtimeSettingsForm.phpmyadmin_username} placeholder="root" onChange={(event) => setRuntimeSettingsForm((prev) => ({
+												<Input focusBorderColor="#5e6ad2" value={runtimeSettingsForm.phpmyadmin_username} placeholder="root" onChange={(event) => setRuntimeSettingsForm((prev) => ({
                     ...prev,
                     phpmyadmin_username: event.target.value,
                 }))}/>
@@ -1844,7 +1867,7 @@ export const IntegrationSettingsPage = () => {
 												<FormLabel fontSize="sm">
 													{t("phpmyadmin.password")}
 												</FormLabel>
-												<Input type="password" value={runtimeSettingsForm.phpmyadmin_password} placeholder={t("phpmyadmin.passwordPlaceholder")} onChange={(event) => setRuntimeSettingsForm((prev) => ({
+												<Input focusBorderColor="#5e6ad2" type="password" value={runtimeSettingsForm.phpmyadmin_password} placeholder={t("phpmyadmin.passwordPlaceholder")} onChange={(event) => setRuntimeSettingsForm((prev) => ({
                     ...prev,
                     phpmyadmin_password: event.target.value,
                 }))}/>
@@ -2203,7 +2226,7 @@ export const IntegrationSettingsPage = () => {
 																				</Text>
 																			</Box>
 																		</HStack>
-																		<Switch colorScheme="primary" isChecked={Boolean(settings.randomize_links)} onChange={(e) => handleAdminTemplateChange(admin.id, "randomize_links", e.target.checked)}/>
+																		<Switch colorScheme="blue" isChecked={Boolean(settings.randomize_links)} onChange={(e) => handleAdminTemplateChange(admin.id, "randomize_links", e.target.checked)}/>
 																	</Flex>
 
 																	{/* 2. Show config links in templates */}
@@ -2219,7 +2242,7 @@ export const IntegrationSettingsPage = () => {
 																				</Text>
 																			</Box>
 																		</HStack>
-																		<Switch colorScheme="primary" isChecked={settings.show_config_links !== false} onChange={(e) => handleAdminTemplateChange(admin.id, "show_config_links", e.target.checked)}/>
+																		<Switch colorScheme="blue" isChecked={settings.show_config_links !== false} onChange={(e) => handleAdminTemplateChange(admin.id, "show_config_links", e.target.checked)}/>
 																	</Flex>
 
 																	{/* 3. Append username to links */}
@@ -2235,7 +2258,7 @@ export const IntegrationSettingsPage = () => {
 																				</Text>
 																			</Box>
 																		</HStack>
-																		<Switch colorScheme="primary" isChecked={Boolean(settings.append_username_to_links)} onChange={(e) => handleAdminTemplateChange(admin.id, "append_username_to_links", e.target.checked)}/>
+																		<Switch colorScheme="blue" isChecked={Boolean(settings.append_username_to_links)} onChange={(e) => handleAdminTemplateChange(admin.id, "append_username_to_links", e.target.checked)}/>
 																	</Flex>
 
 																	{/* 4. Subscription template */}
@@ -2251,7 +2274,7 @@ export const IntegrationSettingsPage = () => {
 																				</Text>
 																			</Box>
 																		</HStack>
-																		<Switch colorScheme="primary" isChecked={settings.subscription_template_enabled !== false} onChange={(e) => handleAdminTemplateChange(admin.id, "subscription_template_enabled", e.target.checked)}/>
+																		<Switch colorScheme="blue" isChecked={settings.subscription_template_enabled !== false} onChange={(e) => handleAdminTemplateChange(admin.id, "subscription_template_enabled", e.target.checked)}/>
 															</Flex>
 														</VStack>
 													</VStack>)}
@@ -2290,7 +2313,7 @@ export const IntegrationSettingsPage = () => {
 																		· {pct}
 																	</Text>
 																</Box>
-																<Switch colorScheme="primary" isChecked={isAllowed} onChange={(e) => {
+																<Switch colorScheme="blue" isChecked={isAllowed} onChange={(e) => {
                                             let updated;
                                             if (e.target.checked) {
                                                 updated = blocked.filter((k) => k.toLowerCase() !==
@@ -2310,18 +2333,42 @@ export const IntegrationSettingsPage = () => {
 												</SimpleGrid>)}
 
 											{/* Tab 3: Custom Config Remarks */}
-											{resellerTab === "config_remarks" && (<CustomConfigRemarksSection adminId={admin.id} remarks={settings.inbound_remarks || {}} onChangeRemarks={(nextRemarks) => handleAdminTemplateChange(admin.id, "inbound_remarks", nextRemarks)} subscriptionInbounds={subscriptionBundle?.inbounds || []} borderColor={borderColor} subCardBg={subCardBg} fieldBg={fieldBg} onRefresh={() => refetchSubscriptionSettings()}/>)}
+											{resellerTab === "config_remarks" && (<CustomConfigRemarksSection adminId={admin.id} remarks={settings.inbound_remarks || {}} onChangeRemarks={(nextRemarks) => handleAdminTemplateChange(admin.id, "inbound_remarks", nextRemarks)} inboundOrder={settings.inbound_order || []} onChangeOrder={(nextOrder) => handleAdminTemplateChange(admin.id, "inbound_order", nextOrder)} disabledInbounds={settings.disabled_inbounds || []} onChangeDisabled={(nextDisabled) => handleAdminTemplateChange(admin.id, "disabled_inbounds", nextDisabled)} infoConfigs={settings.info_configs || []} onChangeInfoConfigs={(nextInfoConfigs) => handleAdminTemplateChange(admin.id, "info_configs", nextInfoConfigs)} subscriptionInbounds={subscriptionBundle?.inbounds || []} borderColor={borderColor} subCardBg={subCardBg} fieldBg={fieldBg} onRefresh={() => refetchSubscriptionSettings()}/>)}
 
 											{/* Save Button for current view */}
 											<Flex justify="flex-end" mt={2}>
-												<Button colorScheme="primary" leftIcon={<SaveIcon />} onClick={handleSaveAll} isLoading={adminSelfSaveMutation.isLoading}>
+												<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} leftIcon={<SaveIcon />} onClick={handleSaveAll} isLoading={adminSelfSaveMutation.isLoading}>
 													{t("settings.save", "Save changes")}
 												</Button>
 											</Flex>
 										</VStack>);
                     })()}
 									</Box>) : (<>
-										<Box className="master-settings-card">
+										<div className="flex flex-wrap items-center gap-1 rounded-xl border border-hairline bg-surface-1 p-1">
+											{[
+												{ id: "global", label: t("settings.subscriptions.globalTitle", "Global settings") },
+												{ id: "happ", label: "Happ App" },
+												{ id: "client_apps", label: t("settings.subscriptions.clientAppsTitle", "Client Apps") },
+												{ id: "admins", label: t("settings.subscriptions.adminsTitle", "Admin overrides") },
+											].map((tab) => {
+												const active = subSectionTab === tab.id;
+												return (
+													<button
+														key={tab.id}
+														type="button"
+														onClick={() => setSubSectionTab(tab.id)}
+														className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+															active
+																? "bg-accent text-white shadow-sm"
+																: "text-ink-subtle hover:bg-surface-2 hover:text-ink"
+														}`}
+													>
+														{tab.label}
+													</button>
+												);
+											})}
+										</div>
+										{subSectionTab === "global" && (<Box className="master-settings-card">
 									<Flex justify="space-between" align={{ base: "flex-start", md: "center" }} flexDirection={{ base: "column", md: "row" }} gap={3} mb={4}>
 										<Box>
 											<Heading size="sm" mb={1}>
@@ -2570,8 +2617,8 @@ export const IntegrationSettingsPage = () => {
 											</Button>
 										</VStack>
 									</Box>
-								</Box>
-								<Box className="master-settings-card">
+								</Box>)}
+								{subSectionTab === "happ" && (<Box className="master-settings-card">
 									<Flex justify="space-between" align={{ base: "flex-start", md: "center" }} mb={4} flexDirection={{ base: "column", sm: "row" }} gap={2}>
 										<Box>
 											<HStack spacing={2} mb={1}>
@@ -2645,7 +2692,7 @@ export const IntegrationSettingsPage = () => {
 													{t("settings.subscriptions.happSubExpireHint")}
 												</FormHelperText>
 											</Box>
-											<Switch colorScheme="primary" isChecked={Boolean(watchSubscription("happ_sub_expire"))} onChange={(e) => setSubscriptionValue("happ_sub_expire", e.target.checked, {
+											<Switch colorScheme="blue" isChecked={Boolean(watchSubscription("happ_sub_expire"))} onChange={(e) => setSubscriptionValue("happ_sub_expire", e.target.checked, {
                         shouldDirty: true,
                     })}/>
 										</FormControl>
@@ -2659,11 +2706,11 @@ export const IntegrationSettingsPage = () => {
 											</FormHelperText>
 										</FormControl>
 									</SimpleGrid>
-								</Box>
-								<Box className="master-settings-card">
+								</Box>)}
+								{subSectionTab === "client_apps" && (<Box className="master-settings-card">
 									<Flex justify="space-between" align={{ base: "flex-start", sm: "center" }} mb={4} flexDirection={{ base: "column", sm: "row" }} gap={3}>
 										<HStack spacing={3} align="center">
-											<Box p={2} borderRadius="lg" bg={colorMode === "dark" ? "whiteAlpha.100" : "blackAlpha.50"} color={colorMode === "dark" ? "primary.300" : "primary.600"}>
+											<Box p={2} borderRadius="lg" bg={colorMode === "dark" ? "whiteAlpha.100" : "blackAlpha.50"} color={colorMode === "dark" ? "#818cf8" : "#4f46e5"}>
 												<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 													<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
 													<line x1="12" y1="18" x2="12.01" y2="18"/>
@@ -2719,7 +2766,7 @@ export const IntegrationSettingsPage = () => {
 															</Text>
 														</Box>
 														<Tooltip label={isAllowed ? t("settings.subscriptions.blockApp", "Block app") : t("settings.subscriptions.allowApp", "Allow app")}>
-															<Switch colorScheme="primary" isChecked={isAllowed} onChange={(e) => {
+															<Switch colorScheme="blue" isChecked={isAllowed} onChange={(e) => {
                                         let updated;
                                         if (e.target.checked) {
                                             updated = currentBlocked.filter((k) => k.toLowerCase() !== app.key.toLowerCase());
@@ -2744,7 +2791,7 @@ export const IntegrationSettingsPage = () => {
 																{t("settings.subscriptions.configFormat", "Config format")}:
 															</Text>
 															<HStack spacing={1}>
-																<Button size="xs" variant={currentFormat === "json" ? "solid" : "outline"} colorScheme={currentFormat === "json" ? "primary" : "gray"} borderRadius="md" fontWeight="medium" onClick={() => {
+																<Button size="xs" variant={currentFormat === "json" ? "solid" : "outline"} colorScheme={currentFormat === "json" ? "blue" : "gray"} borderRadius="md" fontWeight="medium" onClick={() => {
                                         const nextFormats = {
                                             ...currentFormats,
                                             [app.key]: "json",
@@ -2756,7 +2803,7 @@ export const IntegrationSettingsPage = () => {
                                     }}>
 																	{t("settings.subscriptions.formatJson", "JSON")}
 																</Button>
-																<Button size="xs" variant={currentFormat === "simple" ? "solid" : "outline"} colorScheme={currentFormat === "simple" ? "primary" : "gray"} borderRadius="md" fontWeight="medium" onClick={() => {
+																<Button size="xs" variant={currentFormat === "simple" ? "solid" : "outline"} colorScheme={currentFormat === "simple" ? "blue" : "gray"} borderRadius="md" fontWeight="medium" onClick={() => {
                                         const nextFormats = {
                                             ...currentFormats,
                                             [app.key]: "simple",
@@ -2774,12 +2821,12 @@ export const IntegrationSettingsPage = () => {
                     })}
 									</SimpleGrid>
 									<Flex justify="flex-end" mt={5}>
-										<Button colorScheme="primary" size="sm" leftIcon={<SaveIcon />} onClick={handleSaveAll} isLoading={saveAllMutation.isLoading} isDisabled={saveAllMutation.isLoading}>
+										<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} size="sm" leftIcon={<SaveIcon />} onClick={handleSaveAll} isLoading={saveAllMutation.isLoading} isDisabled={saveAllMutation.isLoading}>
 											{t("settings.subscriptions.saveChanges", "Save changes")}
 										</Button>
 									</Flex>
-								</Box>
-								<Box className="master-settings-card">
+								</Box>)}
+								{subSectionTab === "admins" && (<Box className="master-settings-card">
 									<Heading size="sm" mb={1}>
 										{t("settings.subscriptions.adminsTitle")}
 									</Heading>
@@ -2815,7 +2862,7 @@ export const IntegrationSettingsPage = () => {
 																	{t("settings.subscriptions.noResults")}
 																</Text>
 															</Box>) : (filteredAdmins.map((admin) => (<MenuItem key={admin.id} onClick={() => setSelectedAdminId(admin.id)} minH="36px" py={1.5} px={3} bg={selectedAdminId === admin.id
-                                ? "primary.50"
+                                ? "blue.50"
                                 : undefined} _dark={{
                                 bg: selectedAdminId === admin.id
                                     ? "whiteAlpha.100"
@@ -3059,7 +3106,7 @@ export const IntegrationSettingsPage = () => {
 																							· {pct}
 																						</Text>
 																					</Box>
-																					<Switch colorScheme="primary" isChecked={isAllowed} onChange={(e) => {
+																					<Switch colorScheme="blue" isChecked={isAllowed} onChange={(e) => {
                                                 let updated;
                                                 if (e.target.checked) {
                                                     updated = blocked.filter((k) => k.toLowerCase() !==
@@ -3087,7 +3134,7 @@ export const IntegrationSettingsPage = () => {
 																	<Text fontSize="xs" color="gray.500" mb={3}>
 																		{t("settings.subscriptions.customConfigNamesDesc", "Assign custom names to each inbound or server to display in subscription config links.")}
 																	</Text>
-																	<CustomConfigRemarksSection adminId={admin.id} remarks={settings.inbound_remarks || {}} onChangeRemarks={(nextRemarks) => handleAdminTemplateChange(admin.id, "inbound_remarks", nextRemarks)} subscriptionInbounds={subscriptionBundle?.inbounds || []} borderColor={borderColor} subCardBg={subCardBg} fieldBg={fieldBg} onRefresh={() => refetchSubscriptionSettings()}/>
+																	<CustomConfigRemarksSection adminId={admin.id} remarks={settings.inbound_remarks || {}} onChangeRemarks={(nextRemarks) => handleAdminTemplateChange(admin.id, "inbound_remarks", nextRemarks)} inboundOrder={settings.inbound_order || []} onChangeOrder={(nextOrder) => handleAdminTemplateChange(admin.id, "inbound_order", nextOrder)} disabledInbounds={settings.disabled_inbounds || []} onChangeDisabled={(nextDisabled) => handleAdminTemplateChange(admin.id, "disabled_inbounds", nextDisabled)} infoConfigs={settings.info_configs || []} onChangeInfoConfigs={(nextInfoConfigs) => handleAdminTemplateChange(admin.id, "info_configs", nextInfoConfigs)} subscriptionInbounds={subscriptionBundle?.inbounds || []} borderColor={borderColor} subCardBg={subCardBg} fieldBg={fieldBg} onRefresh={() => refetchSubscriptionSettings()}/>
 																</Box>
 
 																<Divider my={4}/>
@@ -3096,7 +3143,7 @@ export const IntegrationSettingsPage = () => {
 																	<Button variant="outline" leftIcon={<RefreshIcon />} onClick={() => handleAdminReset(admin.id)} isDisabled={saveAllMutation.isLoading || singleAdminSaveMutation.isLoading}>
 																		{t("settings.subscriptions.resetOverrides")}
 																	</Button>
-																	<Button colorScheme="primary" leftIcon={<SaveIcon />} onClick={() => singleAdminSaveMutation.mutate({
+																	<Button bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} leftIcon={<SaveIcon />} onClick={() => singleAdminSaveMutation.mutate({
                                         id: admin.id,
                                         settings: buildAdminSubscriptionPayload(admin),
                                     })} isLoading={singleAdminSaveMutation.isLoading}>
@@ -3107,7 +3154,7 @@ export const IntegrationSettingsPage = () => {
                             })()}
 												</Box>)}
 										</Stack>)}
-								</Box>
+								</Box>)}
 									</>)}
 							</VStack>
 						</form>)}
@@ -3121,11 +3168,11 @@ export const IntegrationSettingsPage = () => {
 				</Box>
 			)}
 			<Modal isOpen={isCertificateDialogOpen} onClose={() => setCertificateDialogOpen(false)} size={certificateForm.provider === "manual" ? "3xl" : "xl"} isCentered scrollBehavior="inside" closeOnOverlayClick={!isCertificateMutationLoading}>
-				<ModalOverlay bg="blackAlpha.500"/>
+				<ModalOverlay bg="rgba(4, 5, 10, 0.72)" backdropFilter="blur(8px)"/>
 				<ModalContent as="form" onSubmit={(event) => {
             event.preventDefault();
             handleIssueCertificate();
-        }} bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="2xl" boxShadow="2xl" overflow="hidden" mx={{ base: 4, sm: 0 }}>
+        }} bg="#11131c" borderWidth="1px" borderColor="rgba(255,255,255,0.08)" borderRadius="16px" boxShadow="0 24px 64px rgba(0,0,0,0.65)" color="#f4f4f5" overflow="hidden" mx={{ base: 4, sm: 0 }}>
 					<ModalHeader px={6} pt={6} pb={2}>
 						{t("settings.subscriptions.getNewSSL")}
 					</ModalHeader>
@@ -3203,7 +3250,7 @@ export const IntegrationSettingsPage = () => {
 						<Button variant="ghost" onClick={() => setCertificateDialogOpen(false)} isDisabled={isCertificateMutationLoading}>
 							{t("cancel")}
 						</Button>
-						<Button type="submit" colorScheme="primary" isLoading={isCertificateMutationLoading}>
+						<Button type="submit" bg="#6366f1" color="white" _hover={{ bg: "#4f46e5" }} _active={{ bg: "#4338ca" }} isLoading={isCertificateMutationLoading}>
 							{certificateForm.provider === "manual"
             ? t("settings.subscriptions.importAction")
             : t("settings.subscriptions.issueAction")}

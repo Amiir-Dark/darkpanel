@@ -15,7 +15,16 @@ const getDevProxyBaseURL = (baseURL) => {
         return baseURL;
     }
 };
-export const apiBaseURL = import.meta.env.DEV && /^https?:\/\//i.test(configuredBaseURL)
+const isLoopbackURL = (baseURL) => {
+    try {
+        const { hostname } = new URL(baseURL);
+        return hostname === "127.0.0.1" || hostname === "localhost";
+    }
+    catch {
+        return false;
+    }
+};
+export const apiBaseURL = /^https?:\/\//i.test(configuredBaseURL) && (import.meta.env.DEV || isLoopbackURL(configuredBaseURL))
     ? getDevProxyBaseURL(configuredBaseURL)
     : configuredBaseURL;
 const rawFetch = ohMyFetch.create({

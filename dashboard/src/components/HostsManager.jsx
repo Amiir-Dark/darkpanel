@@ -1,5 +1,7 @@
 import { Accordion, AccordionButton, AccordionIcon, AccordionItem, AccordionPanel, Badge, Box, Button, Card, Checkbox, chakra, Flex, FormControl, FormErrorMessage, FormHelperText, FormLabel, HStack, IconButton, Input, InputGroup, InputRightElement, MenuItem, Modal, ModalCloseButton, ModalOverlay, Popover, PopoverArrow, PopoverBody, PopoverCloseButton, PopoverContent, PopoverTrigger, Portal, Select, SimpleGrid, Spinner, Stack, Switch, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, Text, Tooltip, useToast, VStack, } from "@chakra-ui/react";
-import { ArrowDownIcon, ArrowPathIcon, ArrowUpIcon, ArrowsUpDownIcon, Bars3Icon, CheckCircleIcon, ChevronDownIcon, ChevronUpIcon, InformationCircleIcon, PencilIcon, PlusIcon, TrashIcon, XCircleIcon, } from "@heroicons/react/24/outline";
+import { ArrowDownIcon, ArrowPathIcon, ArrowUpIcon, ArrowsUpDownIcon, Bars2Icon, Bars3Icon, CheckCircleIcon, ChevronDownIcon, ChevronUpIcon, DocumentDuplicateIcon, InformationCircleIcon, PencilIcon, PencilSquareIcon, PlusIcon, PowerIcon, TrashIcon, XCircleIcon, } from "@heroicons/react/24/outline";
+import { Reorder } from "framer-motion";
+import { Badge as LinearBadge, Button as LinearButton, Card as LinearCard, IconButton as LinearIconButton, Spinner as LinearSpinner } from "components/linear/UI";
 import { clearHostsCustomOrder, getHostsCustomOrder, setHostsCustomOrder, } from "utils/userPreferenceStorage";
 import { proxyALPN, proxyFingerprint, proxyHostSecurity, } from "constants/Proxies";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
@@ -217,12 +219,83 @@ const getNodeAddressOptions = (nodes) => (nodes ?? [])
     return options;
 }, []);
 const HOST_MODAL_SX = {
+    bg: "#11131c",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    borderRadius: "16px",
+    boxShadow: "0 24px 64px rgba(0, 0, 0, 0.65)",
+    color: "#f4f4f5",
+    maxW: "680px",
+    overflow: "hidden",
+    ".chakra-modal__header": {
+        borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+        bg: "rgba(255, 255, 255, 0.015)",
+        py: 3.5,
+        px: 5,
+        fontSize: "15px",
+        fontWeight: 600,
+    },
+    ".chakra-modal__body": {
+        px: 5,
+        py: 4,
+    },
+    ".chakra-modal__footer": {
+        borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+        bg: "rgba(255, 255, 255, 0.015)",
+        px: 5,
+        py: 3,
+    },
+    ".chakra-tabs__tablist": {
+        display: "inline-flex",
+        bg: "rgba(255, 255, 255, 0.04)",
+        border: "1px solid rgba(255, 255, 255, 0.07)",
+        borderRadius: "10px",
+        p: "3px",
+        gap: "4px",
+        mb: 3,
+        borderBottom: "none",
+    },
+    ".chakra-tabs__tab": {
+        px: 3.5,
+        py: 1.5,
+        fontSize: "12px",
+        fontWeight: 500,
+        color: "#a1a1aa",
+        borderRadius: "7px",
+        borderBottom: "none !important",
+        transition: "all 0.15s ease",
+        _hover: { color: "#f4f4f5" },
+        _selected: {
+            bg: "rgba(99, 102, 241, 0.18)",
+            color: "#a5b4fc",
+            borderBottom: "none !important",
+            boxShadow: "inset 0 0 0 1px rgba(99, 102, 241, 0.35)",
+        },
+    },
     ".xray-dialog-section .chakra-form-control": {
         display: "block",
     },
     ".xray-dialog-section .chakra-form__label": {
         whiteSpace: "nowrap",
         mb: 1.5,
+        fontSize: "12px",
+        color: "#a1a1aa",
+    },
+    "input.chakra-input, select.chakra-select, textarea.chakra-textarea": {
+        bg: "rgba(255, 255, 255, 0.03)",
+        borderColor: "rgba(255, 255, 255, 0.09)",
+        borderRadius: "8px",
+        fontSize: "13px",
+        _hover: { borderColor: "rgba(255, 255, 255, 0.18)" },
+        _focus: {
+            borderColor: "#6366f1",
+            boxShadow: "0 0 0 1px #6366f1",
+        },
+    },
+    ".chakra-accordion__item": {
+        bg: "rgba(255, 255, 255, 0.02)",
+        border: "1px solid rgba(255, 255, 255, 0.07)",
+        borderRadius: "10px",
+        overflow: "hidden",
     },
 };
 const alpnAutocompleteOptions = proxyALPN
@@ -925,8 +998,8 @@ const HostDetailModal = ({ host, inboundOptions, isOpen, onClose, onChange, onCh
     if (!host) {
         return null;
     }
-    return (<Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside" isCentered returnFocusOnClose={false}>
-			<ModalOverlay bg="blackAlpha.400"/>
+    return (<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered returnFocusOnClose={false}>
+			<ModalOverlay bg="rgba(4, 5, 10, 0.72)" backdropFilter="blur(8px)"/>
 			<XrayModalContent mx="3" sx={HOST_MODAL_SX}>
 				<ModalCloseButton />
 				<XrayModalHeader subtitle={isCloneMode ? t("hostsPage.clone.description") : undefined}>
@@ -974,9 +1047,9 @@ const HostDetailModal = ({ host, inboundOptions, isOpen, onClose, onChange, onCh
 						<Button size="sm" variant="outline" onClick={() => onReset(host.uid)} isDisabled={!dirty || saving}>
 							{t("reset")}
 						</Button>
-						<Button size="sm" colorScheme="primary" onClick={() => onSave(host.uid)} isDisabled={primaryDisabled} isLoading={saving}>
+						<LinearButton size="sm" variant="primary" onClick={() => onSave(host.uid)} disabled={primaryDisabled} loading={saving}>
 							{primaryLabel}
-						</Button>
+						</LinearButton>
 					</HStack>
 				</XrayModalFooter>
 			</XrayModalContent>
@@ -1071,8 +1144,8 @@ const CreateHostModal = ({ isOpen, onClose, inboundOptions, onSubmit, isSubmitti
         }
         onSubmit(formState);
     };
-    return (<Modal isOpen={isOpen} onClose={onClose} size="4xl" initialFocusRef={initialRef} scrollBehavior="inside" isCentered returnFocusOnClose={false}>
-			<ModalOverlay bg="blackAlpha.400"/>
+    return (<Modal isOpen={isOpen} onClose={onClose} size="2xl" initialFocusRef={initialRef} scrollBehavior="inside" isCentered returnFocusOnClose={false}>
+			<ModalOverlay bg="rgba(4, 5, 10, 0.72)" backdropFilter="blur(8px)"/>
 			<XrayModalContent mx="3" sx={HOST_MODAL_SX}>
 				<XrayModalHeader subtitle={t("hostsPage.create.description")}>
 					{t("hostsPage.create.title")}
@@ -1108,7 +1181,7 @@ const CreateHostModal = ({ isOpen, onClose, inboundOptions, onSubmit, isSubmitti
 					<Button variant="ghost" onClick={onClose}>
 						{t("hostsPage.cancel")}
 					</Button>
-					<Button colorScheme="primary" onClick={handleSubmit} isLoading={isSubmitting} isDisabled={Boolean(jsonError) ||
+					<LinearButton size="sm" variant="primary" onClick={handleSubmit} loading={isSubmitting} disabled={Boolean(jsonError) ||
             !finalMaskValid ||
             Boolean(hostClientSettingsError(formState.client_settings)) ||
             !certificatePinsValid(formState.pinned_peer_cert_sha256) ||
@@ -1120,7 +1193,7 @@ const CreateHostModal = ({ isOpen, onClose, inboundOptions, onSubmit, isSubmitti
                 (!formState.dns_primary.trim() ||
                     !formState.dns_secondary.trim()))}>
 						{t("hostsPage.create.submit")}
-					</Button>
+					</LinearButton>
 				</XrayModalFooter>
 			</XrayModalContent>
 		</Modal>);
@@ -1268,6 +1341,7 @@ export const HostsManager = () => {
     const isInitialLoading = isLoading && !hasLoadedHosts;
     const isRefreshing = isLoading && hasLoadedHosts;
     const isSearchActive = searchQuery.trim().length > 0;
+    const hasActiveFilter = isSearchActive || selectedInboundFilter !== "all";
     const showSearchEmptyState = !isInitialLoading &&
         isSearchActive &&
         baseFilteredHosts.length > 0 &&
@@ -1283,6 +1357,15 @@ export const HostsManager = () => {
         });
         return map;
     }, [displayedHosts]);
+    const applyHostOrderSilent = useCallback((orderedHosts) => {
+        const nextOrder = {};
+        orderedHosts.forEach((host, index) => {
+            nextOrder[getHostOrderKey(host)] = index;
+        });
+        setHostsCustomOrder(nextOrder);
+        setCustomOrder(nextOrder);
+        applyHostItems((prev) => sortHosts(prev, nextOrder));
+    }, [applyHostItems]);
     const applyHostOrder = useCallback((orderedHosts, movedUid) => {
         const nextOrder = {};
         orderedHosts.forEach((host, index) => {
@@ -1847,9 +1930,9 @@ export const HostsManager = () => {
             header: t("hostsPage.host"),
             isPrimary: true,
             priority: "primary",
-            width: { base: "150px", lg: "160px", xl: "180px" },
-            minWidth: "130px",
-            maxWidth: "220px",
+            width: { base: "140px", lg: "150px", xl: "170px" },
+            minWidth: "110px",
+            maxWidth: "200px",
             mobilePriority: 0,
             mobileMetaLabel: t("hostsPage.host"),
             cell: (host) => {
@@ -1876,9 +1959,9 @@ export const HostsManager = () => {
             id: "status",
             header: t("usersTable.status"),
             priority: "high",
-            width: "112px",
-            minWidth: "96px",
-            maxWidth: "128px",
+            width: "88px",
+            minWidth: "76px",
+            maxWidth: "100px",
             headerAlign: "start",
             cellAlign: "start",
             mobilePriority: 1,
@@ -1891,9 +1974,9 @@ export const HostsManager = () => {
             id: "address",
             header: t("hostsDialog.address"),
             priority: "high",
-            width: { base: "210px", lg: "240px", xl: "280px" },
-            minWidth: "170px",
-            maxWidth: "320px",
+            width: { base: "150px", lg: "170px", xl: "200px" },
+            minWidth: "120px",
+            maxWidth: "240px",
             mobilePriority: 1,
             mobileMetaLabel: t("hostsDialog.address"),
             cell: (host) => renderRotationValues(host.data.address, t("hostsPage.noAddress")),
@@ -1915,9 +1998,9 @@ export const HostsManager = () => {
             id: "inbound",
             header: t("hostsPage.inboundLabel"),
             priority: "high",
-            width: { base: "150px", lg: "160px", xl: "190px" },
-            minWidth: "130px",
-            maxWidth: "230px",
+            width: { base: "130px", lg: "145px", xl: "170px" },
+            minWidth: "110px",
+            maxWidth: "200px",
             mobilePriority: 3,
             mobileMetaLabel: t("hostsPage.inboundLabel"),
             cell: (host) => {
@@ -1941,10 +2024,10 @@ export const HostsManager = () => {
             id: "sni",
             header: t("hostsDialog.sni"),
             priority: "low",
-            hideBelow: "xl",
-            width: "180px",
-            minWidth: "140px",
-            maxWidth: "220px",
+            hideBelow: "2xl",
+            width: "150px",
+            minWidth: "120px",
+            maxWidth: "180px",
             mobilePriority: 4,
             mobileMetaLabel: t("hostsDialog.sni"),
             cell: (host) => renderRotationValues(host.data.sni, "-"),
@@ -1953,10 +2036,10 @@ export const HostsManager = () => {
             id: "request_host",
             header: t("hostsDialog.host"),
             priority: "low",
-            hideBelow: "xl",
-            width: "180px",
-            minWidth: "140px",
-            maxWidth: "220px",
+            hideBelow: "2xl",
+            width: "150px",
+            minWidth: "120px",
+            maxWidth: "180px",
             mobilePriority: 5,
             mobileMetaLabel: t("hostsDialog.host"),
             cell: (host) => renderRotationValues(host.data.host, "-"),
@@ -1965,9 +2048,9 @@ export const HostsManager = () => {
             id: "security",
             header: t("hostsDialog.security"),
             priority: "low",
-            hideBelow: "xl",
-            width: "130px",
-            maxWidth: "150px",
+            hideBelow: "2xl",
+            width: "115px",
+            maxWidth: "135px",
             mobilePriority: 6,
             mobileMetaLabel: t("hostsDialog.security"),
             cell: (host) => (<Tag size="sm" colorScheme="blue">
@@ -2090,47 +2173,171 @@ export const HostsManager = () => {
 					</HStack>)}
 			</ResourceListCard>
 
-			<DataTable ariaLabel={t("hostsPage.tabHosts")} data={displayedHosts} columns={hostColumns} getRowId={(host) => host.uid} isLoading={isInitialLoading} loadingRows={5} emptyState={<Box textAlign="center" color="panel.textMuted">
-						{showSearchEmptyState
-                ? t("hostsPage.searchEmpty")
-                : t("hostsPage.emptyState")}
-					</Box>} rowActions={hostRowActions} actionsDisplay="menu" actionsPlacement="end" actionsColumnWidth="60px" showActionsOnHover enableSelection selectedRowIds={selectedHostUids} selectedCount={selectedHostUids.length} onSelectionChange={(rowIds) => setSelectedHostUids(rowIds)} selectedLabel={t("hostsPage.selectedCount", {
-            count: selectedHostUids.length,
-        })} renderBulkActions={(selectedRows) => {
-            const enableTargets = selectedRows.filter((host) => host.data.is_disabled);
-            const disableTargets = selectedRows.filter((host) => !host.data.is_disabled);
-            return (<>
-							<Button size="sm" variant="outline" leftIcon={<CheckCircleIcon width={16}/>} isLoading={bulkAction === "enable"} isDisabled={Boolean(bulkAction) ||
-                    isPostLoading ||
-                    enableTargets.length === 0} onClick={() => handleBulkToggleHosts(enableTargets, true)}>
-								{t("hostsPage.enable")}
-							</Button>
-							<Button size="sm" variant="outline" leftIcon={<XCircleIcon width={16}/>} isLoading={bulkAction === "disable"} isDisabled={Boolean(bulkAction) ||
-                    isPostLoading ||
-                    disableTargets.length === 0} onClick={() => handleBulkToggleHosts(disableTargets, false)}>
-								{t("phpmyadmin.disableAction")}
-							</Button>
-							<DeleteConfirmDialog description={t("hostsPage.confirmBulkDelete", {
-                    count: selectedRows.length,
-                })} isLoading={bulkAction === "delete"} isDisabled={selectedRows.length === 0} onConfirm={() => handleBulkDeleteHosts(selectedRows)}>
-								<Button size="sm" variant="outline" colorScheme="red" leftIcon={<TrashIcon width={16}/>} isLoading={bulkAction === "delete"} isDisabled={Boolean(bulkAction) ||
-                    isPostLoading ||
-                    selectedRows.length === 0}>
-									{t("delete")}
-								</Button>
-							</DeleteConfirmDialog>
-						</>);
-        }} mobileBreakpoint="md" tableProps={{
-            w: "full",
-            sx: {
-                tableLayout: "fixed",
-                "& th, & td": {
-                    px: { base: 2, xl: 2.5 },
-                    py: 2.5,
-                    verticalAlign: "middle",
-                },
-            },
-        }}/>
+			{selectedHostUids.length > 0 && (<div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-500/25 bg-indigo-500/[0.06] px-3 py-2">
+					<span className="text-xs font-medium text-indigo-300">
+						{t("hostsPage.selectedCount", { count: selectedHostUids.length })}
+					</span>
+					<div className="flex flex-wrap items-center gap-2">
+						{(() => {
+                    const selectedRows = displayedHosts.filter((h) => selectedHostUids.includes(h.uid));
+                    const enableTargets = selectedRows.filter((h) => h.data?.is_disabled);
+                    const disableTargets = selectedRows.filter((h) => !h.data?.is_disabled);
+                    return (<>
+									<LinearButton size="xs" variant="secondary" icon={CheckCircleIcon} loading={bulkAction === "enable"} disabled={Boolean(bulkAction) || isPostLoading || enableTargets.length === 0} onClick={() => handleBulkToggleHosts(enableTargets, true)}>
+										{t("hostsPage.enable")}
+									</LinearButton>
+									<LinearButton size="xs" variant="secondary" icon={XCircleIcon} loading={bulkAction === "disable"} disabled={Boolean(bulkAction) || isPostLoading || disableTargets.length === 0} onClick={() => handleBulkToggleHosts(disableTargets, false)}>
+										{t("phpmyadmin.disableAction")}
+									</LinearButton>
+									<DeleteConfirmDialog description={t("hostsPage.confirmBulkDelete", { count: selectedRows.length })} isLoading={bulkAction === "delete"} isDisabled={selectedRows.length === 0} onConfirm={() => handleBulkDeleteHosts(selectedRows)}>
+										<LinearButton size="xs" variant="danger" icon={TrashIcon} loading={bulkAction === "delete"} disabled={Boolean(bulkAction) || isPostLoading || selectedRows.length === 0}>
+											{t("delete")}
+										</LinearButton>
+									</DeleteConfirmDialog>
+								</>);
+                })()}
+					</div>
+				</div>)}
+
+			<LinearCard className="overflow-hidden">
+				<div className="hidden md:grid grid-cols-1 md:grid-cols-[28px_112px_minmax(180px,2.2fr)_78px_minmax(120px,1.1fr)_60px_minmax(130px,1.1fr)_124px] xl:grid-cols-[28px_112px_minmax(200px,2.2fr)_78px_minmax(120px,1.1fr)_60px_minmax(130px,1.1fr)_minmax(110px,1fr)_124px] items-center gap-3 border-b border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+					<div className="flex items-center justify-center">
+						<input type="checkbox" aria-label={t("select_all")} checked={displayedHosts.length > 0 && selectedHostUids.length === displayedHosts.length} onChange={(e) => {
+                if (e.target.checked) {
+                    setSelectedHostUids(displayedHosts.map((h) => h.uid));
+                }
+                else {
+                    setSelectedHostUids([]);
+                }
+            }} className="h-3.5 w-3.5 rounded border-white/20 bg-transparent text-indigo-500 focus:ring-0"/>
+					</div>
+					<div>{t("hostsPage.tableOrder", "Order")}</div>
+					<div>{t("hostsPage.host")}</div>
+					<div>{t("usersTable.status")}</div>
+					<div>{t("hostsDialog.address")}</div>
+					<div>{t("port")}</div>
+					<div>{t("hostsPage.inboundLabel")}</div>
+					<div className="hidden xl:block">{t("hostsDialog.sni")}</div>
+					<div className="text-right">{t("actions", "Actions")}</div>
+				</div>
+
+				{isInitialLoading ? (<div className="flex items-center justify-center py-12">
+						<LinearSpinner size="md"/>
+					</div>) : displayedHosts.length === 0 ? (<div className="py-12 text-center text-sm text-zinc-500">
+						{showSearchEmptyState ? t("hostsPage.searchEmpty") : t("hostsPage.emptyState")}
+					</div>) : (<Reorder.Group axis="y" values={displayedHosts} onReorder={(nextOrdered) => {
+                if (!hasActiveFilter) {
+                    applyHostOrderSilent(nextOrdered);
+                }
+            }} className="divide-y divide-white/[0.05]">
+						{displayedHosts.map((host) => {
+                const isSelected = selectedHostUids.includes(host.uid);
+                const isDirty = isHostDirty(host);
+                const inbound = inboundOptions.find((item) => item.value === host.inboundTag);
+                const idx = displayedHostIndex.get(host.uid) ?? 0;
+                const canDrag = !hasActiveFilter;
+                const hostName = host.data?.remark || t("hostsPage.untitledHost");
+                const addressText = Array.isArray(host.data?.address)
+                    ? host.data.address.filter(Boolean).join(", ")
+                    : (host.data?.address || "-");
+                const sniText = Array.isArray(host.data?.sni)
+                    ? host.data.sni.filter(Boolean).join(", ")
+                    : (host.data?.sni || "-");
+                return (<Reorder.Item key={host.uid} value={host} dragListener={canDrag} whileDrag={{
+                        scale: 1.012,
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+                        backgroundColor: "rgba(30, 32, 44, 0.96)",
+                        zIndex: 30,
+                    }} transition={{ type: "spring", stiffness: 450, damping: 32 }} className={`grid grid-cols-1 md:grid-cols-[28px_112px_minmax(180px,2.2fr)_78px_minmax(120px,1.1fr)_60px_minmax(130px,1.1fr)_124px] xl:grid-cols-[28px_112px_minmax(200px,2.2fr)_78px_minmax(120px,1.1fr)_60px_minmax(130px,1.1fr)_minmax(110px,1fr)_124px] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-white/[0.025] ${canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${animatingUid === host.uid ? "bg-indigo-500/[0.08]" : ""} ${isSelected ? "bg-indigo-500/[0.05]" : ""}`}>
+									<div className="flex items-center justify-center" onPointerDown={(e) => e.stopPropagation()}>
+										<input type="checkbox" checked={isSelected} onChange={(e) => {
+                        if (e.target.checked) {
+                            setSelectedHostUids((prev) => [...prev, host.uid]);
+                        }
+                        else {
+                            setSelectedHostUids((prev) => prev.filter((id) => id !== host.uid));
+                        }
+                    }} className="h-3.5 w-3.5 rounded border-white/20 bg-transparent text-indigo-500 focus:ring-0"/>
+									</div>
+
+									<div className="flex items-center gap-1">
+										<Bars2Icon className={`h-3.5 w-3.5 shrink-0 ${canDrag ? "text-zinc-500" : "text-zinc-700"}`} title={canDrag ? t("hostsPage.dragHandle") : undefined}/>
+										<LinearBadge variant="indigo" className="font-mono text-[11px] px-1.5 py-0.5">
+											#{idx + 1}
+										</LinearBadge>
+										<div className="flex items-center" onPointerDown={(e) => e.stopPropagation()}>
+											<LinearIconButton size="xs" title={t("hostsPage.moveUp")} disabled={hasActiveFilter || idx === 0} onClick={() => handleMoveHost(host, -1)}>
+												<ArrowUpIcon className="h-3.5 w-3.5"/>
+											</LinearIconButton>
+											<LinearIconButton size="xs" title={t("hostsPage.moveDown")} disabled={hasActiveFilter || idx === displayedHosts.length - 1} onClick={() => handleMoveHost(host, 1)}>
+												<ArrowDownIcon className="h-3.5 w-3.5"/>
+											</LinearIconButton>
+										</div>
+									</div>
+
+									<div className="min-w-0">
+										<div className="flex items-center gap-1.5 min-w-0">
+											<span className="truncate text-[13px] font-medium text-zinc-100" title={hostName}>
+												{hostName}
+											</span>
+											{isDirty && (<span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title={t("hostsPage.unsaved")}/>)}
+										</div>
+										<div className="text-[11px] text-zinc-500 truncate">
+											{host.data?.id != null ? `ID: ${host.data.id}` : t("hostsPage.unsaved")}
+										</div>
+									</div>
+
+									<div>
+										<LinearBadge variant={host.data?.is_disabled ? "danger" : "success"}>
+											{t(host.data?.is_disabled ? "hostsPage.inactive" : "hostsPage.active")}
+										</LinearBadge>
+									</div>
+
+									<div className="min-w-0">
+										<span className="inline-block max-w-full truncate rounded border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 font-mono text-[11px] text-zinc-300" title={addressText}>
+											{addressText}
+										</span>
+									</div>
+
+									<div className="font-mono text-xs text-zinc-300">
+										{host.data?.port ?? "-"}
+									</div>
+
+									<div className="min-w-0">
+										<div className="truncate text-xs font-medium text-zinc-200" title={host.inboundTag || "-"}>
+											{host.inboundTag || "-"}
+										</div>
+										<div className="truncate text-[11px] text-zinc-500">
+											{inbound ? `${inbound.protocol?.toUpperCase()} / ${inbound.network}` : t("hostsPage.unknownInbound")}
+										</div>
+									</div>
+
+									<div className="hidden xl:block min-w-0">
+										<span className="block truncate font-mono text-xs text-zinc-400" title={sniText}>
+											{sniText}
+										</span>
+									</div>
+
+									<div className="flex items-center justify-end gap-0.5" onPointerDown={(e) => e.stopPropagation()}>
+										<LinearIconButton size="xs" title={t("edit")} onClick={() => setSelectedHostUid(host.uid)}>
+											<PencilSquareIcon className="h-3.5 w-3.5"/>
+										</LinearIconButton>
+										<LinearIconButton size="xs" title={t("hostsPage.clone")} onClick={() => openCloneModal(host.uid)}>
+											<DocumentDuplicateIcon className="h-3.5 w-3.5"/>
+										</LinearIconButton>
+										<LinearIconButton size="xs" title={host.data?.is_disabled ? t("hostsPage.enable") : t("phpmyadmin.disableAction")} onClick={() => handleBulkToggleHosts([host], Boolean(host.data?.is_disabled))}>
+											<PowerIcon className="h-3.5 w-3.5"/>
+										</LinearIconButton>
+										<DeleteConfirmDialog description={t("hostsPage.confirmDelete")} isDisabled={isPostLoading} onConfirm={() => handleDeleteHost(host.uid)}>
+											<LinearIconButton size="xs" variant="danger" title={t("delete")}>
+												<TrashIcon className="h-3.5 w-3.5"/>
+											</LinearIconButton>
+										</DeleteConfirmDialog>
+									</div>
+								</Reorder.Item>);
+            })}
+					</Reorder.Group>)}
+			</LinearCard>
 
 			{createOpen && (<CreateHostModal isOpen={createOpen} onClose={() => setCreateOpen(false)} inboundOptions={inboundOptions} onSubmit={handleCreateHost} isSubmitting={savingHostUid === "create" && isPostLoading} nodes={nodes}/>)}
 

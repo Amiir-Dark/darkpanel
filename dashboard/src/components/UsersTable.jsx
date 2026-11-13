@@ -7,13 +7,17 @@ import {
 	EllipsisHorizontalIcon,
 	KeyIcon,
 	LinkIcon,
+	NoSymbolIcon,
 	PencilSquareIcon,
+	PowerIcon,
 	QrCodeIcon,
+	SignalIcon,
 	TrashIcon,
 } from "@heroicons/react/24/outline";
 import dayjs from "dayjs";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { appToast } from "components/linear/Toast";
 import { Badge, Button, Card, IconButton, Modal, Select, Spinner } from "components/linear/UI";
 import { useDashboard } from "contexts/DashboardContext";
@@ -30,10 +34,15 @@ const statusVariantMap = {
 	on_hold: "accent",
 };
 
+const statusLabelMap = {
+	active: "Active",
+	disabled: "Disabled",
+	limited: "Limited",
+	expired: "Expired",
+	on_hold: "On Hold",
+};
+
 const formatExpiry = (user, t) => {
-	if (user.status === "expired") {
-		return { text: t("expired") || "EXPIRED", danger: true };
-	}
 	if (user.status === "on_hold") {
 		const days = user.on_hold_expire_duration
 			? Math.round(user.on_hold_expire_duration / 86400)
@@ -41,17 +50,21 @@ const formatExpiry = (user, t) => {
 		return { text: days ? `${days}d on hold` : "On Hold", danger: false };
 	}
 	if (!user.expire) {
-		return { text: "∞", danger: false };
+		return user.status === "expired"
+			? { text: t("status_expired", "Expired"), danger: true }
+			: { text: "∞", danger: false };
 	}
 	const diff = user.expire * 1000 - Date.now();
-	if (diff <= 0) {
-		return { text: t("expired") || "EXPIRED", danger: true };
+	const relTime = dayjs.unix(user.expire).fromNow(true);
+	if (user.status === "expired" || diff <= 0) {
+		return { text: t("expired", { time: relTime }), danger: true };
 	}
-	return { text: dayjs.unix(user.expire).fromNow(true), danger: diff < 3 * 86400 * 1000 };
+	return { text: relTime, danger: diff < 3 * 86400 * 1000 };
 };
 
 export const UsersTable = () => {
 	const { t } = useTranslation();
+	const navigate = useNavigate();
 	const usersResponse = useDashboard((s) => s.users);
 	const loading = useDashboard((s) => s.loading);
 	const filters = useDashboard((s) => s.filters);
@@ -68,8 +81,58 @@ export const UsersTable = () => {
 
 	const [copiedId, setCopiedId] = useState(null);
 	const [openMenuUser, setOpenMenuUser] = useState(null);
+	const [contextMenu, setContextMenu] = useState(null);
+	const [connectionsUser, setConnectionsUser] = useState(null);
+	const [userHwids, setUserHwids] = useState([]);
+	const [loadingHwids, setLoadingHwids] = useState(false);
 	const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
 	const [deleting, setDeleting] = useState(false);
+
+	useEffect(() => {
+		if (!contextMenu) return undefined;
+		const close = () => setContextMenu(null);
+		const onKey = (e) => {
+			if (e.key === "Escape") close();
+		};
+		window.addEventListener("keydown", onKey);
+		window.addEventListener("scroll", close, true);
+		return () => {
+			window.removeEventListener("keydown", onKey);
+			window.removeEventListener("scroll", close, true);
+		};
+	}, [contextMenu]);
+
+	useEffect(() => {
+		if (!connectionsUser?.username) return;
+		let cancelled = false;
+		setLoadingHwids(true);
+		fetch(`/user/${encodeURIComponent(connectionsUser.username)}/hwids`)
+			.then((res) => {
+				if (!cancelled) {
+					setUserHwids(Array.isArray(res?.hwids) ? res.hwids : Array.isArray(res) ? res : []);
+				}
+			})
+			.catch(() => {
+				if (!cancelled) setUserHwids([]);
+			})
+			.finally(() => {
+				if (!cancelled) setLoadingHwids(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [connectionsUser?.username]);
+
+	const handleRowContextMenu = (e, user) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setOpenMenuUser(null);
+		const menuWidth = 224;
+		const menuHeight = 310;
+		const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuWidth - 12));
+		const y = Math.max(8, Math.min(e.clientY, window.innerHeight - menuHeight - 12));
+		setContextMenu({ user, x, y });
+	};
 
 	const users = usersResponse?.users || [];
 	const total = usersResponse?.total ?? 0;
@@ -103,7 +166,7 @@ export const UsersTable = () => {
 			}
 		}
 		if (!links.length) {
-			appToast({ title: t("userDialog.links.noConfigs") || "No config links", status: "warning" });
+			appToast({ title: t("userDialog.links.noConfigs", "No config links"), status: "warning" });
 			return;
 		}
 		await copyTextToClipboard(links.join("\n"));
@@ -147,7 +210,7 @@ export const UsersTable = () => {
 		setDeleting(true);
 		try {
 			await deleteUser(confirmDeleteUser);
-			appToast({ title: t("deleteUser.success") || "User deleted", status: "success" });
+			appToast({ title: t("deleteUser.success", "User deleted"), status: "success" });
 			setConfirmDeleteUser(null);
 		} catch (err) {
 			appToast({ title: err?.message || "Failed to delete user", status: "error" });
@@ -162,14 +225,14 @@ export const UsersTable = () => {
 				<div className="overflow-x-auto">
 					<table className="w-full border-collapse text-start text-xs">
 						<thead>
-							<tr className="border-b border-hairline bg-surface-2/60 text-[11px] font-medium uppercase tracking-wider text-ink-tertiary">
+							<tr className="border-b border-hairline bg-surface-2 text-[11px] font-medium uppercase tracking-wider text-ink-tertiary">
 								<th className="px-3.5 py-2.5 text-start">Online</th>
-								<th className="px-3.5 py-2.5 text-start">{t("username") || "Username"}</th>
-								<th className="px-3.5 py-2.5 text-start">{t("status") || "Status"}</th>
-								<th className="hidden px-3.5 py-2.5 text-start md:table-cell">{t("service") || "Service"}</th>
-								<th className="px-3.5 py-2.5 text-start">{t("traffic") || "Traffic"}</th>
-								<th className="hidden px-3.5 py-2.5 text-start sm:table-cell">{t("expiry") || "Expiry"}</th>
-								<th className="px-3.5 py-2.5 text-end">{t("actions") || "Actions"}</th>
+								<th className="px-3.5 py-2.5 text-start">{t("username", "Username")}</th>
+								<th className="px-3.5 py-2.5 text-start">{t("status", "Status")}</th>
+								<th className="hidden px-3.5 py-2.5 text-start md:table-cell">{t("service", "Service")}</th>
+								<th className="px-3.5 py-2.5 text-start">{t("traffic", "Traffic")}</th>
+								<th className="hidden px-3.5 py-2.5 text-start sm:table-cell">{t("expiry", "Expiry")}</th>
+								<th className="px-3.5 py-2.5 text-end">{t("actions", "Actions")}</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-hairline">
@@ -182,7 +245,7 @@ export const UsersTable = () => {
 							) : users.length === 0 ? (
 								<tr>
 									<td colSpan={7} className="py-12 text-center text-ink-subtle">
-										{t("usersTable.noUsers") || "No users found"}
+										{t("usersTable.noUsers", "No users found")}
 									</td>
 								</tr>
 							) : (
@@ -198,8 +261,8 @@ export const UsersTable = () => {
 									return (
 										<tr
 											key={user.username}
-											onClick={() => onEditingUser(user)}
-											className="cursor-pointer transition-colors hover:bg-surface-2/70"
+											onContextMenu={(e) => handleRowContextMenu(e, user)}
+											className="transition-colors hover:bg-surface-2"
 										>
 											<td className="px-3.5 py-2.5 whitespace-nowrap">
 												<span
@@ -229,7 +292,7 @@ export const UsersTable = () => {
 
 											<td className="px-3.5 py-2.5 whitespace-nowrap">
 												<Badge variant={statusVariantMap[user.status] || "neutral"}>
-													{t(`status_${user.status}`) || user.status}
+													{t(`status_${user.status}`, statusLabelMap[user.status] || user.status)}
 												</Badge>
 											</td>
 
@@ -268,7 +331,7 @@ export const UsersTable = () => {
 											>
 												<div className="relative inline-flex items-center gap-0.5">
 													<IconButton
-														title={t("usersTable.copyLink") || "Copy subscription"}
+														title={t("usersTable.copyLink", "Copy subscription")}
 														disabled={!user.subscription_url}
 														onClick={() => handleCopySub(user)}
 													>
@@ -279,7 +342,7 @@ export const UsersTable = () => {
 														)}
 													</IconButton>
 													<IconButton
-														title={t("usersTable.copyConfigs") || "Copy configs"}
+														title={t("usersTable.copyConfigs", "Copy configs")}
 														onClick={() => void handleCopyConfigs(user)}
 													>
 														{copiedId === `cfg-${user.username}` ? (
@@ -289,19 +352,29 @@ export const UsersTable = () => {
 														)}
 													</IconButton>
 													<IconButton
-														title={t("usersTable.qrCode") || "QR Code"}
+														title={t("usersTable.qrCode", "QR Code")}
 														onClick={() => handleOpenQR(user)}
 													>
 														<QrCodeIcon className="h-4 w-4" />
 													</IconButton>
 													<IconButton
-														title={t("userDialog.editUser") || "Edit"}
+														title={user.status === "disabled" ? t("enable", "Turn On") : t("disable", "Turn Off")}
+														onClick={() => void handleToggleStatus(user)}
+													>
+														<PowerIcon
+															className={`h-4 w-4 ${
+																user.status === "disabled" ? "text-red-400" : "text-emerald-400"
+															}`}
+														/>
+													</IconButton>
+													<IconButton
+														title={t("userDialog.editUser", "Edit")}
 														onClick={() => onEditingUser(user)}
 													>
 														<PencilSquareIcon className="h-4 w-4" />
 													</IconButton>
 													<IconButton
-														title={t("actions") || "More"}
+														title={t("actions", "More")}
 														onClick={() => setOpenMenuUser(menuOpen ? null : user.username)}
 													>
 														<EllipsisHorizontalIcon className="h-4 w-4" />
@@ -313,7 +386,7 @@ export const UsersTable = () => {
 																className="fixed inset-0 z-40"
 																onClick={() => setOpenMenuUser(null)}
 															/>
-															<div className="absolute end-0 top-8 z-50 w-44 rounded-lg border border-hairline-strong bg-surface-1 p-1 text-start shadow-xl">
+															<div className="rb-anim-menu absolute end-0 top-8 z-50 w-44 origin-top-right rounded-lg border border-hairline-strong bg-surface-1 p-1 text-start shadow-xl">
 																<button
 																	type="button"
 																	onClick={() => {
@@ -325,7 +398,7 @@ export const UsersTable = () => {
 																	className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-ink-muted hover:bg-surface-2 hover:text-ink"
 																>
 																	<ArrowPathIcon className="h-3.5 w-3.5" />
-																	<span>{t("resetUsage.title") || "Reset Usage"}</span>
+																	<span>{t("resetUsage.title", "Reset Usage")}</span>
 																</button>
 																<button
 																	type="button"
@@ -338,7 +411,7 @@ export const UsersTable = () => {
 																	className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-ink-muted hover:bg-surface-2 hover:text-ink"
 																>
 																	<KeyIcon className="h-3.5 w-3.5" />
-																	<span>{t("revokeSubscription.title") || "Revoke Sub"}</span>
+																	<span>{t("revokeSubscription.title", "Revoke Sub")}</span>
 																</button>
 																<button
 																	type="button"
@@ -359,7 +432,7 @@ export const UsersTable = () => {
 																	className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
 																>
 																	<TrashIcon className="h-3.5 w-3.5" />
-																	<span>{t("delete") || "Delete"}</span>
+																	<span>{t("delete", "Delete")}</span>
 																</button>
 															</div>
 														</>
@@ -375,7 +448,7 @@ export const UsersTable = () => {
 				</div>
 
 				{/* Pagination */}
-				<div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline bg-surface-2/40 px-4 py-2.5 text-xs text-ink-subtle">
+				<div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline bg-surface-2 px-4 py-2.5 text-xs text-ink-subtle">
 					<div className="flex items-center gap-2">
 						<Select
 							value={limit}
@@ -393,7 +466,7 @@ export const UsersTable = () => {
 								</option>
 							))}
 						</Select>
-						<span>{t("itemsPerPage") || "Items per page"}</span>
+						<span>{t("itemsPerPage", "Items per page")}</span>
 					</div>
 
 					<div className="flex items-center gap-2">
@@ -403,7 +476,7 @@ export const UsersTable = () => {
 							onClick={() => onFilterChange({ offset: Math.max(0, offset - limit) })}
 						>
 							<ChevronLeftIcon className="h-3.5 w-3.5" />
-							<span>{t("previous") || "Previous"}</span>
+							<span>{t("previous", "Previous")}</span>
 						</Button>
 						<span className="px-2 tabular-nums text-ink-muted">
 							{currentPage} / {totalPages}
@@ -413,25 +486,257 @@ export const UsersTable = () => {
 							disabled={currentPage >= totalPages}
 							onClick={() => onFilterChange({ offset: offset + limit })}
 						>
-							<span>{t("next") || "Next"}</span>
+							<span>{t("next", "Next")}</span>
 							<ChevronRightIcon className="h-3.5 w-3.5" />
 						</Button>
 					</div>
 				</div>
 			</Card>
 
+			{contextMenu && (
+				<>
+					<div
+						className="fixed inset-0 z-40"
+						onMouseDown={(e) => {
+							e.stopPropagation();
+							setContextMenu(null);
+						}}
+						onClick={(e) => {
+							e.stopPropagation();
+							setContextMenu(null);
+						}}
+						onContextMenu={(e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							setContextMenu(null);
+						}}
+					/>
+					<div
+						style={{ left: contextMenu.x, top: contextMenu.y }}
+						className="rb-anim-menu fixed z-50 w-56 rounded-xl border border-hairline-strong bg-surface-1 p-1.5 text-start shadow-2xl"
+					>
+						<button
+							type="button"
+							onClick={() => {
+								const target = contextMenu.user;
+								setContextMenu(null);
+								onEditingUser(target);
+							}}
+							className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
+						>
+							<PencilSquareIcon className="h-4 w-4 text-ink-muted" />
+							<span>{t("userDialog.editUser", "Edit user")}</span>
+						</button>
+
+						<button
+							type="button"
+							disabled={!contextMenu.user.subscription_url}
+							onClick={() => {
+								const target = contextMenu.user;
+								setContextMenu(null);
+								handleCopySub(target);
+								appToast({ title: t("copied", "Subscription link copied"), status: "success" });
+							}}
+							className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-surface-2 disabled:opacity-40"
+						>
+							<LinkIcon className="h-4 w-4 text-ink-muted" />
+							<span>{t("usersTable.copyLink", "Copy Subscription Link")}</span>
+						</button>
+
+						<button
+							type="button"
+							onClick={() => {
+								const target = contextMenu.user;
+								setContextMenu(null);
+								void handleCopyConfigs(target).then(() =>
+									appToast({ title: t("copied", "Configs copied"), status: "success" }),
+								);
+							}}
+							className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
+						>
+							<ClipboardDocumentIcon className="h-4 w-4 text-ink-muted" />
+							<span>{t("usersTable.copyConfigs", "Copy Configs")}</span>
+						</button>
+
+						<button
+							type="button"
+							onClick={() => {
+								const target = contextMenu.user;
+								setContextMenu(null);
+								handleOpenQR(target);
+							}}
+							className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
+						>
+							<QrCodeIcon className="h-4 w-4 text-ink-muted" />
+							<span>{t("usersTable.qrCode", "QR Code")}</span>
+						</button>
+
+						<button
+							type="button"
+							onClick={() => {
+								const target = contextMenu.user;
+								setContextMenu(null);
+								setConnectionsUser(target);
+							}}
+							className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
+						>
+							<SignalIcon className="h-4 w-4 text-ink-muted" />
+							<span>{t("usersTable.connectionsAndDevices", "Connections & Devices")}</span>
+						</button>
+
+						<div className="my-1 border-t border-hairline" />
+
+						<button
+							type="button"
+							onClick={() => {
+								const target = contextMenu.user;
+								setContextMenu(null);
+								void handleToggleStatus(target);
+							}}
+							className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
+						>
+							<NoSymbolIcon
+								className={`h-4 w-4 ${
+									contextMenu.user.status === "disabled" ? "text-emerald-400" : "text-ink-muted"
+								}`}
+							/>
+							<span>
+								{contextMenu.user.status === "disabled"
+									? t("enableUser", "Enable user")
+									: t("disableUser", "Disable user")}
+							</span>
+						</button>
+
+						<button
+							type="button"
+							onClick={() => {
+								const target = contextMenu.user;
+								setContextMenu(null);
+								void resetDataUsage(target).then(() =>
+									appToast({ title: t("resetUsage.success", "Usage reset"), status: "success" }),
+								);
+							}}
+							className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
+						>
+							<ArrowPathIcon className="h-4 w-4 text-ink-muted" />
+							<span>{t("resetUsage.title", "Reset usage")}</span>
+						</button>
+
+						<div className="my-1 border-t border-hairline" />
+
+						<button
+							type="button"
+							onClick={() => {
+								const target = contextMenu.user;
+								setContextMenu(null);
+								setConfirmDeleteUser(target);
+							}}
+							className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10"
+						>
+							<TrashIcon className="h-4 w-4" />
+							<span>{t("deleteUser.title", "Delete User")}</span>
+						</button>
+					</div>
+				</>
+			)}
+
+			<Modal
+				open={Boolean(connectionsUser)}
+				onClose={() => setConnectionsUser(null)}
+				title={connectionsUser ? `${connectionsUser.username} · Connections & Devices` : "Connections & Devices"}
+				maxWidth="max-w-lg"
+				footer={
+					<div className="flex w-full items-center justify-between gap-2">
+						<Button
+							size="sm"
+							onClick={() => {
+								setConnectionsUser(null);
+								navigate("/access-insights");
+							}}
+						>
+							<SignalIcon className="h-3.5 w-3.5" />
+							<span>{t("header.accessInsights", "Live connections")}</span>
+						</Button>
+						<Button size="sm" variant="primary" onClick={() => setConnectionsUser(null)}>
+							{t("close", "Close")}
+						</Button>
+					</div>
+				}
+			>
+				{connectionsUser && (
+					<div className="space-y-4">
+						<div className="flex items-center justify-between rounded-xl border border-hairline bg-surface-2 px-3.5 py-2.5 text-xs">
+							<div className="flex items-center gap-2">
+								<span
+									className={`h-2 w-2 rounded-full ${
+										(liveUserStats?.[connectionsUser.username]?.is_online ?? connectionsUser.is_online)
+											? "bg-emerald-400"
+											: "bg-ink-tertiary"
+									}`}
+								/>
+								<span className="font-medium text-ink">
+									{(liveUserStats?.[connectionsUser.username]?.is_online ?? connectionsUser.is_online)
+										? "Online"
+										: "Offline"}
+								</span>
+							</div>
+							<div className="flex items-center gap-3 tabular-nums text-ink-muted">
+								<span>
+									↑ {formatBytes(liveUserStats?.[connectionsUser.username]?.upload_speed || 0)}/s
+								</span>
+								<span>
+									↓ {formatBytes(liveUserStats?.[connectionsUser.username]?.download_speed || 0)}/s
+								</span>
+							</div>
+						</div>
+
+						<div>
+							<div className="mb-2 text-xs font-medium text-ink-muted">
+								Registered Devices (HWID)
+							</div>
+							{loadingHwids ? (
+								<div className="flex justify-center py-6">
+									<Spinner className="h-5 w-5" />
+								</div>
+							) : userHwids.length === 0 ? (
+								<div className="rounded-xl border border-hairline bg-surface-2 p-4 text-center text-xs text-ink-tertiary">
+									No connected devices recorded
+								</div>
+							) : (
+								<div className="max-h-56 space-y-2 overflow-y-auto">
+									{userHwids.map((hw, i) => (
+										<div
+											key={hw.hwid || i}
+											className="flex items-center justify-between rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-xs"
+										>
+											<div className="min-w-0">
+												<div className="truncate font-mono text-ink">{hw.hwid}</div>
+												<div className="text-[11px] text-ink-tertiary">
+													{hw.device_model || hw.platform || "Device"}
+												</div>
+											</div>
+											<Badge>{hw.platform || "HWID"}</Badge>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+					</div>
+				)}
+			</Modal>
+
 			<Modal
 				open={Boolean(confirmDeleteUser)}
 				onClose={() => setConfirmDeleteUser(null)}
-				title={t("deleteUser.title") || "Delete User"}
+				title={t("deleteUser.title", "Delete User")}
 				maxWidth="max-w-sm"
 				footer={
 					<>
 						<Button size="sm" onClick={() => setConfirmDeleteUser(null)}>
-							{t("cancel") || "Cancel"}
+							{t("cancel", "Cancel")}
 						</Button>
 						<Button size="sm" variant="danger" loading={deleting} onClick={() => void handleConfirmDelete()}>
-							{t("delete") || "Delete"}
+							{t("delete", "Delete")}
 						</Button>
 					</>
 				}

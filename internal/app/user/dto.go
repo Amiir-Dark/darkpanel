@@ -83,6 +83,16 @@ type ConfigLinkUser struct {
 	WireGuardAddresses   map[string]string          `json:"wireguard_addresses,omitempty"`
 	AdminID              *int64                     `json:"admin_id,omitempty"`
 	InboundRemarks       map[string]string          `json:"inbound_remarks,omitempty"`
+	InboundOrder         []int64                    `json:"inbound_order,omitempty"`
+	DisabledInboundIDs   []int64                    `json:"disabled_inbounds,omitempty"`
+	InfoConfigs          []InfoConfigItem           `json:"info_configs,omitempty"`
+}
+
+type InfoConfigItem struct {
+	ID      string `json:"id,omitempty"`
+	Remark  string `json:"remark"`
+	Address string `json:"address,omitempty"`
+	Enabled bool   `json:"enabled"`
 }
 
 type UserListItem struct {
@@ -334,6 +344,9 @@ type SubscriptionSettings struct {
 	AppendUsernameToLinks          bool                           `json:"append_username_to_links,omitempty"`
 	SubscriptionTemplateEnabled    *bool                          `json:"subscription_template_enabled,omitempty"`
 	InboundRemarks                 map[string]string              `json:"inbound_remarks,omitempty"`
+	InboundOrder                   []int64                        `json:"inbound_order,omitempty"`
+	DisabledInboundIDs             []int64                        `json:"disabled_inbounds,omitempty"`
+	InfoConfigs                    []InfoConfigItem               `json:"info_configs,omitempty"`
 	TelegramBackupEnabled          bool                           `json:"telegram_backup_enabled,omitempty"`
 	TelegramBotToken               string                         `json:"telegram_bot_token,omitempty"`
 	TelegramChatID                 string                         `json:"telegram_chat_id,omitempty"`

@@ -23,6 +23,8 @@ const hostOperationDisabledDetail = "This host-level action is available only on
 var (
 	releaseVersionPattern = regexp.MustCompile(`^v?\d+(?:\.\d+){1,3}(?:[-+._A-Za-z0-9]*)?$`)
 	devVersionPattern     = regexp.MustCompile(`^(dev|main)-[0-9a-fA-F]{7,40}$`)
+	dockerImagePattern    = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,200}$`)
+	dockerTagPattern      = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,128}$`)
 )
 
 var (
@@ -112,6 +114,8 @@ type MaintenanceInfo struct {
 type MaintenanceUpdateRequest struct {
 	Channel string `json:"channel"`
 	Version string `json:"version"`
+	Source  string `json:"source,omitempty"`
+	Image   string `json:"image,omitempty"`
 }
 
 type RuntimeDetector interface {
@@ -175,10 +179,14 @@ func (s *MaintenanceService) Builds(ctx context.Context, repo string) (BuildCata
 }
 
 func (s *MaintenanceService) Update(ctx context.Context, req MaintenanceUpdateRequest) (MaintenanceOperationSnapshot, error) {
-	if err := requireBinaryRuntime(s.Runtime.Info()); err != nil {
+	info := s.Runtime.Info()
+	if strings.EqualFold(strings.TrimSpace(req.Source), "docker") {
+		return s.updateFromDocker(req, info)
+	}
+	if err := requireBinaryRuntime(info); err != nil {
 		return MaintenanceOperationSnapshot{}, err
 	}
-	version, err := ResolveUpdateVersion(ctx, s.Updates, PanelUpdateRepo, req.Channel, req.Version, s.Runtime.Info().Channel)
+	version, err := ResolveUpdateVersion(ctx, s.Updates, PanelUpdateRepo, req.Channel, req.Version, info.Channel)
 	if err != nil {
 		return MaintenanceOperationSnapshot{}, err
 	}
@@ -187,6 +195,104 @@ func (s *MaintenanceService) Update(ctx context.Context, req MaintenanceUpdateRe
 		return MaintenanceOperationSnapshot{}, err
 	}
 	return s.startOperation("update", args, "Preparing panel update")
+}
+
+func resolveDockerImageAndTag(req MaintenanceUpdateRequest, info RuntimeInfo) (string, string, error) {
+	image := strings.TrimSpace(req.Image)
+	if image == "" {
+		image = strings.TrimSpace(info.Image)
+	}
+	if image == "" || strings.Contains(image, "binary") {
+		image = "rebeccapanel/rebecca"
+	}
+	if idx := strings.LastIndex(image, ":"); idx > strings.LastIndex(image, "/") {
+		image = image[:idx]
+	}
+	if !dockerImagePattern.MatchString(image) {
+		return "", "", MaintenanceError{Status: http.StatusBadRequest, Detail: "Invalid Docker image name"}
+	}
+
+	tag := strings.TrimSpace(req.Version)
+	if tag == "" {
+		switch strings.ToLower(strings.TrimSpace(req.Channel)) {
+		case "dev":
+			tag = "dev"
+		case "main":
+			tag = "main"
+		case "latest", "stable", "release":
+			tag = "latest"
+		default:
+			if info.Tag != nil && strings.TrimSpace(*info.Tag) != "" {
+				tag = strings.TrimSpace(*info.Tag)
+			} else {
+				tag = "latest"
+			}
+		}
+	}
+	if !dockerTagPattern.MatchString(tag) {
+		return "", "", MaintenanceError{Status: http.StatusBadRequest, Detail: "Invalid Docker tag"}
+	}
+	return image, tag, nil
+}
+
+func (s *MaintenanceService) updateFromDocker(req MaintenanceUpdateRequest, info RuntimeInfo) (MaintenanceOperationSnapshot, error) {
+	image, tag, err := resolveDockerImageAndTag(req, info)
+	if err != nil {
+		return MaintenanceOperationSnapshot{}, err
+	}
+	dockerPath, err := exec.LookPath("docker")
+	if err != nil {
+		return MaintenanceOperationSnapshot{}, MaintenanceError{
+			Status: http.StatusConflict,
+			Detail: "Docker CLI is not available in this environment. Install Docker or mount /var/run/docker.sock + docker CLI.",
+		}
+	}
+	if s.ops == nil {
+		s.ops = NewMaintenanceOperationStore()
+	}
+	ref := image + ":" + tag
+	op := s.ops.Start("update", []string{"docker", "pull", ref}, "Pulling Docker image "+ref)
+
+	go func() {
+		runCmd := func(args ...string) error {
+			cmd := exec.Command(dockerPath, args...)
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				return err
+			}
+			cmd.Stderr = cmd.Stdout
+			if err := cmd.Start(); err != nil {
+				return err
+			}
+			scanner := bufio.NewScanner(stdout)
+			for scanner.Scan() {
+				s.ops.AppendOutput(op.ID, scanner.Text())
+			}
+			return cmd.Wait()
+		}
+
+		s.ops.AppendOutput(op.ID, "$ docker pull "+ref)
+		if err := runCmd("pull", ref); err != nil {
+			s.ops.Finish(op.ID, err)
+			return
+		}
+		if _, err := os.Stat("docker-compose.yml"); err == nil {
+			s.ops.AppendOutput(op.ID, "$ docker compose up -d")
+			if err := runCmd("compose", "up", "-d"); err != nil {
+				s.ops.Finish(op.ID, err)
+				return
+			}
+		} else if _, err := os.Stat("compose.yaml"); err == nil {
+			s.ops.AppendOutput(op.ID, "$ docker compose up -d")
+			if err := runCmd("compose", "up", "-d"); err != nil {
+				s.ops.Finish(op.ID, err)
+				return
+			}
+		}
+		s.ops.Finish(op.ID, nil)
+	}()
+
+	return s.ops.Get(op.ID), nil
 }
 
 // UpdateFollowsCurrentChannel reports whether a request names neither a build nor
@@ -326,6 +432,28 @@ func (s *MaintenanceService) Restart(context.Context) (MaintenanceOperationSnaps
 		return MaintenanceOperationSnapshot{}, err
 	}
 	return s.startOperation("restart", []string{"restart", "-n"}, "Preparing panel restart")
+}
+
+func (s *MaintenanceService) ForceRestart(context.Context) (MaintenanceOperationSnapshot, error) {
+	info := s.Runtime.Info()
+	if strings.EqualFold(strings.TrimSpace(info.Mode), "binary") {
+		return s.startOperation("restart", []string{"restart", "-n"}, "Preparing panel restart")
+	}
+	if s.ops == nil {
+		s.ops = NewMaintenanceOperationStore()
+	}
+	op := s.ops.Start("restart", []string{"self-restart"}, "Restarting panel process...")
+	s.ops.MarkRestarting(op.ID, "Restarting panel process. Waiting for Rebecca to come back...")
+
+	go func() {
+		time.Sleep(350 * time.Millisecond)
+		if exe, err := os.Executable(); err == nil && exe != "" {
+			_ = spawnDetachedRestart(exe, os.Args[1:])
+		}
+		os.Exit(0)
+	}()
+
+	return s.ops.Get(op.ID), nil
 }
 
 func (s *MaintenanceService) SoftReload(context.Context) (MaintenanceOperationSnapshot, error) {

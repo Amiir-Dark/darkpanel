@@ -86,7 +86,19 @@ func (s *Server) handleMaintenanceRestart(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	status, err := s.maintenanceService().Restart(r.Context())
+	var payload struct {
+		Force bool `json:"force"`
+	}
+	_ = decodeOptionalJSON(r, &payload)
+	var (
+		status systemapp.MaintenanceOperationSnapshot
+		err    error
+	)
+	if payload.Force {
+		status, err = s.maintenanceService().ForceRestart(r.Context())
+	} else {
+		status, err = s.maintenanceService().Restart(r.Context())
+	}
 	if err != nil {
 		writeMaintenanceError(w, err)
 		return

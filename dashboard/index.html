@@ -43,8 +43,12 @@
             localStorage.getItem("rb-theme") ||
             localStorage.getItem("chakra-ui-color-mode") ||
             "dark";
-          var mode = stored === "light" ? "light" : "dark";
-          localStorage.setItem("rb-theme", mode);
+          var pref = stored === "system" ? "system" : stored === "light" ? "light" : "dark";
+          var mode =
+            pref === "system"
+              ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
+              : pref;
+          localStorage.setItem("rb-theme", pref);
           localStorage.setItem("chakra-ui-color-mode", mode);
           var root = document.documentElement;
           root.classList.remove(

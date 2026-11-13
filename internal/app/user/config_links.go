@@ -99,6 +99,27 @@ func BuildConfigLinks(
 
 	selectedHosts := selectConfigHosts(hosts, item.ServiceID)
 	sortConfigHosts(selectedHosts, item.ServiceHostOrders, inboundIndex)
+	if len(item.InboundOrder) > 0 {
+		orderIndex := make(map[int64]int, len(item.InboundOrder))
+		for idx, id := range item.InboundOrder {
+			orderIndex[id] = idx
+		}
+		sort.SliceStable(selectedHosts, func(i, j int) bool {
+			posI, okI := orderIndex[selectedHosts[i].host.ID]
+			posJ, okJ := orderIndex[selectedHosts[j].host.ID]
+			if okI && okJ {
+				return posI < posJ
+			}
+			return okI && !okJ
+		})
+	}
+	var disabledHostIDs map[int64]struct{}
+	if len(item.DisabledInboundIDs) > 0 {
+		disabledHostIDs = make(map[int64]struct{}, len(item.DisabledInboundIDs))
+		for _, id := range item.DisabledInboundIDs {
+			disabledHostIDs[id] = struct{}{}
+		}
+	}
 	hostsByTag := make(map[string][]configHost)
 	for _, host := range selectedHosts {
 		hostsByTag[host.host.InboundTag] = append(hostsByTag[host.host.InboundTag], host)
@@ -162,6 +183,9 @@ func BuildConfigLinks(
 	// protocols (e.g. shadowsocks) to the top regardless of the service order.
 	for _, selected := range selectedHosts {
 		host := selected.host
+		if _, disabled := disabledHostIDs[host.ID]; disabled {
+			continue
+		}
 		inbound, ok := inbounds[host.InboundTag]
 		if !ok {
 			continue
@@ -213,6 +237,33 @@ func BuildConfigLinks(
 		for i, j := 0, len(links)-1; i < j; i, j = i+1, j-1 {
 			links[i], links[j] = links[j], links[i]
 			metadata[i], metadata[j] = metadata[j], metadata[i]
+		}
+	}
+	if len(item.InfoConfigs) > 0 {
+		infoLinks := make([]string, 0, len(item.InfoConfigs))
+		infoMeta := make([]ConfigLinkMetadata, 0, len(item.InfoConfigs))
+		for _, cfg := range item.InfoConfigs {
+			if !cfg.Enabled || strings.TrimSpace(cfg.Remark) == "" {
+				continue
+			}
+			formatted := applyFormat(cfg.Remark, formatVariables)
+			if strings.TrimSpace(formatted) == "" {
+				continue
+			}
+			infoAddr := strings.TrimSpace(cfg.Address)
+			if infoAddr == "" {
+				infoAddr = "1.1.1.1"
+			}
+			if strings.Contains(infoAddr, ":") && !strings.HasPrefix(infoAddr, "[") {
+				infoAddr = "[" + infoAddr + "]"
+			}
+			infoLink := fmt.Sprintf("vless://00000000-0000-0000-0000-000000000000@%s:80?encryption=none&security=none&type=tcp#%s", infoAddr, url.PathEscape(formatted))
+			infoLinks = append(infoLinks, infoLink)
+			infoMeta = append(infoMeta, ConfigLinkMetadata{})
+		}
+		if len(infoLinks) > 0 {
+			links = append(infoLinks, links...)
+			metadata = append(infoMeta, metadata...)
 		}
 	}
 	return ConfigLinksResponse{Links: links, Metadata: metadata}, nil

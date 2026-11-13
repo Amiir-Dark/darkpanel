@@ -2,11 +2,13 @@ import {
 	ArrowRightOnRectangleIcon,
 	Bars3Icon,
 	BellIcon,
+	CalendarDaysIcon,
 	ChartBarIcon,
+	ChevronUpDownIcon,
 	CircleStackIcon,
 	ClockIcon,
 	Cog6ToothIcon,
-	CpuChipIcon,
+	ComputerDesktopIcon,
 	DocumentTextIcon,
 	ExclamationTriangleIcon,
 	EyeIcon,
@@ -31,24 +33,39 @@ import { clearDashboardCache } from "../contexts/DashboardContext";
 import { fetch } from "../service/http";
 import { updateThemeColor } from "../utils/themeColor";
 
-const getThemeMode = () => {
-	if (typeof document === "undefined") return "dark";
-	return document.documentElement.classList.contains("rb-theme-light") ? "light" : "dark";
+const getThemePreference = () => {
+	if (typeof window === "undefined") return "dark";
+	try {
+		const stored = localStorage.getItem("rb-theme") || localStorage.getItem("chakra-ui-color-mode") || "dark";
+		if (stored === "system" || stored === "light" || stored === "dark") return stored;
+	} catch {}
+	return "dark";
 };
 
-const setThemeMode = (mode) => {
+const resolveThemeMode = (pref) => {
+	if (pref === "system") {
+		if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: light)").matches) {
+			return "light";
+		}
+		return "dark";
+	}
+	return pref === "light" ? "light" : "dark";
+};
+
+const setThemeMode = (pref) => {
+	const resolved = resolveThemeMode(pref);
 	try {
-		localStorage.setItem("rb-theme", mode);
-		localStorage.setItem("chakra-ui-color-mode", mode);
+		localStorage.setItem("rb-theme", pref);
+		localStorage.setItem("chakra-ui-color-mode", resolved);
 	} catch {}
 	const targets = [document.documentElement, document.body].filter(Boolean);
 	targets.forEach((target) => {
 		target.classList.remove("rb-theme-light", "rb-theme-dark", "chakra-ui-light", "chakra-ui-dark");
-		target.classList.add(`rb-theme-${mode}`, `chakra-ui-${mode}`);
-		target.dataset.theme = mode;
-		target.style.colorScheme = mode;
+		target.classList.add(`rb-theme-${resolved}`, `chakra-ui-${resolved}`);
+		target.dataset.theme = resolved;
+		target.style.colorScheme = resolved;
 	});
-	updateThemeColor(mode);
+	updateThemeColor(resolved);
 };
 
 export const AppLayout = () => {
@@ -57,18 +74,38 @@ export const AppLayout = () => {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [mobileOpen, setMobileOpen] = useState(false);
-	const [theme, setTheme] = useState(getThemeMode);
+	const [theme, setTheme] = useState(getThemePreference);
 	const [unreadCount, setUnreadCount] = useState(0);
-	const [langMenuOpen, setLangMenuOpen] = useState(false);
+	const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
 	const isDisabled = session?.state === "disabled";
 	const role = session?.admin?.role || (session?.is_sudo ? "full_access" : "reseller");
 	const username = session?.admin?.username || session?.username || "admin";
-	const isFullAccess = role === "full_access" || Boolean(session?.is_sudo);
+	const isFullAccess = role === "full_access";
+	const selfPerms = session?.admin?.permissions?.self_permissions || {};
+	const canAccessSettings =
+		isFullAccess ||
+		Boolean(session?.admin?.permissions?.sections?.integrations) ||
+		Boolean(selfPerms.self_subscription) ||
+		Boolean(selfPerms.self_client_apps) ||
+		Boolean(selfPerms.self_config_remarks) ||
+		Boolean(selfPerms.self_placeholders);
 
 	useEffect(() => {
 		setMobileOpen(false);
+		setAccountMenuOpen(false);
 	}, [location.pathname]);
+
+	useEffect(() => {
+		setThemeMode(theme);
+		if (theme !== "system" || typeof window === "undefined" || !window.matchMedia) {
+			return undefined;
+		}
+		const media = window.matchMedia("(prefers-color-scheme: light)");
+		const handleChange = () => setThemeMode("system");
+		media.addEventListener?.("change", handleChange);
+		return () => media.removeEventListener?.("change", handleChange);
+	}, [theme]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -87,8 +124,7 @@ export const AppLayout = () => {
 		};
 	}, [location.pathname]);
 
-	const toggleTheme = () => {
-		const next = theme === "dark" ? "light" : "dark";
+	const selectTheme = (next) => {
 		setThemeMode(next);
 		setTheme(next);
 	};
@@ -104,54 +140,58 @@ export const AppLayout = () => {
 	const navGroups = [
 		{
 			items: [
-				{ to: "/", label: t("dashboard") || "Dashboard", icon: HomeIcon, end: true, show: !isDisabled },
-				{ to: "/users", label: t("users") || "Users", icon: UsersIcon, show: true },
-				{ to: "/sales-bot", label: t("salesBot.title") || "Sales Bot", icon: ShoppingBagIcon, show: !isDisabled && isFullAccess },
-				{ to: "/usage", label: t("usage.title") || "Usage", icon: ChartBarIcon, show: !isDisabled },
+				{ to: "/", label: t("dashboard", "Dashboard"), icon: HomeIcon, end: true, show: !isDisabled },
+				{ to: "/users", label: t("users", "Users"), icon: UsersIcon, show: true },
+				{ to: "/sales-bot", label: t("salesBot.menu", "Sales Bot"), icon: ShoppingBagIcon, show: !isDisabled && isFullAccess },
+				{ to: "/usage", label: t("usage.menu", "Usage"), icon: ChartBarIcon, show: !isDisabled && isFullAccess },
 			],
 		},
 		{
 			items: [
-				{ to: "/node-settings", label: t("nodes.title") || "Node", icon: ServerStackIcon, show: !isDisabled && isFullAccess },
-				{ to: "/services", label: t("services.title") || "Services", icon: RectangleStackIcon, show: !isDisabled && isFullAccess },
-				{ to: "/hosts", label: t("hosts") || "Inbounds & Hosts", icon: LinkIcon, show: !isDisabled && isFullAccess },
+				{ to: "/node-settings", label: t("header.nodeSettings", "Node"), icon: ServerStackIcon, show: !isDisabled && isFullAccess },
+				{ to: "/services", label: t("services.title", "Services"), icon: RectangleStackIcon, show: !isDisabled && isFullAccess },
+				{ to: "/hosts", label: t("header.hostSettings", "Inbounds & Hosts"), icon: LinkIcon, show: !isDisabled && isFullAccess },
 			],
 		},
 		{
 			items: [
-				{ to: "/settings", label: t("settings.title") || "Settings", icon: Cog6ToothIcon, show: !isDisabled && isFullAccess },
-				{ to: "/xray-settings", label: t("xraySettings.title") || "Xray Settings", icon: WrenchScrewdriverIcon, show: !isDisabled && isFullAccess },
-				{ to: "/xray-logs", label: t("xrayLogs.title") || "Logs", icon: DocumentTextIcon, show: !isDisabled && isFullAccess },
-				{ to: "/access-insights", label: t("accessInsights.title") || "Live connections", icon: EyeIcon, show: !isDisabled && isFullAccess },
-				{ to: "/recent-actions", label: t("recentActions.title") || "Recent Actions", icon: ClockIcon, show: !isDisabled },
-				{ to: "/errors", label: t("errors.title") || "Errors", icon: ExclamationTriangleIcon, show: !isDisabled && isFullAccess },
-				{ to: "/phpmyadmin", label: "phpMyAdmin", icon: CircleStackIcon, show: !isDisabled && isFullAccess },
+				{ to: "/settings", label: t("header.settings", "Settings"), icon: Cog6ToothIcon, show: !isDisabled && canAccessSettings },
+				{ to: "/xray-settings", label: t("header.xraySettings", "Xray Settings"), icon: WrenchScrewdriverIcon, show: !isDisabled && isFullAccess },
+				{ to: "/xray-logs", label: t("header.xrayLogs", "Logs"), icon: DocumentTextIcon, show: !isDisabled && isFullAccess },
+				{ to: "/access-insights", label: t("header.accessInsights", "Live connections"), icon: EyeIcon, show: !isDisabled && isFullAccess },
+				{ to: "/recent-actions", label: t("recentActions.title", "Recent Actions"), icon: ClockIcon, show: !isDisabled && isFullAccess },
+				{ to: "/errors", label: t("header.errors", "Errors"), icon: ExclamationTriangleIcon, show: !isDisabled && isFullAccess },
+				{ to: "/phpmyadmin", label: t("phpmyadmin.menu", "phpMyAdmin"), icon: CircleStackIcon, show: !isDisabled && isFullAccess },
 			],
 		},
 		{
 			items: [
-				{ to: "/admins", label: t("admins.title") || "Admins", icon: ShieldCheckIcon, show: !isDisabled && isFullAccess },
-				{ to: "/myaccount", label: t("myAccount.title") || "My Account", icon: UserCircleIcon, show: !isDisabled },
-				{ to: "/notifications", label: t("notifications.title") || "Notifications", icon: BellIcon, badge: unreadCount, show: !isDisabled },
+				{ to: "/admins", label: t("admins", "Admins"), icon: ShieldCheckIcon, show: !isDisabled && isFullAccess },
+				{ to: "/myaccount", label: t("myaccount.menu", "My Account"), icon: UserCircleIcon, show: !isDisabled },
+				{ to: "/notifications", label: t("notifications.menu", "Notifications"), icon: BellIcon, badge: unreadCount, show: !isDisabled && isFullAccess },
 			],
 		},
 	];
 
+	const currentNavItem = navGroups
+		.flatMap((g) => g.items)
+		.find((item) => (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)));
+	const currentPageTitle = currentNavItem?.label || t("dashboard", "Dashboard");
+	const formattedDate = new Intl.DateTimeFormat(i18n.language || "en", {
+		weekday: "long",
+		month: "long",
+		day: "numeric",
+		year: "numeric",
+	}).format(new Date());
+
 	const renderNav = () => (
-		<nav className="flex flex-1 flex-col gap-3 overflow-y-auto px-2.5 py-3">
+		<nav className="rb-no-scrollbar flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2.5">
 			{navGroups.map((group, gi) => {
 				const visible = group.items.filter((i) => i.show);
 				if (!visible.length) return null;
 				return (
-					<div
-						key={gi}
-						className={`flex flex-col gap-0.5 ${gi > 0 ? "border-t border-hairline pt-3" : ""}`}
-					>
-						{group.label && (
-							<div className="mb-1 px-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-tertiary">
-								{group.label}
-							</div>
-						)}
+					<div key={gi} className="flex flex-col gap-0.5">
+						{gi > 0 && <div className="mx-1.5 my-2 h-px bg-hairline" />}
 						{visible.map((item) => {
 							const IconComp = item.icon;
 							return (
@@ -160,21 +200,32 @@ export const AppLayout = () => {
 									to={item.to}
 									end={item.end}
 									className={({ isActive }) =>
-										`group flex items-center justify-between rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
+										`group relative flex items-center justify-between rounded-lg px-3 py-1.5 text-[13.5px] font-medium transition-colors duration-150 ${
 											isActive
-												? "bg-surface-3 text-ink"
-												: "text-ink-subtle hover:bg-surface-2 hover:text-ink-muted"
+												? "bg-accent-soft text-accent shadow-[inset_0_0_0_1px_rgba(94,106,210,0.28)]"
+												: "text-ink-subtle hover:bg-surface-2 hover:text-ink"
 										}`
 									}
 								>
-									<span className="flex items-center gap-2.5 truncate">
-										<IconComp className="h-4 w-4 shrink-0" />
-										<span className="truncate">{item.label}</span>
-									</span>
-									{item.badge > 0 && (
-										<span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white tabular-nums">
-											{item.badge}
-										</span>
+									{({ isActive }) => (
+										<>
+											{isActive && (
+												<span className="absolute start-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-e-full bg-accent" />
+											)}
+											<span className="flex items-center gap-3 truncate">
+												<IconComp
+													className={`h-[18px] w-[18px] shrink-0 transition-colors ${
+														isActive ? "text-accent" : "text-ink-tertiary group-hover:text-ink-muted"
+													}`}
+												/>
+												<span className="truncate">{item.label}</span>
+											</span>
+											{item.badge > 0 && (
+												<span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white tabular-nums">
+													{item.badge}
+												</span>
+											)}
+										</>
 									)}
 								</NavLink>
 							);
@@ -185,42 +236,149 @@ export const AppLayout = () => {
 		</nav>
 	);
 
+	const renderSidebarFooter = (isMobile = false) => (
+		<div className="relative border-t border-hairline p-2">
+			<button
+				type="button"
+				onClick={() => setAccountMenuOpen((v) => !v)}
+				className={`flex w-full items-center justify-between gap-2.5 rounded-xl px-2 py-1.5 text-start transition-colors ${
+					accountMenuOpen ? "bg-surface-2" : "hover:bg-surface-2"
+				}`}
+				aria-expanded={accountMenuOpen}
+			>
+				<div className="flex min-w-0 items-center gap-2.5">
+					<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold uppercase text-white">
+						{username.slice(0, 1)}
+					</span>
+					<div className="min-w-0">
+						<div className="truncate text-xs font-medium text-ink">{username}</div>
+						<div className="truncate text-[10px] text-ink-tertiary">{role}</div>
+					</div>
+				</div>
+				<ChevronUpDownIcon className="h-4 w-4 shrink-0 text-ink-tertiary" />
+			</button>
+
+			{accountMenuOpen && (
+				<>
+					<div className="fixed inset-0 z-40" onClick={() => setAccountMenuOpen(false)} />
+					<div
+						className={`rb-anim-menu absolute z-50 w-64 rounded-xl border border-hairline-strong bg-surface-1 p-2 shadow-2xl ${
+							isMobile
+								? "bottom-full start-2 mb-2 origin-bottom"
+								: "bottom-2 start-full ms-2 origin-bottom-left"
+						}`}
+					>
+						<div className="flex items-center gap-2.5 px-2 py-1.5">
+							<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold uppercase text-white">
+								{username.slice(0, 1)}
+							</span>
+							<div className="min-w-0 flex-1">
+								<div className="truncate text-xs font-semibold text-ink">{username}</div>
+								<div className="truncate text-[10px] text-ink-tertiary">{role}</div>
+							</div>
+						</div>
+
+						<div className="my-1.5 border-t border-hairline" />
+
+						<div className="px-2 py-1">
+							<div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-tertiary">
+								{t("theme", "Theme")}
+							</div>
+							<div className="grid grid-cols-3 gap-1 rounded-lg border border-hairline bg-surface-2 p-0.5">
+								{[
+									{ id: "light", label: t("themeLight", "Light"), Icon: SunIcon },
+									{ id: "dark", label: t("themeDark", "Dark"), Icon: MoonIcon },
+									{ id: "system", label: t("themeSystem", "System"), Icon: ComputerDesktopIcon },
+								].map(({ id, label, Icon }) => {
+									const active = theme === id;
+									return (
+										<button
+											key={id}
+											type="button"
+											onClick={() => selectTheme(id)}
+											className={`flex items-center justify-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors ${
+												active
+													? "bg-accent text-white shadow-sm"
+													: "text-ink-subtle hover:text-ink"
+											}`}
+										>
+											<Icon className="h-3.5 w-3.5 shrink-0" />
+											<span className="truncate">{label}</span>
+										</button>
+									);
+								})}
+							</div>
+						</div>
+
+						<div className="px-2 py-1">
+							<div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-tertiary">
+								<LanguageIcon className="h-3 w-3" />
+								<span>{t("language", "Language")}</span>
+							</div>
+							<div className="grid grid-cols-2 gap-1 rounded-lg border border-hairline bg-surface-2 p-0.5">
+								{[
+									{ code: "en", label: "English" },
+									{ code: "fa", label: "فارسی" },
+								].map((lang) => (
+									<button
+										key={lang.code}
+										type="button"
+										onClick={() => {
+											void i18n.changeLanguage(lang.code);
+											setAccountMenuOpen(false);
+										}}
+										className={`flex items-center justify-center rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+											i18n.language?.startsWith(lang.code)
+												? "bg-accent text-white shadow-sm"
+												: "text-ink-subtle hover:text-ink"
+										}`}
+									>
+										<span>{lang.label}</span>
+									</button>
+								))}
+							</div>
+						</div>
+
+						<div className="my-1.5 border-t border-hairline" />
+
+						<button
+							type="button"
+							onClick={() => {
+								setAccountMenuOpen(false);
+								void handleLogout();
+							}}
+							className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10"
+						>
+							<ArrowRightOnRectangleIcon className="h-4 w-4 shrink-0" />
+							<span>{t("logout", "Log out")}</span>
+						</button>
+					</div>
+				</>
+			)}
+		</div>
+	);
+
 	return (
-		<div className="flex min-h-screen bg-canvas text-ink">
-			{/* Desktop Sidebar */}
-			<aside className="hidden w-56 shrink-0 flex-col border-e border-hairline bg-surface-1 md:flex">
-				<div className="flex h-12 items-center justify-between border-b border-hairline px-4">
-					<NavLink to="/" className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink">
-						<span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-xs font-bold text-white">
+		<div className="flex h-screen overflow-hidden bg-canvas text-ink">
+			{/* Desktop Floating Sidebar */}
+			<aside className="my-3 ms-3 hidden h-[calc(100vh-1.5rem)] w-64 shrink-0 flex-col rounded-2xl border border-hairline bg-surface-1 md:flex">
+				<div className="flex h-14 items-center justify-between border-b border-hairline px-4">
+					<NavLink to="/" className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-ink">
+						<span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-xs font-bold text-white">
 							R
 						</span>
 						<span>Rebecca</span>
 					</NavLink>
 				</div>
 				{renderNav()}
-				<div className="border-t border-hairline p-2.5">
-					<div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs">
-						<div className="min-w-0">
-							<div className="truncate font-medium text-ink">{username}</div>
-							<div className="truncate text-[11px] text-ink-tertiary">{role}</div>
-						</div>
-						<button
-							type="button"
-							onClick={handleLogout}
-							title={t("logout") || "Logout"}
-							className="rounded-md p-1.5 text-ink-subtle hover:bg-surface-3 hover:text-red-400"
-						>
-							<ArrowRightOnRectangleIcon className="h-4 w-4" />
-						</button>
-					</div>
-				</div>
+				{renderSidebarFooter(false)}
 			</aside>
 
 			{/* Mobile Sidebar Drawer */}
 			{mobileOpen && (
 				<div className="fixed inset-0 z-50 flex md:hidden">
-					<div className="fixed inset-0 bg-black/70" onClick={() => setMobileOpen(false)} />
-					<aside className="relative z-10 flex w-64 max-w-[80vw] flex-col border-e border-hairline bg-surface-1">
+					<div className="rb-anim-backdrop fixed inset-0 bg-black/70" onClick={() => setMobileOpen(false)} />
+					<aside className="rb-anim-drawer relative z-10 flex w-64 max-w-[80vw] flex-col border-e border-hairline bg-surface-1">
 						<div className="flex h-12 items-center justify-between border-b border-hairline px-4">
 							<span className="text-sm font-semibold text-ink">Rebecca</span>
 							<button
@@ -232,23 +390,14 @@ export const AppLayout = () => {
 							</button>
 						</div>
 						{renderNav()}
-						<div className="border-t border-hairline p-2.5">
-							<button
-								type="button"
-								onClick={handleLogout}
-								className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-red-400 hover:bg-surface-2"
-							>
-								<ArrowRightOnRectangleIcon className="h-4 w-4" />
-								<span>{t("logout") || "Logout"}</span>
-							</button>
-						</div>
+						{renderSidebarFooter(true)}
 					</aside>
 				</div>
 			)}
 
 			{/* Main Content */}
-			<div className="flex min-w-0 flex-1 flex-col">
-				<header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-hairline bg-canvas/95 px-4 sm:px-6">
+			<div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+				<header className="sticky top-3 z-30 mx-4 mt-3 flex h-12 items-center justify-between rounded-xl border border-hairline bg-surface-1 px-3.5 sm:mx-6">
 					<div className="flex items-center gap-2.5">
 						<button
 							type="button"
@@ -258,60 +407,27 @@ export const AppLayout = () => {
 						>
 							<Bars3Icon className="h-5 w-5" />
 						</button>
-						<span className="text-xs font-medium text-ink-subtle md:hidden">Rebecca</span>
+						<span className="text-xs font-medium text-ink-muted">{currentPageTitle}</span>
 					</div>
 
-					<div className="flex items-center gap-1.5">
-						<div className="relative">
-							<button
-								type="button"
-								onClick={() => setLangMenuOpen((v) => !v)}
-								className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-hairline bg-surface-1 px-2.5 text-xs font-medium text-ink-muted hover:border-hairline-strong hover:text-ink"
-								title="Language"
-							>
-								<LanguageIcon className="h-3.5 w-3.5" />
-								<span className="uppercase">{(i18n.language || "en").slice(0, 2)}</span>
-							</button>
-							{langMenuOpen && (
-								<>
-									<div className="fixed inset-0 z-40" onClick={() => setLangMenuOpen(false)} />
-									<div className="absolute end-0 z-50 mt-1.5 w-28 rounded-lg border border-hairline-strong bg-surface-1 p-1 shadow-xl">
-										{[
-											{ code: "en", label: "English" },
-											{ code: "fa", label: "فارسی" },
-											{ code: "ru", label: "Русский" },
-											{ code: "zh", label: "中文" },
-										].map((lang) => (
-											<button
-												key={lang.code}
-												type="button"
-												onClick={() => {
-													void i18n.changeLanguage(lang.code);
-													setLangMenuOpen(false);
-												}}
-												className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs ${
-													i18n.language?.startsWith(lang.code)
-														? "bg-accent-soft text-accent font-medium"
-														: "text-ink-muted hover:bg-surface-2 hover:text-ink"
-												}`}
-											>
-												<span>{lang.label}</span>
-											</button>
-										))}
-									</div>
-								</>
-							)}
+					<div className="flex items-center gap-2">
+						<div className="hidden items-center gap-1.5 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1 text-[11px] text-ink-subtle lg:flex">
+							<CalendarDaysIcon className="h-3.5 w-3.5 text-ink-tertiary" />
+							<span>{formattedDate}</span>
 						</div>
 
-						<button
-							type="button"
-							onClick={toggleTheme}
-							className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-hairline bg-surface-1 text-ink-subtle hover:border-hairline-strong hover:text-ink"
-							title="Toggle theme"
-							aria-label="Toggle theme"
+						<NavLink
+							to="/notifications"
+							className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg border border-hairline bg-surface-2 text-ink-subtle transition-colors hover:border-hairline-strong hover:text-ink"
+							title={t("notifications.menu", "Notifications")}
 						>
-							{theme === "dark" ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
-						</button>
+							<BellIcon className="h-4 w-4" />
+							{unreadCount > 0 && (
+								<span className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white tabular-nums">
+									{unreadCount > 9 ? "9+" : unreadCount}
+								</span>
+							)}
+						</NavLink>
 					</div>
 				</header>
 

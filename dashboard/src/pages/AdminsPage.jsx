@@ -4,7 +4,9 @@ import { AdminDialog } from "components/AdminDialog";
 import { AdminsTable } from "components/AdminsTable";
 import { Filters, ReloadIcon } from "components/Filters";
 import { Pagination } from "components/Pagination";
-import { PageHeader, ResourceRefreshButton } from "components/ui";
+import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { Button as LinearButton } from "components/linear/UI";
+import { PageHeader } from "components/ui";
 import { useAdminsStore } from "contexts/AdminsContext";
 import useGetUser from "hooks/useGetUser";
 import { useEffect } from "react";
@@ -38,8 +40,22 @@ export const AdminsPage = () => {
 				</Text>
 			</VStack>);
     }
-    return (<VStack spacing={4} align="stretch">
-			<AdminsTable toolbar={<Filters for="admins" py={0} showRefresh={false}/>} footerActions={<ResourceRefreshButton aria-label={t("refresh")} label={t("refresh")} icon={<ReloadIcon />} onClick={() => fetchAdmins(undefined, { force: true })} isLoading={adminsLoading}/>}/>
+    return (<VStack className="mx-auto max-w-[1440px]" px={{ base: 4, md: 6 }} py={{ base: 5, md: 6 }} spacing={5} align="stretch">
+			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline pb-4">
+				<div>
+					<h1 className="text-lg font-semibold text-ink">{t("admins")}</h1>
+					<p className="text-xs text-ink-subtle mt-0.5">{t("admins.pageDescription")}</p>
+				</div>
+				<div className="flex items-center gap-2">
+					<LinearButton size="sm" variant="secondary" icon={ArrowPathIcon} loading={adminsLoading} onClick={() => fetchAdmins(undefined, { force: true })}>
+						{t("refresh")}
+					</LinearButton>
+					<LinearButton size="sm" variant="primary" icon={PlusIcon} onClick={() => openAdminDialog()}>
+						{t("admins.addAdmin")}
+					</LinearButton>
+				</div>
+			</div>
+			<AdminsTable toolbar={<Filters for="admins" py={0} showRefresh={false} showCreate={false}/>}/>
 			<Pagination for="admins"/>
 			<AdminDialog />
 			<AdminDetailsDrawer />

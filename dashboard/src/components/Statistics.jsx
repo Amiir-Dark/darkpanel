@@ -16,7 +16,10 @@ import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 import { SystemDiagnostics, useSystemDiagnostics } from "./SystemDiagnostics";
 import SellerDashboard from "./SellerDashboard";
 export const StatisticsQueryKey = "statistics-query-key";
-const HistoryChart = lazy(() => import("react-apexcharts"));
+const HistoryChart = lazy(async () => {
+    const mod = await import("react-apexcharts");
+    return { default: mod?.default?.default || mod?.default || mod };
+});
 const formatDurationText = (seconds, t) => {
     if (!seconds || seconds <= 0) {
         return `0 ${t("dashboard.system.durationSeconds")}`;

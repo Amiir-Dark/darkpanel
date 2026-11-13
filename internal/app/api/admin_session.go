@@ -69,11 +69,6 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	lifetime := activeSessionLife
 	if dbadmin.Status == adminapp.StatusDisabled {
 		state = adminapp.SessionDisabled
-	} else if dbadmin.TOTPEnabled {
-		state = adminapp.SessionPending2FA
-		lifetime = pendingSessionLife
-	} else if dbadmin.Require2FA {
-		state = adminapp.SessionSetupRequired
 	}
 	now := time.Now().UTC()
 	token, err := adminapp.NewSessionToken()
