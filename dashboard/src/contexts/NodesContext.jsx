@@ -256,6 +256,7 @@ export const useNodesQuery = (options) => {
         },
         refetchOnWindowFocus: false,
         keepPreviousData: true,
+        staleTime: 10 * 1000,
         enabled: options?.enabled ?? true,
     });
 };

@@ -403,10 +403,12 @@ export const NodesPage = () => {
     }, [pageSize]);
     const { data: maintenanceInfo } = useQuery(["maintenance-info"], () => apiFetch("/maintenance/info"), {
         refetchOnWindowFocus: false,
+        staleTime: 5 * 60 * 1000,
+        retry: false,
         enabled: canManageNodes,
     });
     const { data: buildCatalog } = useQuery(["maintenance-builds", "node"], () => apiFetch("/maintenance/builds?target=node"), {
-        enabled: canManageNodes,
+        enabled: canManageNodes && Boolean(serviceUpdateTarget),
         refetchOnWindowFocus: false,
         staleTime: 10 * 60 * 1000,
         retry: false,
