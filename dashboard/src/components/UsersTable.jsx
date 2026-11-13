@@ -15,7 +15,7 @@ import {
 	TrashIcon,
 } from "@heroicons/react/24/outline";
 import dayjs from "dayjs";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { appToast } from "components/linear/Toast";
@@ -80,6 +80,7 @@ export const UsersTable = () => {
 	const liveUserStats = useDashboard((s) => s.liveUserStats);
 
 	const [copiedId, setCopiedId] = useState(null);
+	const [expandedUser, setExpandedUser] = useState(null);
 	const [openMenuUser, setOpenMenuUser] = useState(null);
 	const [contextMenu, setContextMenu] = useState(null);
 	const [connectionsUser, setConnectionsUser] = useState(null);
@@ -258,12 +259,25 @@ export const UsersTable = () => {
 									const expiry = formatExpiry(user, t);
 									const menuOpen = openMenuUser === user.username;
 
+									const isExpanded = expandedUser === user.username;
+									const remainingTraffic = dataLimit > 0 ? Math.max(0, dataLimit - used) : null;
+									const lifetimeUsed = user.lifetime_used_traffic ?? used;
+									const lastConnection = isOnline
+										? t("online", "Online")
+										: user.online_at
+											? dayjs(user.online_at).fromNow()
+											: "—";
+									const liveSpeed = isOnline && live && (live.upload_speed > 0 || live.download_speed > 0)
+										? `↑ ${formatBytes(live.upload_speed)}/s · ↓ ${formatBytes(live.download_speed)}/s`
+										: "—";
+
 									return (
-										<tr
-											key={user.username}
-											onContextMenu={(e) => handleRowContextMenu(e, user)}
-											className="transition-colors hover:bg-surface-2"
-										>
+										<Fragment key={user.username}>
+											<tr
+												onClick={() => setExpandedUser(isExpanded ? null : user.username)}
+												onContextMenu={(e) => handleRowContextMenu(e, user)}
+												className={`cursor-pointer transition-colors hover:bg-surface-2 ${isExpanded ? "bg-surface-2/80" : ""}`}
+											>
 											<td className="px-3.5 py-2.5 whitespace-nowrap">
 												<span
 													className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
@@ -440,6 +454,135 @@ export const UsersTable = () => {
 												</div>
 											</td>
 										</tr>
+										{isExpanded && (
+											<tr className="bg-surface-2/50">
+												<td colSpan={7} className="border-t border-hairline px-4 py-3.5">
+													<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+														<div className="space-y-1.5 text-xs">
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("username", "Username")}</span>
+																<span className="font-medium text-ink">{user.username}</span>
+															</div>
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("service", "Service")}</span>
+																<span className="font-medium text-ink">{user.service_name || "—"}</span>
+															</div>
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("usersTable.speed", "Speed")}</span>
+																<span className="font-medium tabular-nums text-ink">{liveSpeed}</span>
+															</div>
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("usersTable.lifetime", "Lifetime")}</span>
+																<span className="font-medium tabular-nums text-ink">{formatBytes(lifetimeUsed)}</span>
+															</div>
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("admin", "Admin")}</span>
+																<span className="font-medium text-ink">
+																	{user.admin_username ? `by ${user.admin_username}` : "—"}
+																</span>
+															</div>
+														</div>
+
+														<div className="space-y-1.5 text-xs">
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("status", "Status")}</span>
+																<Badge variant={statusVariantMap[user.status] || "neutral"}>
+																	{t(`status_${user.status}`, statusLabelMap[user.status] || user.status)}
+																</Badge>
+															</div>
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("traffic", "Traffic")}</span>
+																<span className="font-medium tabular-nums text-ink">
+																	{formatBytes(used)} / {dataLimit > 0 ? formatBytes(dataLimit) : "∞"}
+																</span>
+															</div>
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("usersTable.remainingTraffic", "Remaining traffic")}</span>
+																<span className="font-medium tabular-nums text-ink">
+																	{remainingTraffic !== null ? formatBytes(remainingTraffic) : "∞"}
+																</span>
+															</div>
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("expiry", "Expiry")}</span>
+																<span className={`font-medium tabular-nums ${expiry.danger ? "text-red-400" : "text-ink"}`}>
+																	{expiry.text}
+																</span>
+															</div>
+															<div className="flex items-center gap-2">
+																<span className="text-ink-tertiary">{t("usersTable.lastConnection", "Last connection")}</span>
+																<span className={`font-medium tabular-nums ${isOnline ? "text-emerald-400" : "text-ink"}`}>
+																	{lastConnection}
+																</span>
+															</div>
+														</div>
+													</div>
+
+													<div
+														className="mt-3 flex items-center justify-end gap-1 border-t border-hairline pt-2.5"
+														onClick={(e) => e.stopPropagation()}
+													>
+														<IconButton
+															title={user.status === "disabled" ? t("enable", "Enable User") : t("disable", "Disable User")}
+															onClick={() => void handleToggleStatus(user)}
+														>
+															<NoSymbolIcon
+																className={`h-4 w-4 ${user.status === "disabled" ? "text-emerald-400" : ""}`}
+															/>
+														</IconButton>
+														<IconButton
+															title={t("resetUsage.title", "Reset Usage")}
+															onClick={() =>
+																void resetDataUsage(user).then(() =>
+																	appToast({ title: "Usage reset", status: "success" }),
+																)
+															}
+														>
+															<ArrowPathIcon className="h-4 w-4" />
+														</IconButton>
+														<IconButton
+															title={t("usersTable.copyLink", "Copy subscription")}
+															disabled={!user.subscription_url}
+															onClick={() => handleCopySub(user)}
+														>
+															{copiedId === `sub-${user.username}` ? (
+																<CheckIcon className="h-4 w-4 text-emerald-400" />
+															) : (
+																<LinkIcon className="h-4 w-4" />
+															)}
+														</IconButton>
+														<IconButton
+															title={t("usersTable.copyConfigs", "Copy configs")}
+															onClick={() => void handleCopyConfigs(user)}
+														>
+															{copiedId === `cfg-${user.username}` ? (
+																<CheckIcon className="h-4 w-4 text-emerald-400" />
+															) : (
+																<ClipboardDocumentIcon className="h-4 w-4" />
+															)}
+														</IconButton>
+														<IconButton
+															title={t("usersTable.qrCode", "QR Code")}
+															onClick={() => handleOpenQR(user)}
+														>
+															<QrCodeIcon className="h-4 w-4" />
+														</IconButton>
+														<IconButton
+															title={t("userDialog.editUser", "Edit")}
+															onClick={() => onEditingUser(user)}
+														>
+															<PencilSquareIcon className="h-4 w-4" />
+														</IconButton>
+														<IconButton
+															title={t("delete", "Delete")}
+															onClick={() => setConfirmDeleteUser(user)}
+														>
+															<TrashIcon className="h-4 w-4 text-red-400" />
+														</IconButton>
+													</div>
+												</td>
+											</tr>
+										)}
+										</Fragment>
 									);
 								})
 							)}
