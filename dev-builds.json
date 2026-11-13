@@ -1,9 +1,49 @@
 {
   "schema_version": 1,
   "project": "DarkPanel",
-  "latest": "main-013b5a5",
-  "updated_at": "2026-11-13T09:40:59Z",
+  "latest": "main-1e1e22f",
+  "updated_at": "2026-11-13T10:00:47Z",
   "builds": [
+    {
+      "tag": "main-1e1e22f",
+      "sha": "1e1e22fb51d529e8428edf3f2037bd0f2c889d29",
+      "branch": "main",
+      "workflow": "Binary Build",
+      "run_id": "43405553555",
+      "run_number": "180",
+      "created_at": "2026-11-13T10:00:47Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-main-1e1e22f.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-main-1e1e22f.tar.gz"
+        },
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-main-1e1e22f.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-main-1e1e22f.tar.gz"
+        }
+      }
+    },
+    {
+      "tag": "dev-1e1e22f",
+      "sha": "1e1e22fb51d529e8428edf3f2037bd0f2c889d29",
+      "branch": "main",
+      "workflow": "Binary Build",
+      "run_id": "43405553555",
+      "run_number": "180",
+      "created_at": "2026-11-13T10:00:47Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-main-1e1e22f.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-main-1e1e22f.tar.gz"
+        },
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-main-1e1e22f.tar.gz",
+          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-main-1e1e22f.tar.gz"
+        }
+      }
+    },
     {
       "tag": "main-013b5a5",
       "sha": "013b5a5325d6778f48d7eda185df17be8ae75101",
@@ -961,46 +1001,6 @@
         "linux-amd64": {
           "name": "rebecca-linux-amd64-main-1a53fdc.tar.gz",
           "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-main-1a53fdc.tar.gz"
-        }
-      }
-    },
-    {
-      "tag": "main-9d1694a",
-      "sha": "9d1694a7f5b13828543f2db5df494798404ff75d",
-      "branch": "main",
-      "workflow": "Binary Build",
-      "run_id": "38727398978",
-      "run_number": "155",
-      "created_at": "2026-10-15T11:29:49Z",
-      "release_tag": "dev-builds",
-      "assets": {
-        "linux-amd64": {
-          "name": "rebecca-linux-amd64-main-9d1694a.tar.gz",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-main-9d1694a.tar.gz"
-        },
-        "linux-arm64": {
-          "name": "rebecca-linux-arm64-main-9d1694a.tar.gz",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-main-9d1694a.tar.gz"
-        }
-      }
-    },
-    {
-      "tag": "dev-9d1694a",
-      "sha": "9d1694a7f5b13828543f2db5df494798404ff75d",
-      "branch": "main",
-      "workflow": "Binary Build",
-      "run_id": "38727398978",
-      "run_number": "155",
-      "created_at": "2026-10-15T11:29:49Z",
-      "release_tag": "dev-builds",
-      "assets": {
-        "linux-amd64": {
-          "name": "rebecca-linux-amd64-main-9d1694a.tar.gz",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-amd64-main-9d1694a.tar.gz"
-        },
-        "linux-arm64": {
-          "name": "rebecca-linux-arm64-main-9d1694a.tar.gz",
-          "url": "https://github.com/Amiir-Dark/darkpanel/releases/download/dev-builds/rebecca-linux-arm64-main-9d1694a.tar.gz"
         }
       }
     }
