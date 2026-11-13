@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
 )
 
 const wireGuardSessionStaleAfter = 4 * time.Minute

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/pressly/goose/v3"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 func init() {

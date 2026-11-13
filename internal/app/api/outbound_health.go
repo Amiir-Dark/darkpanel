@@ -1,6 +1,6 @@
 package api
 
-import "github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+import "github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 
 // managedOutboundProvider identifies the native proxy services supported by the
 // node runtime. The tag fallback keeps older saved configs health-checkable.

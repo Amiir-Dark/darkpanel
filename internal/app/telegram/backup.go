@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	backupapp "github.com/rebeccapanel/rebecca/internal/app/backup"
+	backupapp "github.com/darkpanel/darkpanel/internal/app/backup"
 )
 
 type BackupExporter interface {
@@ -100,7 +100,7 @@ func (d BackupDelivery) SendFailureReport(ctx context.Context, scope string, err
 func (d BackupDelivery) caption(filename string, scope string, size int64) string {
 	now := d.now().UTC()
 	return reportText(
-		"📦 <b>#RebeccaBackup</b>",
+		"📦 <b>#DarkPanelBackup</b>",
 		separator(),
 		line("Filename", filename),
 		line("Scope", firstNonEmpty(scope, backupapp.ScopeDatabase)),

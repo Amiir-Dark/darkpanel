@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
-	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
+	systemapp "github.com/darkpanel/darkpanel/internal/app/system"
 	"golang.org/x/net/websocket"
 )
 

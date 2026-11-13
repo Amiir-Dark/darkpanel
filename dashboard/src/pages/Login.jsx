@@ -160,10 +160,10 @@ export const Login = () => {
 			<div className="w-full max-w-sm rounded-xl border border-hairline bg-surface-1 p-6 shadow-2xl sm:p-7">
 				<div className="mb-6 flex items-center gap-2.5">
 					<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">
-						R
+						D
 					</span>
 					<div>
-						<h1 className="text-base font-semibold tracking-tight text-ink">Rebecca</h1>
+						<h1 className="text-base font-semibold tracking-tight text-ink">Dark Panel</h1>
 						<p className="text-xs text-ink-subtle">
 							{step === "credentials"
 								? t("login.welcomeBack", "Welcome back, please enter your details")

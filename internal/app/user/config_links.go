@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	outboundsubapp "github.com/darkpanel/darkpanel/internal/app/outboundsub"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 const defaultShadowsocksMethod = "chacha20-ietf-poly1305"

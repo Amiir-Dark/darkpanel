@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/admin"
-	platformdb "github.com/rebeccapanel/rebecca/internal/platform/db"
+	"github.com/darkpanel/darkpanel/internal/app/admin"
+	platformdb "github.com/darkpanel/darkpanel/internal/platform/db"
 )
 
 var (

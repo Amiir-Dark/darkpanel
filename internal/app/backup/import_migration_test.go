@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rebeccapanel/rebecca/internal/app/migrations"
+	"github.com/darkpanel/darkpanel/internal/app/migrations"
 )
 
 func TestImportOldBackupIsMigratedToCurrentSchema(t *testing.T) {

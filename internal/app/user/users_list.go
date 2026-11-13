@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/online"
-	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
+	"github.com/darkpanel/darkpanel/internal/app/online"
+	"github.com/darkpanel/darkpanel/internal/app/searchmatch"
 )
 
 const (

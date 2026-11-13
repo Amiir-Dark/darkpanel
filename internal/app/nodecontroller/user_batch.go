@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
-	userread "github.com/rebeccapanel/rebecca/internal/app/user"
-	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
+	"github.com/darkpanel/darkpanel/internal/app/nodeclient"
+	userread "github.com/darkpanel/darkpanel/internal/app/user"
+	nodev1 "github.com/darkpanel/darkpanel/internal/proto/node/v1"
 )
 
 const (

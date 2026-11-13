@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
+	nodev1 "github.com/darkpanel/darkpanel/internal/proto/node/v1"
 	_ "modernc.org/sqlite"
 )
 

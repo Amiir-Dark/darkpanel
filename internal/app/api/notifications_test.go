@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
 )
 
 func TestNotificationsRolesAndSending(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rebeccapanel/rebecca/internal/app/outboundsub"
+	"github.com/darkpanel/darkpanel/internal/app/outboundsub"
 )
 
 func readTestTemplateFile(t *testing.T, relativePath string) string {

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
 	_ "modernc.org/sqlite"
 )
 

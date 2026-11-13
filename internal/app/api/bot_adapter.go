@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
-	dashboardapp "github.com/rebeccapanel/rebecca/internal/app/dashboard"
-	telegrambot "github.com/rebeccapanel/rebecca/internal/app/telegram/bot"
-	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
+	dashboardapp "github.com/darkpanel/darkpanel/internal/app/dashboard"
+	telegrambot "github.com/darkpanel/darkpanel/internal/app/telegram/bot"
+	userapp "github.com/darkpanel/darkpanel/internal/app/user"
 )
 
 // botSettingsSource adapts the Telegram repository to the bot's SettingsSource.

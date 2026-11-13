@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/rebeccapanel/rebecca/internal/app/salesbot"
+	"github.com/darkpanel/darkpanel/internal/app/salesbot"
 )
 
 func main() {

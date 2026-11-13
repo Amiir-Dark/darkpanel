@@ -3,8 +3,8 @@ package api
 import (
 	"testing"
 
-	"github.com/rebeccapanel/rebecca/internal/app/rowtemplates"
-	"github.com/rebeccapanel/rebecca/internal/app/user"
+	"github.com/darkpanel/darkpanel/internal/app/rowtemplates"
+	"github.com/darkpanel/darkpanel/internal/app/user"
 )
 
 func TestAllRowTemplatesEmbeddedAndRenderable(t *testing.T) {

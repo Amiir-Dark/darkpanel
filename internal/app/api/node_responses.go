@@ -1,6 +1,6 @@
 package api
 
-import "github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
+import "github.com/darkpanel/darkpanel/internal/app/nodecontroller"
 
 func flattenNodeItem(node nodecontroller.NodeListItem) map[string]any {
 	return map[string]any{

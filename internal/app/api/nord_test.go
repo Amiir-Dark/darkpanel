@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	nordvpnapp "github.com/rebeccapanel/rebecca/internal/app/nordvpn"
+	nordvpnapp "github.com/darkpanel/darkpanel/internal/app/nordvpn"
 )
 
 func TestNordSettingsAndAPIRoutes(t *testing.T) {

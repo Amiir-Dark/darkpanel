@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rebeccapanel/rebecca/internal/app/salesbot"
+	"github.com/darkpanel/darkpanel/internal/app/salesbot"
 	_ "modernc.org/sqlite"
 )
 

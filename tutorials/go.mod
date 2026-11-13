@@ -1,4 +1,4 @@
-module github.com/rebeccapanel/rebecca/tutorials
+module github.com/darkpanel/darkpanel/tutorials
 
 go 1.21
 

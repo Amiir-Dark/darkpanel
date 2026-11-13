@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
-	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
-	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
-	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
+	settingsapp "github.com/darkpanel/darkpanel/internal/app/settings"
+	telegramapp "github.com/darkpanel/darkpanel/internal/app/telegram"
+	userapp "github.com/darkpanel/darkpanel/internal/app/user"
 )
 
 type allSettingsRequest struct {

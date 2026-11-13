@@ -17,7 +17,7 @@ const (
 	DatabaseSQLName    = "database.sql"
 	FilesPrefix        = "files"
 
-	DisabledDetail = "Rebecca backup and import is available only on binary installations. Migrate this panel to the binary version before using backup or restore from the web UI."
+	DisabledDetail = "Dark Panel backup and import is available only on binary installations. Migrate this panel to the binary version before using backup or restore from the web UI."
 )
 
 type Error struct {

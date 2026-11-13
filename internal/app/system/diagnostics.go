@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rebeccapanel/rebecca/internal/app/logging"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	"github.com/darkpanel/darkpanel/internal/app/logging"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 // Diagnostics combines existing failure records; it does not run service

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	userapp "github.com/darkpanel/darkpanel/internal/app/user"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 type OVRuntime struct {

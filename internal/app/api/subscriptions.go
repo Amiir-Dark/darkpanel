@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
+	userapp "github.com/darkpanel/darkpanel/internal/app/user"
 )
 
 func (s *Server) handleSubscriptionPath(w http.ResponseWriter, r *http.Request) {

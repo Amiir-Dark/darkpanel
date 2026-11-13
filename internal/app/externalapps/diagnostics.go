@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 // Diagnostics checks only enabled, locally hosted applications. It never runs

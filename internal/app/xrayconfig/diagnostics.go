@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/outboundsub"
+	"github.com/darkpanel/darkpanel/internal/app/outboundsub"
 )
 
 type ConfigIssue struct {

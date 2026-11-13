@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	userread "github.com/rebeccapanel/rebecca/internal/app/user"
-	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
+	userread "github.com/darkpanel/darkpanel/internal/app/user"
+	nodev1 "github.com/darkpanel/darkpanel/internal/proto/node/v1"
 )
 
 func TestShadowsocks2022LiveUserPayloadCarriesInboundMethod(t *testing.T) {

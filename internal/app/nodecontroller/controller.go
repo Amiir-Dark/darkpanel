@@ -14,10 +14,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/logging"
-	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
-	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
-	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
+	"github.com/darkpanel/darkpanel/internal/app/logging"
+	"github.com/darkpanel/darkpanel/internal/app/nodeclient"
+	outboundsubapp "github.com/darkpanel/darkpanel/internal/app/outboundsub"
+	nodev1 "github.com/darkpanel/darkpanel/internal/proto/node/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 )

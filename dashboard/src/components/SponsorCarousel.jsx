@@ -42,7 +42,7 @@ export const SponsorCarousel = ({ items, variant, collapsed = false, }) => {
 							<SponsorLink href={item.href}>
 								{image}
 								{variant === "logo" && !collapsed && (<Text fontSize={{ base: "lg", md: "2xl" }} fontWeight="bold" fontFamily="'Inter', system-ui, sans-serif" letterSpacing="tight" lineHeight="1" whiteSpace="nowrap" color="panel.text" noOfLines={1}>
-										{item.isSponsor ? item.label : "Rebecca"}
+										{item.isSponsor ? item.label : "Dark Panel"}
 									</Text>)}
 							</SponsorLink>
 						</Box>);

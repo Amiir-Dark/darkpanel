@@ -45,7 +45,7 @@ func NewSender(repo Repository, apiBaseURL string) Sender {
 }
 
 func (s Sender) SendTestMessage(ctx context.Context, req TestRequest) (TestResult, error) {
-	text := "Rebecca Telegram test message"
+	text := "Dark Panel Telegram test message"
 	if req.Text != nil && strings.TrimSpace(*req.Text) != "" {
 		text = strings.TrimSpace(*req.Text)
 	}

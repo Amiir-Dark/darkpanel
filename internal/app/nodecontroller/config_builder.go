@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rebeccapanel/rebecca/internal/app/logging"
-	userread "github.com/rebeccapanel/rebecca/internal/app/user"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	"github.com/darkpanel/darkpanel/internal/app/logging"
+	userread "github.com/darkpanel/darkpanel/internal/app/user"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 var proxyProtocols = map[string]struct{}{

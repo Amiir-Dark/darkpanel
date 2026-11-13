@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"time"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
-	"github.com/rebeccapanel/rebecca/internal/app/logging"
-	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
+	"github.com/darkpanel/darkpanel/internal/app/logging"
+	userapp "github.com/darkpanel/darkpanel/internal/app/user"
 )
 
 const defaultAdminLifecycleInterval = 30 * time.Second

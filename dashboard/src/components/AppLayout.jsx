@@ -397,9 +397,9 @@ export const AppLayout = () => {
 				<div className="flex h-14 items-center justify-between border-b border-hairline px-4">
 					<NavLink to="/" className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-ink">
 						<span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-xs font-bold text-white">
-							R
+							D
 						</span>
-						<span>Rebecca</span>
+						<span>Dark Panel</span>
 					</NavLink>
 				</div>
 				{renderNav()}
@@ -412,7 +412,7 @@ export const AppLayout = () => {
 					<div className="rb-anim-backdrop fixed inset-0 bg-black/70" onClick={() => setMobileOpen(false)} />
 					<aside className="rb-anim-drawer relative z-10 flex w-64 max-w-[80vw] flex-col border-e border-hairline bg-surface-1">
 						<div className="flex h-12 items-center justify-between border-b border-hairline px-4">
-							<span className="text-sm font-semibold text-ink">Rebecca</span>
+							<span className="text-sm font-semibold text-ink">Dark Panel</span>
 							<button
 								type="button"
 								onClick={() => setMobileOpen(false)}

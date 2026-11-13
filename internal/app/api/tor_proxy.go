@@ -10,8 +10,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/rebeccapanel/rebecca/internal/app/logging"
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
+	"github.com/darkpanel/darkpanel/internal/app/logging"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
 )
 
 var torCountryPattern = regexp.MustCompile(`^[a-zA-Z]{2}$`)

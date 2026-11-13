@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/logging"
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
+	"github.com/darkpanel/darkpanel/internal/app/logging"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
 )
 
 const defaultNodeRecoveryPollInterval = 45 * time.Second

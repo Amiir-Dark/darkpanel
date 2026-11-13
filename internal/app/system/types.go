@@ -1,6 +1,6 @@
 package system
 
-import dashboardapp "github.com/rebeccapanel/rebecca/internal/app/dashboard"
+import dashboardapp "github.com/darkpanel/darkpanel/internal/app/dashboard"
 
 const DefaultVersion = "1.6.0"
 

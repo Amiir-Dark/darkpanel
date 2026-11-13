@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
-	"github.com/rebeccapanel/rebecca/internal/app/rowtemplates"
-	"github.com/rebeccapanel/rebecca/internal/app/user"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
+	"github.com/darkpanel/darkpanel/internal/app/rowtemplates"
+	"github.com/darkpanel/darkpanel/internal/app/user"
 )
 
 type SubscriptionTemplateInfo struct {

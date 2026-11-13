@@ -20,15 +20,15 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
-	backupapp "github.com/rebeccapanel/rebecca/internal/app/backup"
-	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
-	nodeapp "github.com/rebeccapanel/rebecca/internal/app/node"
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
-	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
-	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
-	warpapp "github.com/rebeccapanel/rebecca/internal/app/warp"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
+	backupapp "github.com/darkpanel/darkpanel/internal/app/backup"
+	certificateapp "github.com/darkpanel/darkpanel/internal/app/certificates"
+	nodeapp "github.com/darkpanel/darkpanel/internal/app/node"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
+	settingsapp "github.com/darkpanel/darkpanel/internal/app/settings"
+	telegramapp "github.com/darkpanel/darkpanel/internal/app/telegram"
+	warpapp "github.com/darkpanel/darkpanel/internal/app/warp"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 func testAdminServer(t *testing.T) (*Server, *sql.DB) {

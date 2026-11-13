@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
 )
 
 const (

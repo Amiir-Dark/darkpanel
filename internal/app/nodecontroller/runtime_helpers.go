@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
+	nodev1 "github.com/darkpanel/darkpanel/internal/proto/node/v1"
 )
 
 func (c Controller) PublicIPs(ctx context.Context, req Request) (PublicIPsResult, error) {

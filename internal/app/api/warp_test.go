@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	warpapp "github.com/rebeccapanel/rebecca/internal/app/warp"
+	warpapp "github.com/darkpanel/darkpanel/internal/app/warp"
 )
 
 func TestWarpGetEmptyAccount(t *testing.T) {

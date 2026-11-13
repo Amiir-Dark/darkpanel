@@ -7,9 +7,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/api"
-	"github.com/rebeccapanel/rebecca/internal/app/logging"
-	"github.com/rebeccapanel/rebecca/internal/gateway"
+	"github.com/darkpanel/darkpanel/internal/app/api"
+	"github.com/darkpanel/darkpanel/internal/app/logging"
+	"github.com/darkpanel/darkpanel/internal/gateway"
 )
 
 func main() {

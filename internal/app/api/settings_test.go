@@ -9,9 +9,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
-	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
-	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
+	settingsapp "github.com/darkpanel/darkpanel/internal/app/settings"
+	telegramapp "github.com/darkpanel/darkpanel/internal/app/telegram"
 )
 
 func createSettingsTables(t *testing.T, db *sql.DB) {

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
+	certificateapp "github.com/darkpanel/darkpanel/internal/app/certificates"
 )
 
 type HAProxyConfig struct {

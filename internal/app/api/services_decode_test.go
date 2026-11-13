@@ -2,7 +2,7 @@ package api
 
 import (
 	"encoding/json"
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"

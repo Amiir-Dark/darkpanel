@@ -12,7 +12,7 @@ import (
 	"time"
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
-	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
+	nodev1 "github.com/darkpanel/darkpanel/internal/proto/node/v1"
 )
 
 const (

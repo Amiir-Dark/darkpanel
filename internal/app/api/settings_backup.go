@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	backupapp "github.com/rebeccapanel/rebecca/internal/app/backup"
-	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
+	backupapp "github.com/darkpanel/darkpanel/internal/app/backup"
+	systemapp "github.com/darkpanel/darkpanel/internal/app/system"
 )
 
 const maxBackupUploadBytes int64 = 128 << 20

@@ -386,9 +386,9 @@ export const AppSidebar = ({ collapsed, inDrawer = false, onRequestExpand, }) =>
             opacity: 0.75,
         }}>
 						<Flex align="center" gap={3} justify={collapsed ? "center" : "flex-start"}>
-							<Image src={logoUrl} alt="Rebecca" w={8} h={8} objectFit="contain" borderRadius="md"/>
+							<Image src={logoUrl} alt="Dark Panel" w={8} h={8} objectFit="contain" borderRadius="md"/>
 							{!collapsed && (<Text fontSize={{ base: "lg", md: "xl" }} fontWeight="bold" fontFamily="'Inter', system-ui, sans-serif" letterSpacing="tight" lineHeight="1" whiteSpace="nowrap" color="panel.text" noOfLines={1}>
-									Rebecca
+									Dark Panel
 								</Text>)}
 						</Flex>
 					</Box>

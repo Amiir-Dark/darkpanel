@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 func (s *Server) handleInboundsRootEntry(w http.ResponseWriter, r *http.Request) {

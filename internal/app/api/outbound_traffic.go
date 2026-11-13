@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 type outboundTrafficTarget struct {

@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/migrations"
+	"github.com/darkpanel/darkpanel/internal/app/migrations"
 	_ "modernc.org/sqlite"
 )
 
@@ -137,7 +137,7 @@ func (s *Service) Export(ctx context.Context, scope string) (ExportResult, error
 	cleanup = false
 	return ExportResult{
 		Path:     outputPath,
-		Filename: fmt.Sprintf("rebecca-%s-%s%s", scope, timestamp, Extension),
+		Filename: fmt.Sprintf("dark-panel-%s-%s%s", scope, timestamp, Extension),
 		Scope:    scope,
 	}, nil
 }
@@ -216,7 +216,7 @@ func (s *Service) exportDatabasePayload(ctx context.Context, buildDir string) (d
 		}
 		return databasePayload{ArchiveName: DatabaseSQLName, PayloadType: "mysql-dump"}, nil
 	default:
-		return databasePayload{}, Error{Message: "Unsupported database backend for Rebecca backup: " + s.dialect}
+		return databasePayload{}, Error{Message: "Unsupported database backend for Dark Panel backup: " + s.dialect}
 	}
 }
 
@@ -435,7 +435,7 @@ func mysqlBackupCommandError(action string, stderr string) error {
 	detail := strings.TrimSpace(stderr)
 	lower := strings.ToLower(detail)
 	if strings.Contains(lower, "error 1045") || strings.Contains(lower, "access denied for user") {
-		return Error{Message: "MySQL/MariaDB rejected Rebecca's configured database credentials (error 1045). Check MYSQL_PASSWORD and SQLALCHEMY_DATABASE_URL."}
+		return Error{Message: "MySQL/MariaDB rejected Dark Panel's configured database credentials (error 1045). Check MYSQL_PASSWORD and SQLALCHEMY_DATABASE_URL."}
 	}
 	if strings.Contains(lower, "error 2013") || strings.Contains(lower, "lost connection") {
 		return Error{Message: "Lost connection to MySQL/MariaDB server during " + action + " (ERROR 2013). This usually means MySQL was terminated by the Linux Out-Of-Memory (OOM) killer due to insufficient server RAM. Add a swap file (e.g. 2GB swap) on your server. Detail: " + detail}
@@ -514,7 +514,7 @@ func (s *Service) tableNames(ctx context.Context) ([]string, error) {
 	case "mysql", "mariadb":
 		rows, err = s.db.QueryContext(ctx, `SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY table_name`)
 	default:
-		return nil, Error{Message: "Unsupported database backend for Rebecca backup: " + s.dialect}
+		return nil, Error{Message: "Unsupported database backend for Dark Panel backup: " + s.dialect}
 	}
 	if err != nil {
 		return nil, err

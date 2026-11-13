@@ -11,7 +11,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 	"golang.org/x/crypto/curve25519"
 )
 

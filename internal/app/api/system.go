@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	dashboardapp "github.com/rebeccapanel/rebecca/internal/app/dashboard"
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
-	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	dashboardapp "github.com/darkpanel/darkpanel/internal/app/dashboard"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
+	systemapp "github.com/darkpanel/darkpanel/internal/app/system"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 func (s *Server) handleSystemStats(w http.ResponseWriter, r *http.Request) {

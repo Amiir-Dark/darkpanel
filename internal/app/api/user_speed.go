@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
-	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
+	userapp "github.com/darkpanel/darkpanel/internal/app/user"
 )
 
 type liveUserSpeed struct {

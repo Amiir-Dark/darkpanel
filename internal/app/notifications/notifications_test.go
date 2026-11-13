@@ -12,7 +12,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/rebeccapanel/rebecca/internal/app/migrations"
+	"github.com/darkpanel/darkpanel/internal/app/migrations"
 )
 
 var testNow = time.Date(2026, 10, 12, 0, 0, 0, 0, time.UTC)

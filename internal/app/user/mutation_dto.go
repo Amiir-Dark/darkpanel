@@ -1,6 +1,6 @@
 package user
 
-import adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+import adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
 
 type UserStatus string
 

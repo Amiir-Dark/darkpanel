@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	backupapp "github.com/rebeccapanel/rebecca/internal/app/backup"
-	"github.com/rebeccapanel/rebecca/internal/app/logging"
-	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
-	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
+	backupapp "github.com/darkpanel/darkpanel/internal/app/backup"
+	"github.com/darkpanel/darkpanel/internal/app/logging"
+	telegramapp "github.com/darkpanel/darkpanel/internal/app/telegram"
+	userapp "github.com/darkpanel/darkpanel/internal/app/user"
 )
 
 const defaultTelegramBackupCheckInterval = time.Minute

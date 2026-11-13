@@ -19,10 +19,10 @@ import (
 	"time"
 
 	"github.com/flosch/pongo2/v6"
-	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
-	settingsapp "github.com/rebeccapanel/rebecca/internal/app/settings"
-	"github.com/rebeccapanel/rebecca/internal/app/usage"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	outboundsubapp "github.com/darkpanel/darkpanel/internal/app/outboundsub"
+	settingsapp "github.com/darkpanel/darkpanel/internal/app/settings"
+	"github.com/darkpanel/darkpanel/internal/app/usage"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 type SubscriptionClientConfig struct {

@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
-	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
+	systemapp "github.com/darkpanel/darkpanel/internal/app/system"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 type fakeSystemMetricsProvider struct {

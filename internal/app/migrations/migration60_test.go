@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	platformdb "github.com/rebeccapanel/rebecca/internal/platform/db"
+	platformdb "github.com/darkpanel/darkpanel/internal/platform/db"
 )
 
 func TestMigration60PreservesDataSQLite(t *testing.T) {

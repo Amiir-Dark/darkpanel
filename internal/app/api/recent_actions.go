@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	"github.com/darkpanel/darkpanel/internal/app/searchmatch"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 const (

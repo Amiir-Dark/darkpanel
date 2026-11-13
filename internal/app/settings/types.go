@@ -1,6 +1,6 @@
 package settings
 
-import certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
+import certificateapp "github.com/darkpanel/darkpanel/internal/app/certificates"
 
 type ClientRoutingRule struct {
 	Pattern string `json:"pattern"`

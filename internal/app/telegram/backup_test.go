@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	backupapp "github.com/rebeccapanel/rebecca/internal/app/backup"
+	backupapp "github.com/darkpanel/darkpanel/internal/app/backup"
 )
 
 type fakeBackupExporter struct {
@@ -74,7 +74,7 @@ func TestBackupDeliverySendsDatabaseBackup(t *testing.T) {
 	if len(methods) != 1 || methods[0] != "sendDocument" {
 		t.Fatalf("unexpected methods: %#v", methods)
 	}
-	if len(captions) != 1 || !strings.Contains(captions[0], "#RebeccaBackup") || !strings.Contains(captions[0], "database") {
+	if len(captions) != 1 || !strings.Contains(captions[0], "#DarkPanelBackup") || !strings.Contains(captions[0], "database") {
 		t.Fatalf("unexpected caption: %#v", captions)
 	}
 	assertTelegramColumnNotEmpty(t, db, "backup_last_sent_at")

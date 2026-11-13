@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"testing"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
-	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
+	"github.com/darkpanel/darkpanel/internal/app/xrayconfig"
 )
 
 func coreConfigPayload(tag string) string {

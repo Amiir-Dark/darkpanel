@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/pires/go-proxyproto"
-	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
-	"github.com/rebeccapanel/rebecca/internal/app/logging"
+	certificateapp "github.com/darkpanel/darkpanel/internal/app/certificates"
+	"github.com/darkpanel/darkpanel/internal/app/logging"
 )
 
 type Server struct {

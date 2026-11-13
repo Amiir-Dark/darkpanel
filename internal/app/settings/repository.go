@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/rowtemplates"
+	"github.com/darkpanel/darkpanel/internal/app/rowtemplates"
 )
 
 const (

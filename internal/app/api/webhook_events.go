@@ -3,8 +3,8 @@ package api
 import (
 	"strings"
 
-	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
-	webhookapp "github.com/rebeccapanel/rebecca/internal/app/webhook"
+	telegramapp "github.com/darkpanel/darkpanel/internal/app/telegram"
+	webhookapp "github.com/darkpanel/darkpanel/internal/app/webhook"
 )
 
 // webhookUserEvent maps an already-assembled Telegram user report into a webhook

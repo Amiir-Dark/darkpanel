@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	adminapp "github.com/darkpanel/darkpanel/internal/app/admin"
 )
 
 func TestServiceAutoInboundCreateDuplicateAndDelete(t *testing.T) {

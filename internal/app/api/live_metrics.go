@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
 	"golang.org/x/net/websocket"
 )
 

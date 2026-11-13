@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	certificateapp "github.com/rebeccapanel/rebecca/internal/app/certificates"
+	certificateapp "github.com/darkpanel/darkpanel/internal/app/certificates"
 )
 
 const (

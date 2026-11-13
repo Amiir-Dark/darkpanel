@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
+	"github.com/darkpanel/darkpanel/internal/app/nodecontroller"
 )
 
 func TestHandleCoreXrayReleasesUsesGitHubShape(t *testing.T) {

@@ -350,7 +350,7 @@ export const DashboardPage = () => {
 							</span>
 						</span>
 						<span>·</span>
-						<span className="max-w-[170px] truncate sm:max-w-none">{data?.os || "Rebecca"}</span>
+						<span className="max-w-[170px] truncate sm:max-w-none">{data?.os || "Dark Panel"}</span>
 						<span>·</span>
 						<span className="shrink-0 whitespace-nowrap font-mono text-[11px]">v{data?.version || "1.6.0"}</span>
 						<span>·</span>

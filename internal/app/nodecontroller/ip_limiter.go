@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
-	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
+	"github.com/darkpanel/darkpanel/internal/app/nodeclient"
+	nodev1 "github.com/darkpanel/darkpanel/internal/proto/node/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/rebeccapanel/rebecca/internal/app/online"
+	"github.com/darkpanel/darkpanel/internal/app/online"
 )
 
 const (
