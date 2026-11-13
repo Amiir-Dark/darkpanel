@@ -242,8 +242,247 @@ export const UsersTable = () => {
 
 	return (
 		<>
-			<Card className="overflow-hidden">
-				<div className="overflow-x-auto">
+			{/* Mobile Card List */}
+			<div className="space-y-2.5 md:hidden">
+				{loading && users.length === 0 ? (
+					<Card className="py-12 text-center">
+						<Spinner className="mx-auto h-5 w-5" />
+					</Card>
+				) : users.length === 0 ? (
+					<Card className="py-12 text-center text-xs text-ink-subtle">
+						{t("usersTable.noUsers", "No users found")}
+					</Card>
+				) : (
+					users.map((user) => {
+						const live = liveUserStats?.[user.username];
+						const isOnline = live?.is_online ?? user.is_online;
+						const used = user.used_traffic ?? 0;
+						const dataLimit = user.data_limit ?? 0;
+						const pct = dataLimit > 0 ? Math.min(100, Math.round((used / dataLimit) * 100)) : 0;
+						const expiry = formatExpiry(user, t);
+						const isExpanded = expandedUser === user.username;
+						const remainingTraffic = dataLimit > 0 ? Math.max(0, dataLimit - used) : null;
+						const lifetimeUsed = user.lifetime_used_traffic ?? used;
+						const lastConnection = isOnline
+							? t("online", "Online")
+							: user.online_at
+								? dayjs(user.online_at).fromNow()
+								: "—";
+						const liveSpeed = isOnline && live && (live.upload_speed > 0 || live.download_speed > 0)
+							? `↑ ${formatBytes(live.upload_speed)}/s · ↓ ${formatBytes(live.download_speed)}/s`
+							: "—";
+
+						return (
+							<div
+								key={`mobile-${user.username}`}
+								onClick={() => setExpandedUser(isExpanded ? null : user.username)}
+								className={`cursor-pointer rounded-xl border px-3.5 py-3 transition-all ${
+									isExpanded
+										? "border-accent/40 bg-surface-1 shadow-lg shadow-black/25"
+										: "border-white/[0.06] bg-surface-1 hover:border-white/[0.12]"
+								}`}
+							>
+								{/* Row 1: Username + Inline Service + Status + Quick Link/More */}
+								<div className="flex items-center justify-between gap-2">
+									<div className="flex min-w-0 flex-1 items-center gap-2">
+										<span
+											className={`h-2 w-2 shrink-0 rounded-full ${
+												isOnline
+													? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]"
+													: "bg-white/20"
+											}`}
+										/>
+										<span className="truncate text-[13.5px] font-semibold text-ink">
+											{user.username}
+										</span>
+									</div>
+
+									<div
+										className="flex shrink-0 items-center gap-1.5"
+										onClick={(e) => e.stopPropagation()}
+									>
+										{isOnline && (
+											<button
+												type="button"
+												onClick={() => setConnectionsUser(user)}
+												className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400"
+											>
+												{t("online", "Online")}
+											</button>
+										)}
+										<Badge variant={statusVariantMap[user.status] || "neutral"}>
+											{t(`status_${user.status}`, statusLabelMap[user.status] || user.status)}
+										</Badge>
+										<button
+											type="button"
+											disabled={!user.subscription_url}
+											onClick={() => handleCopySub(user)}
+											aria-label="Copy link"
+											className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-35"
+										>
+											{copiedId === `sub-${user.username}` ? (
+												<CheckIcon className="h-3.5 w-3.5 text-emerald-400" />
+											) : (
+												<LinkIcon className="h-3.5 w-3.5" />
+											)}
+										</button>
+										<button
+											type="button"
+											onClick={() => setExpandedUser(isExpanded ? null : user.username)}
+											aria-label="More actions"
+											className={`inline-flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
+												isExpanded
+													? "bg-surface-2 text-ink"
+													: "text-ink-tertiary hover:bg-surface-2 hover:text-ink"
+											}`}
+										>
+											<EllipsisHorizontalIcon className="h-4 w-4" />
+										</button>
+									</div>
+								</div>
+
+								{/* Row 2: Traffic + Expiry + Thin Progress */}
+								<div className="mt-2 ps-4">
+									<div className="flex items-center justify-between gap-2 text-[11px] tabular-nums">
+										<span className="truncate text-ink-muted">
+											<span className="font-medium text-ink">{formatBytes(used)}</span>
+											{" / "}
+											{dataLimit > 0 ? formatBytes(dataLimit) : "∞"}
+											{dataLimit > 0 && pct > 0 && (
+												<span className="ms-1 text-[10px] text-ink-tertiary">({pct}%)</span>
+											)}
+										</span>
+										<span
+											className={`shrink-0 ${
+												expiry.danger ? "font-medium text-red-400" : "text-ink-tertiary"
+											}`}
+										>
+											{expiry.text}
+										</span>
+									</div>
+									<div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-surface-2">
+										<div
+											className={`h-full rounded-full transition-all ${
+												pct >= 90 ? "bg-red-500" : "bg-accent"
+											}`}
+											style={{ width: `${dataLimit > 0 ? pct : 0}%` }}
+										/>
+									</div>
+								</div>
+
+								{/* Expanded: Details + Actions */}
+								{isExpanded && (
+									<div
+										className="mt-3 space-y-2.5 border-t border-white/[0.06] pt-2.5"
+										onClick={(e) => e.stopPropagation()}
+									>
+										<div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+											{user.admin?.username && (
+												<div>
+													<span className="text-ink-tertiary">Admin: </span>
+													<span className="font-medium text-ink">{user.admin.username}</span>
+												</div>
+											)}
+											{user.service_name && (
+												<div>
+													<span className="text-ink-tertiary">{t("service", "Service")}: </span>
+													<span className="font-medium text-ink">{user.service_name}</span>
+												</div>
+											)}
+											<div>
+												<span className="text-ink-tertiary">{t("usersTable.speed", "Speed")}: </span>
+												<span className="font-medium tabular-nums text-ink">{liveSpeed}</span>
+											</div>
+											<div>
+												<span className="text-ink-tertiary">{t("usersTable.remainingTraffic", "Remaining")}: </span>
+												<span className="font-medium tabular-nums text-ink">
+													{remainingTraffic !== null ? formatBytes(remainingTraffic) : "∞"}
+												</span>
+											</div>
+											<div>
+												<span className="text-ink-tertiary">{t("usersTable.lifetime", "Lifetime")}: </span>
+												<span className="font-medium tabular-nums text-ink">{formatBytes(lifetimeUsed)}</span>
+											</div>
+											<div>
+												<span className="text-ink-tertiary">{t("usersTable.lastConnection", "Last connection")}: </span>
+												<span className="font-medium text-ink">{lastConnection}</span>
+											</div>
+										</div>
+
+										<div className="flex items-center justify-between gap-1 pt-0.5">
+											<div className="flex items-center gap-1">
+												<button
+													type="button"
+													onClick={() => void handleCopyConfigs(user)}
+													className="inline-flex h-7 items-center gap-1 rounded-lg bg-surface-2 px-2.5 text-[11px] font-medium text-ink-muted transition-colors hover:text-ink"
+												>
+													{copiedId === `cfg-${user.username}` ? (
+														<CheckIcon className="h-3.5 w-3.5 text-emerald-400" />
+													) : (
+														<ClipboardDocumentIcon className="h-3.5 w-3.5" />
+													)}
+													<span>Configs</span>
+												</button>
+												<button
+													type="button"
+													onClick={() => handleOpenQR(user)}
+													aria-label={t("usersTable.qrCode", "QR Code")}
+													className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-surface-2 text-ink-muted transition-colors hover:text-ink"
+												>
+													<QrCodeIcon className="h-3.5 w-3.5" />
+												</button>
+												<button
+													type="button"
+													onClick={() => setConnectionsUser(user)}
+													aria-label={t("liveConnections.title", "Connections & Devices")}
+													className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-surface-2 text-ink-muted transition-colors hover:text-ink"
+												>
+													<SignalIcon className="h-3.5 w-3.5" />
+												</button>
+											</div>
+
+											<div className="flex items-center gap-1">
+												<button
+													type="button"
+													onClick={() => void handleToggleStatus(user)}
+													aria-label={user.status === "disabled" ? t("enable", "Turn On") : t("disable", "Turn Off")}
+													className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-surface-2 transition-colors"
+												>
+													<PowerIcon
+														className={`h-3.5 w-3.5 ${
+															user.status === "disabled" ? "text-red-400" : "text-emerald-400"
+														}`}
+													/>
+												</button>
+												<button
+													type="button"
+													onClick={() => onEditingUser(user)}
+													aria-label={t("userDialog.editUser", "Edit")}
+													className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-surface-2 text-ink-muted transition-colors hover:text-ink"
+												>
+													<PencilSquareIcon className="h-3.5 w-3.5" />
+												</button>
+												<button
+													type="button"
+													onClick={() => setConfirmDeleteUser(user)}
+													aria-label={t("delete", "Delete")}
+													className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20"
+												>
+													<TrashIcon className="h-3.5 w-3.5" />
+												</button>
+											</div>
+										</div>
+									</div>
+								)}
+							</div>
+						);
+					})
+				)}
+			</div>
+
+			<Card className="mt-2.5 overflow-hidden md:mt-0">
+				{/* Desktop Table */}
+				<div className="hidden overflow-x-auto md:block">
 					<table className="w-full border-collapse text-start text-xs">
 						<thead>
 							<tr className="border-b border-hairline bg-surface-2 text-[11px] font-medium uppercase tracking-wider text-ink-tertiary">
