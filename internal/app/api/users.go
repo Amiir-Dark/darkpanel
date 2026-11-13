@@ -82,18 +82,23 @@ func (s *Server) handleOnlineUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req := userapp.UsersListRequest{Admin: s.userAdminContext(principal, nil)}
-	if raw := strings.TrimSpace(r.URL.Query().Get("usernames")); raw != "" {
+	if values := r.URL.Query()["usernames"]; len(values) > 0 {
 		seen := make(map[string]struct{})
-		for _, value := range strings.Split(raw, ",") {
-			username := strings.TrimSpace(value)
-			if username == "" {
-				continue
+		for _, raw := range values {
+			for _, value := range strings.Split(raw, ",") {
+				username := strings.TrimSpace(value)
+				if username == "" {
+					continue
+				}
+				if _, exists := seen[username]; exists {
+					continue
+				}
+				seen[username] = struct{}{}
+				req.Usernames = append(req.Usernames, username)
+				if len(req.Usernames) == 500 {
+					break
+				}
 			}
-			if _, exists := seen[username]; exists {
-				continue
-			}
-			seen[username] = struct{}{}
-			req.Usernames = append(req.Usernames, username)
 			if len(req.Usernames) == 500 {
 				break
 			}

@@ -111,7 +111,7 @@ export const UsersPage = () => {
 			const usernames = (useDashboard.getState().users?.users || []).map((u) => u.username);
 			if (!usernames.length) return;
 			const response = await fetch("/users/onlines", {
-				query: { details: true, usernames },
+				query: { details: true, usernames: usernames.join(",") },
 			});
 			const onlineSet = new Set(Array.isArray(response?.users) ? response.users : []);
 			const speeds = response?.speeds || {};
