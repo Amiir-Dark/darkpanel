@@ -62,8 +62,8 @@ export const DashboardHeaderActions = () => {
 		() => fetch("/maintenance/info", { timeout: 8000 }),
 		{
 			enabled: isFullAccess,
-			refetchOnWindowFocus: false,
-			staleTime: 5 * 60 * 1000,
+			refetchOnWindowFocus: true,
+			staleTime: 30 * 1000,
 			retry: false,
 		},
 	);
@@ -81,7 +81,6 @@ export const DashboardHeaderActions = () => {
 
 	const panel = info.data?.panel;
 	const update = panel?.update;
-	const updateAvailable = Boolean(update?.available);
 	const installMode = panel?.mode || panel?.install_mode;
 	const isBinary = installMode === "binary";
 
@@ -90,6 +89,11 @@ export const DashboardHeaderActions = () => {
 	const latestStable = update?.latest_release?.tag || stableBuilds[0]?.version || "";
 	const latestDev = update?.latest_dev?.tag || devBuilds[0]?.version || "";
 	const currentVersion = panel?.tag || update?.current || "";
+	const updateAvailable = Boolean(
+		update?.available ||
+			(update?.target && update?.current && update.target !== update.current) ||
+			(latestStable && currentVersion && latestStable !== currentVersion),
+	);
 	const resolvedChannel =
 		panel?.channel && panel.channel !== "unknown" ? panel.channel : "latest";
 
@@ -314,6 +318,11 @@ export const DashboardHeaderActions = () => {
 				<Button
 					size="xs"
 					variant={updateAvailable ? "primary" : "secondary"}
+					className={
+						updateAvailable
+							? "!rounded-full !border-rose-500 !bg-[#e11d48] !text-white hover:!bg-[#be123c] shadow-sm shadow-rose-500/30"
+							: ""
+					}
 					onClick={() => setModal("update")}
 				>
 					<ArrowUpCircleIcon className="h-3.5 w-3.5" />
@@ -322,9 +331,6 @@ export const DashboardHeaderActions = () => {
 							? t("dashboard.maintenance.updateAvailable", "Update available")
 							: t("dashboard.maintenance.updatePanel", "Update panel")}
 					</span>
-					{updateAvailable && (
-						<span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-					)}
 				</Button>
 
 				<div className="relative">
