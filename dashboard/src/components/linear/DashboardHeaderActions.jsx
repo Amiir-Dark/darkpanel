@@ -6,7 +6,7 @@ import {
 	ArrowUpTrayIcon,
 	ChartBarIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "react-query";
 import { Link } from "react-router-dom";
@@ -16,6 +16,22 @@ import useGetUser from "hooks/useGetUser";
 import { AdminRole } from "types/Admin";
 import { fetch } from "service/http";
 import { exportRebeccaBackup, importRebeccaBackup } from "service/settings";
+import { getAPIWebSocketURL } from "utils/websocket";
+
+const shouldWaitForPanelReturn = (operation) =>
+	Boolean(operation?.restarting || operation?.needs_reload || operation?.phase === "restarting");
+
+const ansiEscapePattern =
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: Strip ANSI escape codes from terminal logs
+	/\u001B|\u009B|[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
+
+const cleanTerminalOutput = (logs) =>
+	(logs || [])
+		.join("\n")
+		.replace(ansiEscapePattern, "")
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: Strip backspace characters from logs
+		.replace(/\x08/g, "")
+		.trimEnd();
 
 const buildBackupFilename = (scope) => {
 	const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -35,6 +51,11 @@ export const DashboardHeaderActions = () => {
 	const [selectedVersion, setSelectedVersion] = useState("");
 	const [dockerImage, setDockerImage] = useState("rebeccapanel/rebecca");
 	const [dockerTag, setDockerTag] = useState("");
+	const [updateOperation, setUpdateOperation] = useState(null);
+	const [waitingForAPI, setWaitingForAPI] = useState(false);
+	const panelReturnPollRef = useRef(null);
+	const panelReturnSawOfflineRef = useRef(false);
+	const updateLogsRef = useRef(null);
 
 	const info = useQuery(
 		["dashboard-maintenance-info"],
@@ -144,6 +165,66 @@ export const DashboardHeaderActions = () => {
 		},
 	);
 
+	const clearPanelReturnPolling = useCallback(() => {
+		if (panelReturnPollRef.current !== null) {
+			window.clearInterval(panelReturnPollRef.current);
+			panelReturnPollRef.current = null;
+		}
+	}, []);
+
+	const startPanelReturnPolling = useCallback(() => {
+		if (panelReturnPollRef.current !== null) return;
+		const startedAt = Date.now();
+		panelReturnSawOfflineRef.current = false;
+		setWaitingForAPI(true);
+		panelReturnPollRef.current = window.setInterval(async () => {
+			try {
+				await fetch("/maintenance/info", { timeout: 2500 });
+				if (panelReturnSawOfflineRef.current || Date.now() - startedAt > 5000) {
+					clearPanelReturnPolling();
+					window.location.reload();
+				}
+			} catch {
+				panelReturnSawOfflineRef.current = true;
+			}
+		}, 2000);
+	}, [clearPanelReturnPolling]);
+
+	useEffect(() => () => clearPanelReturnPolling(), [clearPanelReturnPolling]);
+
+	useEffect(() => {
+		if (!updateOperation?.id || waitingForAPI) return undefined;
+		const url = getAPIWebSocketURL("/maintenance/status", { id: updateOperation.id });
+		if (!url) return undefined;
+		const socket = new WebSocket(url);
+		socket.onmessage = (event) => {
+			try {
+				const status = JSON.parse(event.data);
+				if (status.id !== updateOperation.id) return;
+				setUpdateOperation(status);
+				if (shouldWaitForPanelReturn(status)) {
+					startPanelReturnPolling();
+				} else if (status.action === "update" && !status.running && !status.error) {
+					window.setTimeout(() => window.location.reload(), 1200);
+				}
+			} catch {}
+		};
+		socket.onerror = () => {
+			if (updateOperation?.running) {
+				startPanelReturnPolling();
+			}
+		};
+		return () => {
+			socket.close();
+		};
+	}, [updateOperation?.id, waitingForAPI, startPanelReturnPolling]);
+
+	useEffect(() => {
+		if (updateLogsRef.current) {
+			updateLogsRef.current.scrollTop = updateLogsRef.current.scrollHeight;
+		}
+	}, [updateOperation?.logs]);
+
 	const updateMutation = useMutation(
 		() =>
 			fetch("/maintenance/update", {
@@ -162,12 +243,20 @@ export const DashboardHeaderActions = () => {
 				timeout: 8000,
 			}),
 		{
-			onSuccess: () => {
-				setModal(null);
-				appToast({
-					title: t("dashboard.maintenance.updateTriggered", "Panel update started"),
-					status: "success",
-				});
+			onSuccess: (res) => {
+				setWaitingForAPI(false);
+				clearPanelReturnPolling();
+				if (res?.operation?.id) {
+					setUpdateOperation(res.operation);
+					setModal("update-progress");
+				} else {
+					setModal(null);
+					appToast({
+						title: t("dashboard.maintenance.updateTriggered", "Panel update started"),
+						status: "success",
+					});
+					startPanelReturnPolling();
+				}
 			},
 			onError: (err) => {
 				appToast({
@@ -504,6 +593,108 @@ export const DashboardHeaderActions = () => {
 							</Select>
 						</div>
 					)}
+				</div>
+			</Modal>
+
+			{/* Update Panel Progress Modal */}
+			<Modal
+				open={modal === "update-progress"}
+				onClose={() => {
+					if (updateOperation?.error) {
+						setModal(null);
+						setUpdateOperation(null);
+					}
+				}}
+				title={t("dashboard.maintenance.updateProgressTitle", "Updating Panel")}
+				maxWidth="max-w-lg"
+				footer={
+					updateOperation?.error ? (
+						<Button
+							size="sm"
+							onClick={() => {
+								setModal(null);
+								setUpdateOperation(null);
+							}}
+						>
+							{t("close", "Close")}
+						</Button>
+					) : null
+				}
+			>
+				<div className="space-y-3 text-xs">
+					<div className="rounded-xl border border-hairline bg-surface-2 p-3.5">
+						<div className="mb-2 flex items-center justify-between gap-2">
+							<div className="flex items-center gap-2">
+								<span
+									className={`h-2 w-2 rounded-full ${
+										updateOperation?.error
+											? "bg-red-500"
+											: updateOperation?.phase === "completed"
+												? "bg-emerald-500"
+												: "animate-pulse bg-accent"
+									}`}
+								/>
+								<span className="font-semibold text-ink">
+									{updateOperation?.phase
+										? t(`dashboard.maintenance.phase.${updateOperation.phase}`, updateOperation.phase)
+										: t("dashboard.maintenance.phase.queued", "Preparing...")}
+								</span>
+							</div>
+							{typeof updateOperation?.progress === "number" && (
+								<span className="font-mono text-xs font-bold tabular-nums text-accent">
+									{Math.round(updateOperation.progress)}%
+								</span>
+							)}
+						</div>
+
+						<p className="mb-2.5 text-[11px] text-ink-muted">
+							{updateOperation?.error
+								? updateOperation.error
+								: updateOperation?.message || t("dashboard.maintenance.message.preparingUpdate", "Downloading and installing update...")}
+						</p>
+
+						<div className="h-2 w-full overflow-hidden rounded-full bg-surface-3">
+							<div
+								className={`h-full rounded-full transition-all duration-300 ${
+									updateOperation?.error
+										? "bg-red-500"
+										: updateOperation?.phase === "completed"
+											? "bg-emerald-500"
+											: "bg-accent"
+								}`}
+								style={{
+									width: `${
+										typeof updateOperation?.progress === "number"
+											? Math.max(4, Math.min(100, updateOperation.progress))
+											: 25
+									}%`,
+								}}
+							/>
+						</div>
+					</div>
+
+					{waitingForAPI && (
+						<div className="rounded-lg border border-indigo-500/30 bg-accent-soft px-3 py-2 text-center text-[11px] text-ink-muted">
+							{t(
+								"dashboard.maintenance.autoRefreshAfterRestart",
+								"Panel is restarting... Page will refresh automatically.",
+							)}
+						</div>
+					)}
+
+					<div className="overflow-hidden rounded-xl border border-hairline bg-surface-2">
+						<div className="border-b border-hairline px-3 py-1.5 text-[11px] font-medium text-ink-muted">
+							{t("dashboard.maintenance.liveLogs", "Live Output")}
+						</div>
+						<pre
+							ref={updateLogsRef}
+							dir="ltr"
+							className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all p-3 font-mono text-[11px] leading-relaxed text-ink-subtle"
+						>
+							{cleanTerminalOutput(updateOperation?.logs) ||
+								t("dashboard.maintenance.waitingForOutput", "Waiting for output...")}
+						</pre>
+					</div>
 				</div>
 			</Modal>
 
