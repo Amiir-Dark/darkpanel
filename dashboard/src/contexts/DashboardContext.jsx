@@ -1,7 +1,7 @@
 import { fetch } from "service/http";
 import { queryClient } from "utils/react-query";
 import { matchesSearch } from "utils/searchMatch";
-import { getUsersPerPageLimitSize } from "utils/userPreferenceStorage";
+import { getUsersPerPageLimitSize, setUsersPerPageLimitSize } from "utils/userPreferenceStorage";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 const DEFAULT_SORT = "-created_at";
@@ -350,6 +350,9 @@ export const useDashboard = create(subscribeWithSelector((set, get) => ({
         });
     },
     onFilterChange: (filters) => {
+        if (typeof filters?.limit === "number" && filters.limit > 0) {
+            setUsersPerPageLimitSize(filters.limit);
+        }
         set({
             filters: {
                 ...get().filters,
