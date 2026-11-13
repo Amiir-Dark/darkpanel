@@ -158,7 +158,7 @@ export const UsersPage = () => {
 					<Select
 						value={autoRefreshMs}
 						onChange={(e) => setAutoRefreshMs(Number(e.target.value))}
-						className="!h-8 !w-36 text-xs"
+						className="!h-8 !w-auto min-w-[155px] flex-1 sm:flex-initial text-xs"
 						aria-label="Auto refresh"
 					>
 						<option value={5000}>Auto refresh · 5s</option>
@@ -182,8 +182,8 @@ export const UsersPage = () => {
 
 			<UsersSummaryCards />
 
-			<div className="flex flex-wrap items-center gap-2">
-				<div className="relative min-w-[200px] flex-1">
+			<div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+				<div className="relative col-span-2 sm:min-w-[200px] sm:flex-1">
 					<MagnifyingGlassIcon className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-ink-tertiary" />
 					<Input
 						value={searchText}
@@ -196,7 +196,7 @@ export const UsersPage = () => {
 				<Select
 					value={filters.status || ""}
 					onChange={(e) => onFilterChange({ status: e.target.value || undefined, offset: 0 })}
-					className="!w-36"
+					className="w-full sm:!w-36"
 					aria-label="Status filter"
 				>
 					<option value="">{t("allStatuses", "All statuses")}</option>
@@ -210,7 +210,7 @@ export const UsersPage = () => {
 				<Select
 					value={connectionFilter}
 					onChange={(e) => handleConnectionChange(e.target.value)}
-					className="!w-36"
+					className="w-full sm:!w-44"
 					aria-label="Connection filter"
 				>
 					<option value="">{t("allConnections", "All connections")}</option>
@@ -226,7 +226,7 @@ export const UsersPage = () => {
 							offset: 0,
 						})
 					}
-					className="!w-40"
+					className="w-full sm:!w-40"
 					aria-label="Service filter"
 				>
 					<option value="">{t("allServices", "All services")}</option>
@@ -241,7 +241,7 @@ export const UsersPage = () => {
 					<Select
 						value={filters.owner || ""}
 						onChange={(e) => onFilterChange({ owner: e.target.value || undefined, offset: 0 })}
-						className="!w-40"
+						className="w-full sm:!w-40"
 						aria-label="Admin filter"
 					>
 						<option value="">{t("allAdmins", "All admins")}</option>
@@ -256,7 +256,7 @@ export const UsersPage = () => {
 				<Select
 					value={filters.sort || "-created_at"}
 					onChange={(e) => onFilterChange({ sort: e.target.value, offset: 0 })}
-					className="!w-40"
+					className={`${isPrivilegedAdmin ? "col-span-2 sm:col-span-1" : ""} w-full sm:!w-40`}
 					aria-label="Sort"
 				>
 					<option value="-created_at">{t("sort.newest", "Newest")}</option>
@@ -271,6 +271,7 @@ export const UsersPage = () => {
 						variant="ghost"
 						onClick={handleResetFilters}
 						title={t("clearFilters", "Clear filters")}
+						className="col-span-2 justify-center sm:col-span-1 sm:w-auto"
 					>
 						<XMarkIcon className="h-3.5 w-3.5" />
 						<span>{t("clear", "Clear")}</span>

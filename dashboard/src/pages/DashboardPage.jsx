@@ -241,11 +241,11 @@ export const DashboardPage = () => {
 	);
 
 	const viewSwitcher = isPrivilegedAdmin ? (
-		<div className="inline-flex rounded-lg border border-hairline bg-surface-2 p-0.5">
+		<div className="grid w-full grid-cols-2 rounded-lg border border-hairline bg-surface-2 p-0.5 sm:inline-flex sm:w-auto">
 			<button
 				type="button"
 				onClick={() => setDashboardView("system")}
-				className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+				className={`rounded-md px-2.5 py-1.5 text-center text-xs font-medium transition-colors sm:py-1 ${
 					dashboardView === "system"
 						? "bg-surface-3 text-ink shadow-sm"
 						: "text-ink-subtle hover:text-ink"
@@ -256,7 +256,7 @@ export const DashboardPage = () => {
 			<button
 				type="button"
 				onClick={() => setDashboardView("analytics")}
-				className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+				className={`rounded-md px-2.5 py-1.5 text-center text-xs font-medium transition-colors sm:py-1 ${
 					dashboardView === "analytics"
 						? "bg-indigo-500/20 text-indigo-300 shadow-sm"
 						: "text-ink-subtle hover:text-ink"
@@ -281,7 +281,7 @@ export const DashboardPage = () => {
 								: t("dashboard.analytics.subtitle", "Users & traffic overview")}
 						</p>
 					</div>
-					<div className="flex flex-wrap items-center gap-2">
+					<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
 						{viewSwitcher}
 						<DashboardHeaderActions />
 					</div>
@@ -338,29 +338,29 @@ export const DashboardPage = () => {
 		<div className="space-y-4">
 			{/* Top Overview Header */}
 			<div className="flex flex-wrap items-center justify-between gap-3">
-				<div>
+				<div className="min-w-0">
 					<h1 className="text-lg font-semibold tracking-tight text-ink">
 						{t("dashboard.system.title", "System overview")}
 					</h1>
-					<div className="mt-0.5 flex items-center gap-2 text-xs text-ink-subtle">
-						<span className="inline-flex items-center gap-1.5">
+					<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-subtle">
+						<span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
 							<span className="h-2 w-2 rounded-full bg-emerald-400" />
-							<span className="text-emerald-400 font-medium">
+							<span className="font-medium text-emerald-400">
 								{data?.xray_running ? "Running" : "Active"}
 							</span>
 						</span>
 						<span>·</span>
-						<span>{data?.os || "Rebecca"}</span>
+						<span className="max-w-[170px] truncate sm:max-w-none">{data?.os || "Rebecca"}</span>
 						<span>·</span>
-						<span className="font-mono text-[11px]">v{data?.version || "1.6.0"}</span>
+						<span className="shrink-0 whitespace-nowrap font-mono text-[11px]">v{data?.version || "1.6.0"}</span>
 						<span>·</span>
-						<span className="font-mono text-[11px] text-ink-tertiary tabular-nums">
+						<span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-ink-tertiary tabular-nums">
 							Auto {(refreshMs / 1000).toFixed(1).replace(/\.0$/, "")}s
 						</span>
 					</div>
 				</div>
 
-				<div className="flex flex-wrap items-center gap-2">
+				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
 					{viewSwitcher}
 					<DashboardHeaderActions />
 				</div>

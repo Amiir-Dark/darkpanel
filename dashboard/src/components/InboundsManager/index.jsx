@@ -362,12 +362,12 @@ export const InboundsManager = () => {
 						{t("inbounds.listHeader", "Inbounds")}
 					</h1>
 				</div>
-				<div className="flex items-center gap-2">
-					<Button size="sm" onClick={loadInbounds} loading={isLoading}>
+				<div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+					<Button size="sm" className="w-full justify-center sm:w-auto" onClick={loadInbounds} loading={isLoading}>
 						<ArrowPathIcon className="h-3.5 w-3.5" />
 						<span>{t("inbounds.refresh", "Refresh")}</span>
 					</Button>
-					<Button variant="primary" size="sm" onClick={openCreate}>
+					<Button variant="primary" size="sm" className="w-full justify-center sm:w-auto" onClick={openCreate}>
 						<PlusIcon className="h-4 w-4" />
 						<span>{t("inbounds.add", "Add Inbound")}</span>
 					</Button>
@@ -376,13 +376,16 @@ export const InboundsManager = () => {
 
 			{/* Summary strip */}
 			<div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-				{summary.map((item) => (
-					<Card key={item.label} className="px-3.5 py-2.5">
+				{summary.map((item, idx) => (
+					<Card
+						key={item.label}
+						className={`px-3.5 py-2.5 ${idx === summary.length - 1 ? "col-span-2 sm:col-span-1" : ""}`}
+					>
 						<div className="text-[11px] font-medium text-ink-tertiary">{item.label}</div>
 						<div className="mt-1 flex items-baseline justify-between gap-2">
 							<span className="text-lg font-semibold tabular-nums text-ink">{item.value}</span>
 							{item.sub && (
-								<span className="text-[10px] font-medium text-accent">{item.sub}</span>
+								<span className="truncate text-[10px] font-medium text-accent">{item.sub}</span>
 							)}
 						</div>
 					</Card>
@@ -391,8 +394,8 @@ export const InboundsManager = () => {
 
 			{/* Filters */}
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div className="flex flex-1 flex-wrap items-center gap-2">
-					<div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+				<div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-1 sm:flex-wrap sm:items-center">
+					<div className="relative col-span-2 sm:min-w-[200px] sm:max-w-xs sm:flex-1">
 						<MagnifyingGlassIcon className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-ink-tertiary" />
 						<Input
 							value={filter.search}
@@ -405,7 +408,7 @@ export const InboundsManager = () => {
 					<Select
 						value={filter.protocol}
 						onChange={(e) => setFilter((prev) => ({ ...prev, protocol: e.target.value }))}
-						className="!w-36"
+						className="w-full sm:!w-36"
 						aria-label="Protocol filter"
 					>
 						<option value="all">{t("inbounds.filterProtocol", "All protocols")}</option>
@@ -419,7 +422,7 @@ export const InboundsManager = () => {
 					<Select
 						value={filter.traffic}
 						onChange={(e) => setFilter((prev) => ({ ...prev, traffic: e.target.value }))}
-						className="!w-40"
+						className="w-full sm:!w-40"
 						aria-label="Traffic sort"
 					>
 						<option value="default">{t("trafficSort.default", "Default order")}</option>

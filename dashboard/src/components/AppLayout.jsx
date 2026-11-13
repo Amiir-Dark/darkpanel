@@ -77,6 +77,7 @@ export const AppLayout = () => {
 	const [theme, setTheme] = useState(getThemePreference);
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+	const [settingsDockOpen, setSettingsDockOpen] = useState(false);
 
 	const isDisabled = session?.state === "disabled";
 	const role = session?.admin?.role || (session?.is_sudo ? "full_access" : "reseller");
@@ -94,6 +95,7 @@ export const AppLayout = () => {
 	useEffect(() => {
 		setMobileOpen(false);
 		setAccountMenuOpen(false);
+		setSettingsDockOpen(false);
 	}, [location.pathname]);
 
 	useEffect(() => {
@@ -176,6 +178,36 @@ export const AppLayout = () => {
 	const currentNavItem = navGroups
 		.flatMap((g) => g.items)
 		.find((item) => (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)));
+	const mobileSettingsMenuItems = [
+		{ to: "/errors", label: t("header.errors", "Errors"), icon: ExclamationTriangleIcon, show: !isDisabled && isFullAccess },
+		{ to: "/services", label: t("services.title", "Services"), icon: RectangleStackIcon, show: !isDisabled && isFullAccess },
+		{ to: "/hosts", label: t("header.hostSettings", "Inbounds & Hosts"), icon: LinkIcon, show: !isDisabled && isFullAccess },
+		{ to: "/node-settings", label: t("header.nodeSettings", "Node"), icon: ServerStackIcon, show: !isDisabled && isFullAccess },
+		{ to: "/settings", label: t("header.settings", "Settings"), icon: Cog6ToothIcon, show: !isDisabled && canAccessSettings },
+		{ to: "/xray-settings", label: t("header.xraySettings", "Xray Settings"), icon: WrenchScrewdriverIcon, show: !isDisabled && isFullAccess },
+		{ to: "/xray-logs", label: t("header.xrayLogs", "Logs"), icon: DocumentTextIcon, show: !isDisabled && isFullAccess },
+		{ to: "/access-insights", label: t("header.accessInsights", "Live connections"), icon: EyeIcon, show: !isDisabled && isFullAccess },
+		{ to: "/recent-actions", label: t("recentActions.title", "Recent Actions"), icon: ClockIcon, show: !isDisabled && isFullAccess },
+		{ to: "/phpmyadmin", label: t("phpmyadmin.menu", "phpMyAdmin"), icon: CircleStackIcon, show: !isDisabled && isFullAccess },
+	].filter((item) => item.show);
+
+	const isSettingsMenuActive = mobileSettingsMenuItems.some((item) =>
+		location.pathname.startsWith(item.to)
+	);
+
+	const mobileDockItems = [
+		{ to: "/users", label: t("users", "Users"), icon: UsersIcon, show: true },
+		{ to: "/admins", label: t("admins", "Admins"), icon: ShieldCheckIcon, show: !isDisabled && isFullAccess },
+		{ to: "/", label: t("dashboard", "Dashboard"), icon: HomeIcon, end: true, show: !isDisabled },
+		{ to: "/myaccount", label: t("myaccount.menu", "My Account"), icon: UserCircleIcon, show: !isDisabled },
+		{
+			to: "/settings",
+			label: t("header.settings", "Settings"),
+			icon: Cog6ToothIcon,
+			isSettingsTrigger: true,
+			show: !isDisabled && mobileSettingsMenuItems.length > 0,
+		},
+	].filter((item) => item.show);
 	const currentPageTitle = currentNavItem?.label || t("dashboard", "Dashboard");
 	const formattedDate = new Intl.DateTimeFormat(i18n.language || "en", {
 		weekday: "long",
@@ -431,9 +463,129 @@ export const AppLayout = () => {
 					</div>
 				</header>
 
-				<main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6">
+				<main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-24 pt-5 sm:px-6 md:pb-5">
 					<Outlet />
 				</main>
+
+				{mobileDockItems.length > 0 && (
+					<>
+						{settingsDockOpen && (
+							<div
+								className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[1px] md:hidden"
+								onClick={() => setSettingsDockOpen(false)}
+							/>
+						)}
+						<nav
+							aria-label="Quick navigation"
+							className="fixed inset-x-2.5 bottom-2.5 z-40 mx-auto max-w-md md:hidden"
+						>
+							{settingsDockOpen && mobileSettingsMenuItems.length > 0 && (
+								<div className="rb-anim-menu absolute bottom-[calc(100%+8px)] end-0 max-h-[55vh] w-48 max-w-[calc(100vw-20px)] overflow-y-auto rounded-[20px] border border-hairline-strong bg-surface-1/95 p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.65)] backdrop-blur-xl">
+									<div className="flex flex-col gap-0.5">
+										{mobileSettingsMenuItems.map((subItem) => {
+											const SubIcon = subItem.icon;
+											return (
+												<NavLink
+													key={subItem.to}
+													to={subItem.to}
+													onClick={() => setSettingsDockOpen(false)}
+													className={({ isActive }) =>
+														`flex items-center gap-2.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
+															isActive
+																? "bg-accent-soft text-accent shadow-[inset_0_0_0_1px_rgba(94,106,210,0.28)]"
+																: "text-ink-muted hover:bg-surface-2 hover:text-ink"
+														}`
+													}
+												>
+													{({ isActive }) => (
+														<>
+															<SubIcon
+																className={`h-4 w-4 shrink-0 ${
+																	isActive ? "text-accent" : "text-ink-subtle"
+																}`}
+															/>
+															<span className="truncate">{subItem.label}</span>
+														</>
+													)}
+												</NavLink>
+											);
+										})}
+									</div>
+								</div>
+							)}
+
+							<div className="flex items-center justify-around rounded-[24px] border border-hairline-strong bg-surface-1/90 px-1.5 py-1.5 shadow-[0_14px_38px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+								{mobileDockItems.map((item) => {
+									const IconComp = item.icon;
+									if (item.isSettingsTrigger && mobileSettingsMenuItems.length > 1) {
+										const isActive = settingsDockOpen || isSettingsMenuActive;
+										return (
+											<button
+												key="dock-settings"
+												type="button"
+												onClick={() => setSettingsDockOpen((prev) => !prev)}
+												aria-expanded={settingsDockOpen}
+												className="group flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5"
+											>
+												<span
+													className={`flex h-7 w-10 items-center justify-center rounded-full transition-all duration-150 ${
+														isActive
+															? "bg-accent-soft text-accent shadow-[inset_0_0_0_1px_rgba(94,106,210,0.35)]"
+															: "text-ink-muted group-hover:bg-surface-2 group-hover:text-ink"
+													}`}
+												>
+													<IconComp className="h-[18px] w-[18px]" />
+												</span>
+												<span
+													className={`max-w-full truncate text-[10px] leading-tight transition-colors ${
+														isActive
+															? "font-semibold text-accent"
+															: "font-medium text-ink-subtle group-hover:text-ink"
+													}`}
+												>
+													{item.label}
+												</span>
+											</button>
+										);
+									}
+
+									return (
+										<NavLink
+											key={item.to}
+											to={item.to}
+											end={item.end}
+											onClick={() => setSettingsDockOpen(false)}
+											className="group flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5"
+										>
+											{({ isActive }) => (
+												<>
+													<span
+														className={`flex h-7 w-10 items-center justify-center rounded-full transition-all duration-150 ${
+															isActive
+																? "bg-accent-soft text-accent shadow-[inset_0_0_0_1px_rgba(94,106,210,0.35)]"
+																: "text-ink-muted group-hover:bg-surface-2 group-hover:text-ink"
+														}`}
+													>
+														<IconComp className="h-[18px] w-[18px]" />
+													</span>
+													<span
+														className={`max-w-full truncate text-[10px] leading-tight transition-colors ${
+															isActive
+																? "font-semibold text-accent"
+																: "font-medium text-ink-subtle group-hover:text-ink"
+														}`}
+													>
+														{item.label}
+													</span>
+												</>
+											)}
+										</NavLink>
+									);
+								})}
+							</div>
+						</nav>
+					</>
+				)}
 			</div>
 		</div>
 	);

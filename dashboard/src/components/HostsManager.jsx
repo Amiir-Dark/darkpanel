@@ -2134,34 +2134,38 @@ export const HostsManager = () => {
         ];
     };
     return (<VStack align="stretch" spacing={4}>
-			<ResourceListCard title={t("hostsPage.listHeader")} summaryItems={hostSummaryItems} actions={<Button colorScheme="primary" size="sm" onClick={() => setCreateOpen(true)} leftIcon={<AddIcon />} isDisabled={!inboundOptions.length} h="36px" px={3} borderRadius="4px">
+			<ResourceListCard title={t("hostsPage.listHeader")} summaryItems={hostSummaryItems} actions={<Button colorScheme="primary" size="sm" onClick={() => setCreateOpen(true)} leftIcon={<AddIcon />} isDisabled={!inboundOptions.length} h="36px" px={3} borderRadius="4px" w={{ base: "full", md: "auto" }}>
 						{t("hostsPage.addHost")}
 					</Button>} footerActions={<ResourceRefreshButton aria-label={t("hostsPage.refresh")} label={t("hostsPage.refresh")} icon={<ArrowPathIcon width={16}/>} isLoading={isRefreshing} onClick={fetchHosts}/>}>
-				<Stack direction={{ base: "column", sm: "row" }} spacing={3} align={{ base: "stretch", sm: "center" }} flexWrap="wrap">
-					<SearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("hostsPage.searchPlaceholder")} containerProps={{ w: { base: "full", md: "280px" } }} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch}/>
-					<Select aria-label={t("hostsPage.inboundFilter")} value={selectedInboundFilter} onChange={(event) => setSelectedInboundFilter(event.target.value)} w={{ base: "full", md: "240px" }} size="sm" borderRadius="md">
-						<option value="all">
-							{t("hostsPage.allInbounds")} ({_hostItemsState.length})
-						</option>
-						{inboundOptions.map((opt) => {
-            const count = _hostItemsState.filter((h) => h.inboundTag === opt.value).length;
-            return (<option key={opt.value} value={opt.value}>
-									{opt.value} ({count})
-								</option>);
-        })}
-					</Select>
-					<Checkbox isChecked={includeDisabled} onChange={(event) => setIncludeDisabled(event.target.checked)}>
+				<Flex direction={{ base: "column", md: "row" }} gap={3} align={{ base: "stretch", md: "center" }} flexWrap="wrap">
+					<SearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("hostsPage.searchPlaceholder")} containerProps={{ w: { base: "full", md: "260px" } }} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch}/>
+					<Box w={{ base: "full", md: "220px" }}>
+						<Select aria-label={t("hostsPage.inboundFilter")} value={selectedInboundFilter} onChange={(event) => setSelectedInboundFilter(event.target.value)} w="full" size="sm" borderRadius="md">
+							<option value="all">
+								{t("hostsPage.allInbounds")} ({_hostItemsState.length})
+							</option>
+							{inboundOptions.map((opt) => {
+                const count = _hostItemsState.filter((h) => h.inboundTag === opt.value).length;
+                return (<option key={opt.value} value={opt.value}>
+										{opt.value} ({count})
+									</option>);
+            })}
+						</Select>
+					</Box>
+					<Checkbox isChecked={includeDisabled} onChange={(event) => setIncludeDisabled(event.target.checked)} whiteSpace="nowrap">
 						{t("hostsPage.showDisabled")}
 					</Checkbox>
-					<Button size="sm" variant={isReorderMode ? "solid" : "outline"} colorScheme="purple" leftIcon={isReorderMode ? (<CheckCircleIcon width={16}/>) : (<ArrowsUpDownIcon width={16}/>)} onClick={() => setIsReorderMode((prev) => !prev)} h="32px" borderRadius="md" title={t("hostsPage.reorderMode")}>
-						{isReorderMode
-            ? t("hostsPage.reorderDone")
-            : t("hostsPage.reorderMode")}
-					</Button>
-					{Object.keys(customOrder).length > 0 && (<Button size="xs" variant="outline" colorScheme="gray" onClick={handleResetOrder} ml={{ base: 0, sm: "auto" }}>
-							{t("hostsPage.resetOrder")}
-						</Button>)}
-				</Stack>
+					<Flex gap={2} flexWrap="wrap" w={{ base: "full", md: "auto" }} ml={{ base: 0, md: "auto" }}>
+						<Button size="sm" variant={isReorderMode ? "solid" : "outline"} colorScheme="purple" leftIcon={isReorderMode ? (<CheckCircleIcon width={16}/>) : (<ArrowsUpDownIcon width={16}/>)} onClick={() => setIsReorderMode((prev) => !prev)} h="32px" px={3} borderRadius="md" flex={{ base: "1 1 140px", md: "initial" }} whiteSpace="nowrap" title={t("hostsPage.reorderMode")}>
+							{isReorderMode
+                ? t("hostsPage.reorderDone")
+                : t("hostsPage.reorderMode")}
+						</Button>
+						{Object.keys(customOrder).length > 0 && (<Button size="sm" variant="outline" colorScheme="gray" h="32px" px={3} borderRadius="md" flex={{ base: "1 1 120px", md: "initial" }} whiteSpace="nowrap" onClick={handleResetOrder}>
+								{t("hostsPage.resetOrder")}
+							</Button>)}
+					</Flex>
+				</Flex>
 				{isReorderMode && (<HStack mt={3} p={3} bg="purple.500Alpha.100" borderWidth="1px" borderColor="purple.500Alpha.300" borderRadius="md" fontSize="xs" color="purple.200" justify="space-between" align="center" flexWrap="wrap" gap={2}>
 						<HStack spacing={2}>
 							<ArrowsUpDownIcon width={16} height={16}/>
@@ -2248,7 +2252,88 @@ export const HostsManager = () => {
                         boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
                         backgroundColor: "rgba(30, 32, 44, 0.96)",
                         zIndex: 30,
-                    }} transition={{ type: "spring", stiffness: 450, damping: 32 }} className={`grid grid-cols-1 md:grid-cols-[28px_112px_minmax(180px,2.2fr)_78px_minmax(120px,1.1fr)_60px_minmax(130px,1.1fr)_124px] xl:grid-cols-[28px_112px_minmax(200px,2.2fr)_78px_minmax(120px,1.1fr)_60px_minmax(130px,1.1fr)_minmax(110px,1fr)_124px] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-white/[0.025] ${canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${animatingUid === host.uid ? "bg-indigo-500/[0.08]" : ""} ${isSelected ? "bg-indigo-500/[0.05]" : ""}`}>
+                    }} transition={{ type: "spring", stiffness: 450, damping: 32 }} className={`block md:grid md:grid-cols-[28px_112px_minmax(180px,2.2fr)_78px_minmax(120px,1.1fr)_60px_minmax(130px,1.1fr)_124px] xl:grid-cols-[28px_112px_minmax(200px,2.2fr)_78px_minmax(120px,1.1fr)_60px_minmax(130px,1.1fr)_minmax(110px,1fr)_124px] items-center gap-3 px-3 py-3 md:py-2.5 transition-colors hover:bg-white/[0.025] ${canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${animatingUid === host.uid ? "bg-indigo-500/[0.08]" : ""} ${isSelected ? "bg-indigo-500/[0.05]" : ""}`}>
+									{/* Mobile card layout */}
+									<div className="flex flex-col gap-2.5 md:hidden">
+										<div className="flex items-center justify-between gap-2">
+											<div className="flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
+												<input type="checkbox" checked={isSelected} onChange={(e) => {
+                                if (e.target.checked) {
+                                    setSelectedHostUids((prev) => [...prev, host.uid]);
+                                }
+                                else {
+                                    setSelectedHostUids((prev) => prev.filter((id) => id !== host.uid));
+                                }
+                            }} className="h-4 w-4 rounded border-white/20 bg-transparent text-indigo-500 focus:ring-0"/>
+												<Bars2Icon className={`h-3.5 w-3.5 shrink-0 ${canDrag ? "text-zinc-500" : "text-zinc-700"}`}/>
+												<LinearBadge variant="indigo" className="font-mono text-[11px] px-1.5 py-0.5">
+													#{idx + 1}
+												</LinearBadge>
+												<div className="flex items-center">
+													<LinearIconButton size="xs" title={t("hostsPage.moveUp")} disabled={hasActiveFilter || idx === 0} onClick={() => handleMoveHost(host, -1)}>
+														<ArrowUpIcon className="h-3.5 w-3.5"/>
+													</LinearIconButton>
+													<LinearIconButton size="xs" title={t("hostsPage.moveDown")} disabled={hasActiveFilter || idx === displayedHosts.length - 1} onClick={() => handleMoveHost(host, 1)}>
+														<ArrowDownIcon className="h-3.5 w-3.5"/>
+													</LinearIconButton>
+												</div>
+											</div>
+											<LinearBadge variant={host.data?.is_disabled ? "danger" : "success"}>
+												{t(host.data?.is_disabled ? "hostsPage.inactive" : "hostsPage.active")}
+											</LinearBadge>
+										</div>
+
+										<div className="min-w-0">
+											<div className="flex items-center gap-1.5 min-w-0">
+												<span className="truncate text-[13px] font-semibold text-zinc-100" title={hostName}>
+													{hostName}
+												</span>
+												{isDirty && (<span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title={t("hostsPage.unsaved")}/>)}
+											</div>
+											<div className="mt-0.5 text-[11px] text-zinc-500">
+												{host.data?.id != null ? `ID: ${host.data.id}` : t("hostsPage.unsaved")}
+											</div>
+										</div>
+
+										<div className="grid grid-cols-2 gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
+											<div className="min-w-0">
+												<div className="text-[10px] uppercase tracking-wider text-zinc-500">{t("hostsDialog.address")}</div>
+												<div className="mt-0.5 truncate font-mono text-[11px] text-zinc-200" title={addressText}>{addressText}</div>
+											</div>
+											<div className="min-w-0">
+												<div className="text-[10px] uppercase tracking-wider text-zinc-500">{t("port")}</div>
+												<div className="mt-0.5 font-mono text-[11px] text-zinc-200">{host.data?.port ?? "-"}</div>
+											</div>
+											<div className="col-span-2 min-w-0 border-t border-white/[0.05] pt-1.5">
+												<div className="flex items-center justify-between gap-2 text-[11px]">
+													<span className="truncate font-medium text-zinc-200">{host.inboundTag || "-"}</span>
+													<span className="shrink-0 text-zinc-500">
+														{inbound ? `${inbound.protocol?.toUpperCase()} / ${inbound.network}` : t("hostsPage.unknownInbound")}
+													</span>
+												</div>
+											</div>
+										</div>
+
+										<div className="flex items-center justify-end gap-1 border-t border-white/[0.05] pt-2" onPointerDown={(e) => e.stopPropagation()}>
+											<LinearIconButton size="xs" title={t("edit")} onClick={() => setSelectedHostUid(host.uid)}>
+												<PencilSquareIcon className="h-3.5 w-3.5"/>
+											</LinearIconButton>
+											<LinearIconButton size="xs" title={t("hostsPage.clone")} onClick={() => openCloneModal(host.uid)}>
+												<DocumentDuplicateIcon className="h-3.5 w-3.5"/>
+											</LinearIconButton>
+											<LinearIconButton size="xs" title={host.data?.is_disabled ? t("hostsPage.enable") : t("phpmyadmin.disableAction")} onClick={() => handleBulkToggleHosts([host], Boolean(host.data?.is_disabled))}>
+												<PowerIcon className="h-3.5 w-3.5"/>
+											</LinearIconButton>
+											<DeleteConfirmDialog description={t("hostsPage.confirmDelete")} isDisabled={isPostLoading} onConfirm={() => handleDeleteHost(host.uid)}>
+												<LinearIconButton size="xs" variant="danger" title={t("delete")}>
+													<TrashIcon className="h-3.5 w-3.5"/>
+												</LinearIconButton>
+											</DeleteConfirmDialog>
+										</div>
+									</div>
+
+									{/* Desktop table row layout */}
+									<div className="hidden md:contents">
 									<div className="flex items-center justify-center" onPointerDown={(e) => e.stopPropagation()}>
 										<input type="checkbox" checked={isSelected} onChange={(e) => {
                         if (e.target.checked) {
@@ -2333,6 +2418,7 @@ export const HostsManager = () => {
 												<TrashIcon className="h-3.5 w-3.5"/>
 											</LinearIconButton>
 										</DeleteConfirmDialog>
+									</div>
 									</div>
 								</Reorder.Item>);
             })}

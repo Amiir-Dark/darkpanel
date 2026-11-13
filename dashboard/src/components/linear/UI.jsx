@@ -1,5 +1,6 @@
-import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useEffect } from "react";
+import { CheckIcon, ChevronDownIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Children, Fragment, isValidElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export const Button = ({
 	variant = "secondary",
@@ -81,14 +82,255 @@ export const Input = ({ className = "", ...props }) => (
 	/>
 );
 
-export const Select = ({ className = "", children, ...props }) => (
-	<select
-		className={`h-9 w-full rounded-lg border border-hairline bg-surface-2 px-2.5 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50 ${className}`}
-		{...props}
-	>
-		{children}
-	</select>
-);
+const extractSelectOptions = (children) => {
+	const items = [];
+	const walk = (nodes) => {
+		Children.forEach(nodes, (child) => {
+			if (!isValidElement(child)) return;
+			if (child.type === Fragment) {
+				walk(child.props.children);
+				return;
+			}
+			if (child.type === "optgroup") {
+				if (child.props.label) {
+					items.push({ type: "group", label: child.props.label });
+				}
+				walk(child.props.children);
+				return;
+			}
+			if (child.type === "option") {
+				const rawValue = child.props.value !== undefined ? child.props.value : child.props.children;
+				items.push({
+					type: "option",
+					value: rawValue == null ? "" : String(rawValue),
+					label: child.props.children,
+					disabled: Boolean(child.props.disabled),
+				});
+				return;
+			}
+			if (child.props?.children) {
+				walk(child.props.children);
+			}
+		});
+	};
+	walk(children);
+	return items;
+};
+
+export const Select = ({
+	className = "",
+	children,
+	value,
+	defaultValue,
+	onChange,
+	disabled = false,
+	name,
+	id,
+	"aria-label": ariaLabel,
+	title,
+	placeholder,
+	...props
+}) => {
+	const items = useMemo(() => extractSelectOptions(children), [children]);
+	const optionItems = useMemo(() => items.filter((item) => item.type === "option"), [items]);
+
+	const isControlled = value !== undefined;
+	const [internalValue, setInternalValue] = useState(() =>
+		defaultValue !== undefined ? String(defaultValue) : (optionItems[0]?.value ?? "")
+	);
+	const currentValue = isControlled ? String(value ?? "") : internalValue;
+
+	const selectedOption =
+		optionItems.find((opt) => opt.value === currentValue) || optionItems[0] || null;
+
+	const [isOpen, setIsOpen] = useState(false);
+	const [menuStyle, setMenuStyle] = useState(null);
+	const [activeIndex, setActiveIndex] = useState(-1);
+	const triggerRef = useRef(null);
+	const menuRef = useRef(null);
+
+	const updatePosition = useCallback(() => {
+		const el = triggerRef.current;
+		if (!el) return;
+		const rect = el.getBoundingClientRect();
+		const viewportH = window.innerHeight;
+		const viewportW = window.innerWidth;
+		const estimatedHeight = Math.min(optionItems.length * 36 + 12, 260);
+		const spaceBelow = viewportH - rect.bottom - 8;
+		const spaceAbove = rect.top - 8;
+		const openUpward = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
+		const maxHeight = Math.max(120, Math.min(260, openUpward ? spaceAbove : spaceBelow));
+		const width = Math.max(rect.width, 130);
+		const left = Math.min(Math.max(8, rect.left), Math.max(8, viewportW - width - 8));
+
+		setMenuStyle({
+			position: "fixed",
+			left,
+			width,
+			maxHeight,
+			...(openUpward ? { bottom: viewportH - rect.top + 4 } : { top: rect.bottom + 4 }),
+			zIndex: 9999,
+		});
+	}, [optionItems.length]);
+
+	useEffect(() => {
+		if (!isOpen) return undefined;
+		updatePosition();
+		const selectedIdx = optionItems.findIndex((opt) => opt.value === currentValue);
+		setActiveIndex(selectedIdx >= 0 ? selectedIdx : 0);
+
+		const handlePointerDown = (event) => {
+			if (
+				triggerRef.current?.contains(event.target) ||
+				menuRef.current?.contains(event.target)
+			) {
+				return;
+			}
+			setIsOpen(false);
+		};
+		const handleScrollOrResize = (event) => {
+			if (menuRef.current?.contains(event.target)) return;
+			setIsOpen(false);
+		};
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setIsOpen(false);
+				triggerRef.current?.focus();
+			}
+		};
+
+		document.addEventListener("mousedown", handlePointerDown);
+		document.addEventListener("touchstart", handlePointerDown);
+		window.addEventListener("scroll", handleScrollOrResize, true);
+		window.addEventListener("resize", handleScrollOrResize);
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("mousedown", handlePointerDown);
+			document.removeEventListener("touchstart", handlePointerDown);
+			window.removeEventListener("scroll", handleScrollOrResize, true);
+			window.removeEventListener("resize", handleScrollOrResize);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [isOpen, updatePosition, optionItems, currentValue]);
+
+	const selectValue = (nextVal) => {
+		if (!isControlled) setInternalValue(nextVal);
+		onChange?.({ target: { value: nextVal, name } });
+		setIsOpen(false);
+		triggerRef.current?.focus();
+	};
+
+	const handleTriggerKeyDown = (event) => {
+		if (disabled) return;
+		if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+			event.preventDefault();
+			if (!isOpen) {
+				setIsOpen(true);
+				return;
+			}
+			const delta = event.key === "ArrowDown" ? 1 : -1;
+			setActiveIndex((prev) => {
+				if (!optionItems.length) return -1;
+				let next = (prev + delta + optionItems.length) % optionItems.length;
+				for (let i = 0; i < optionItems.length; i += 1) {
+					if (!optionItems[next]?.disabled) return next;
+					next = (next + delta + optionItems.length) % optionItems.length;
+				}
+				return prev;
+			});
+		} else if (event.key === "Enter" || event.key === " ") {
+			event.preventDefault();
+			if (!isOpen) {
+				setIsOpen(true);
+			} else if (activeIndex >= 0 && optionItems[activeIndex] && !optionItems[activeIndex].disabled) {
+				selectValue(optionItems[activeIndex].value);
+			}
+		}
+	};
+
+	let optionCursor = -1;
+
+	return (
+		<>
+			<button
+				ref={triggerRef}
+				type="button"
+				id={id}
+				name={name}
+				aria-label={ariaLabel}
+				aria-haspopup="listbox"
+				aria-expanded={isOpen}
+				title={title}
+				disabled={disabled}
+				onClick={() => !disabled && setIsOpen((prev) => !prev)}
+				onKeyDown={handleTriggerKeyDown}
+				className={`inline-flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-hairline bg-surface-2 px-2.5 text-left text-sm text-ink transition-colors hover:border-hairline-strong focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-50 ${
+					isOpen ? "border-accent ring-1 ring-accent" : ""
+				} ${className}`}
+				{...props}
+			>
+				<span className="truncate">
+					{selectedOption ? selectedOption.label : placeholder ?? ""}
+				</span>
+				<ChevronDownIcon
+					className={`h-3.5 w-3.5 shrink-0 text-ink-muted transition-transform duration-150 ${
+						isOpen ? "rotate-180" : ""
+					}`}
+				/>
+			</button>
+			{isOpen &&
+				menuStyle &&
+				typeof document !== "undefined" &&
+				createPortal(
+					<div
+						ref={menuRef}
+						role="listbox"
+						style={menuStyle}
+						className="overflow-y-auto rounded-lg border border-hairline-strong bg-surface-2 p-1 shadow-2xl ring-1 ring-black/40"
+					>
+						{items.map((item, idx) => {
+							if (item.type === "group") {
+								return (
+									<div
+										key={`group-${idx}`}
+										className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-ink-tertiary"
+									>
+										{item.label}
+									</div>
+								);
+							}
+							optionCursor += 1;
+							const optIndex = optionCursor;
+							const isSelected = item.value === currentValue;
+							const isActive = optIndex === activeIndex;
+							return (
+								<button
+									key={`${item.value}-${idx}`}
+									type="button"
+									role="option"
+									aria-selected={isSelected}
+									disabled={item.disabled}
+									onMouseEnter={() => setActiveIndex(optIndex)}
+									onClick={() => !item.disabled && selectValue(item.value)}
+									className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+										isSelected
+											? "bg-accent-soft font-medium text-accent"
+											: isActive
+												? "bg-surface-3 text-ink"
+												: "text-ink-muted hover:bg-surface-3 hover:text-ink"
+									}`}
+								>
+									<span className="truncate">{item.label}</span>
+									{isSelected && <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent" />}
+								</button>
+							);
+						})}
+					</div>,
+					document.body
+				)}
+		</>
+	);
+};
 
 export const Textarea = ({ className = "", ...props }) => (
 	<textarea

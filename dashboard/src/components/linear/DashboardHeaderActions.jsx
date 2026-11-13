@@ -307,9 +307,9 @@ export const DashboardHeaderActions = () => {
 
 	return (
 		<>
-			<div className="flex flex-wrap items-center gap-2">
-				<Link to="/usage">
-					<Button size="xs" variant="secondary">
+			<div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+				<Link to="/usage" className="w-full sm:w-auto">
+					<Button size="xs" variant="secondary" className="w-full justify-center sm:w-auto">
 						<ChartBarIcon className="h-3.5 w-3.5" />
 						<span>{t("usage.menu", "Analytics View")}</span>
 					</Button>
@@ -318,11 +318,11 @@ export const DashboardHeaderActions = () => {
 				<Button
 					size="xs"
 					variant={updateAvailable ? "primary" : "secondary"}
-					className={
+					className={`w-full justify-center sm:w-auto ${
 						updateAvailable
 							? "!rounded-full !border-rose-500 !bg-[#e11d48] !text-white hover:!bg-[#be123c] shadow-sm shadow-rose-500/30"
 							: ""
-					}
+					}`}
 					onClick={() => setModal("update")}
 				>
 					<ArrowUpCircleIcon className="h-3.5 w-3.5" />
@@ -333,10 +333,11 @@ export const DashboardHeaderActions = () => {
 					</span>
 				</Button>
 
-				<div className="relative">
+				<div className="relative w-full sm:w-auto">
 					<Button
 						size="xs"
 						variant="secondary"
+						className="w-full justify-center sm:w-auto"
 						onClick={() => setBackupMenuOpen((v) => !v)}
 					>
 						<ArchiveBoxIcon className="h-3.5 w-3.5" />
@@ -348,7 +349,7 @@ export const DashboardHeaderActions = () => {
 								className="fixed inset-0 z-40"
 								onClick={() => setBackupMenuOpen(false)}
 							/>
-							<div className="rb-anim-menu absolute end-0 top-9 z-50 w-48 origin-top-right rounded-lg border border-hairline-strong bg-surface-1 p-1 shadow-xl">
+							<div className="rb-anim-menu absolute start-0 top-9 z-50 w-48 origin-top-left rounded-lg border border-hairline-strong bg-surface-1 p-1 shadow-xl sm:end-0 sm:start-auto sm:origin-top-right">
 								<button
 									type="button"
 									onClick={() => {
@@ -376,7 +377,12 @@ export const DashboardHeaderActions = () => {
 					)}
 				</div>
 
-				<Button size="xs" variant="danger" onClick={() => setModal("restart")}>
+				<Button
+					size="xs"
+					variant="danger"
+					className="w-full justify-center sm:w-auto"
+					onClick={() => setModal("restart")}
+				>
 					<ArrowPathIcon className="h-3.5 w-3.5" />
 					<span>{t("dashboard.maintenance.restartPanel", "Restart panel")}</span>
 				</Button>

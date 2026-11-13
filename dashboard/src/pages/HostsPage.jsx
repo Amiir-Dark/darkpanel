@@ -73,7 +73,7 @@ export const HostsPage = () => {
 	return (
 		<div className="space-y-4">
 			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline pb-3">
-				<div className="inline-flex rounded-lg border border-hairline bg-surface-2 p-1">
+				<div className="grid w-full grid-cols-2 rounded-lg border border-hairline bg-surface-2 p-1 sm:inline-flex sm:w-auto">
 					{[
 						{
 							idx: 0,
@@ -92,7 +92,7 @@ export const HostsPage = () => {
 								key={idx}
 								type="button"
 								onClick={() => handleTabChange(idx)}
-								className={`inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors ${
+								className={`inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors ${
 									active
 										? "bg-surface-3 text-ink shadow-sm"
 										: "text-ink-subtle hover:text-ink"
