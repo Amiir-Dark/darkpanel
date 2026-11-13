@@ -84,6 +84,9 @@ export const UsersTable = () => {
 	const [openMenuUser, setOpenMenuUser] = useState(null);
 	const [contextMenu, setContextMenu] = useState(null);
 	const [connectionsUser, setConnectionsUser] = useState(null);
+	const [connectionsTab, setConnectionsTab] = useState("ips");
+	const [userIps, setUserIps] = useState([]);
+	const [loadingIps, setLoadingIps] = useState(false);
 	const [userHwids, setUserHwids] = useState([]);
 	const [loadingHwids, setLoadingHwids] = useState(false);
 	const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
@@ -106,8 +109,25 @@ export const UsersTable = () => {
 	useEffect(() => {
 		if (!connectionsUser?.username) return;
 		let cancelled = false;
+		const encoded = encodeURIComponent(connectionsUser.username);
+		setConnectionsTab("ips");
+		setLoadingIps(true);
 		setLoadingHwids(true);
-		fetch(`/user/${encodeURIComponent(connectionsUser.username)}/hwids`)
+
+		fetch(`/user/${encoded}/ips`)
+			.then((res) => {
+				if (!cancelled) {
+					setUserIps(Array.isArray(res?.ips) ? res.ips : Array.isArray(res) ? res : []);
+				}
+			})
+			.catch(() => {
+				if (!cancelled) setUserIps([]);
+			})
+			.finally(() => {
+				if (!cancelled) setLoadingIps(false);
+			});
+
+		fetch(`/user/${encoded}/hwids`)
 			.then((res) => {
 				if (!cancelled) {
 					setUserHwids(Array.isArray(res?.hwids) ? res.hwids : Array.isArray(res) ? res : []);
@@ -833,37 +853,111 @@ export const UsersTable = () => {
 							</div>
 						</div>
 
-						<div>
-							<div className="mb-2 text-xs font-medium text-ink-muted">
-								Registered Devices (HWID)
-							</div>
-							{loadingHwids ? (
-								<div className="flex justify-center py-6">
-									<Spinner className="h-5 w-5" />
-								</div>
-							) : userHwids.length === 0 ? (
-								<div className="rounded-xl border border-hairline bg-surface-2 p-4 text-center text-xs text-ink-tertiary">
-									No connected devices recorded
-								</div>
-							) : (
-								<div className="max-h-56 space-y-2 overflow-y-auto">
-									{userHwids.map((hw, i) => (
-										<div
-											key={hw.hwid || i}
-											className="flex items-center justify-between rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-xs"
-										>
-											<div className="min-w-0">
-												<div className="truncate font-mono text-ink">{hw.hwid}</div>
-												<div className="text-[11px] text-ink-tertiary">
-													{hw.device_model || hw.platform || "Device"}
-												</div>
-											</div>
-											<Badge>{hw.platform || "HWID"}</Badge>
-										</div>
-									))}
-								</div>
-							)}
+						<div className="grid grid-cols-2 gap-1 rounded-lg border border-hairline bg-surface-2 p-1">
+							<button
+								type="button"
+								onClick={() => setConnectionsTab("ips")}
+								className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+									connectionsTab === "ips"
+										? "bg-surface-3 text-ink shadow-sm"
+										: "text-ink-subtle hover:text-ink"
+								}`}
+							>
+								<span>{t("usersTable.ipsTab", "Connected IPs")}</span>
+								<span className="rounded-full bg-surface-1 px-1.5 py-0.5 text-[10px] tabular-nums text-ink-muted">
+									{userIps.length}
+								</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => setConnectionsTab("hwid")}
+								className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+									connectionsTab === "hwid"
+										? "bg-surface-3 text-ink shadow-sm"
+										: "text-ink-subtle hover:text-ink"
+								}`}
+							>
+								<span>{t("usersTable.hwidTab", "Devices (HWID)")}</span>
+								<span className="rounded-full bg-surface-1 px-1.5 py-0.5 text-[10px] tabular-nums text-ink-muted">
+									{userHwids.length}
+								</span>
+							</button>
 						</div>
+
+						{connectionsTab === "ips" ? (
+							<div>
+								{loadingIps ? (
+									<div className="flex justify-center py-6">
+										<Spinner className="h-5 w-5" />
+									</div>
+								) : userIps.length === 0 ? (
+									<div className="rounded-xl border border-hairline bg-surface-2 p-4 text-center text-xs text-ink-tertiary">
+										{t("usersTable.noOnlineIps", "No active IP connections recorded")}
+									</div>
+								) : (
+									<div className="max-h-56 space-y-2 overflow-y-auto">
+										{userIps.map((item, i) => {
+											const nodeLabel = Array.isArray(item.node_names) && item.node_names.length
+												? item.node_names.join(", ")
+												: item.node_name || "";
+											const operatorLabel = item.operator_owner || item.operator_short_name || "";
+											return (
+												<div
+													key={`${item.ip}-${item.node_id || i}`}
+													className="flex items-center justify-between gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-xs"
+												>
+													<div className="min-w-0">
+														<div className="truncate font-mono text-ink">{item.ip}</div>
+														<div className="truncate text-[11px] text-ink-tertiary">
+															{[nodeLabel, operatorLabel].filter(Boolean).join(" · ") || "—"}
+														</div>
+													</div>
+													<div className="flex shrink-0 items-center gap-1.5">
+														{item.protocol && (
+															<Badge variant="accent">{String(item.protocol).toUpperCase()}</Badge>
+														)}
+														{item.last_seen_at && (
+															<span className="text-[11px] text-ink-tertiary">
+																{dayjs(item.last_seen_at).fromNow()}
+															</span>
+														)}
+													</div>
+												</div>
+											);
+										})}
+									</div>
+								)}
+							</div>
+						) : (
+							<div>
+								{loadingHwids ? (
+									<div className="flex justify-center py-6">
+										<Spinner className="h-5 w-5" />
+									</div>
+								) : userHwids.length === 0 ? (
+									<div className="rounded-xl border border-hairline bg-surface-2 p-4 text-center text-xs text-ink-tertiary">
+										{t("usersTable.noHwids", "No connected devices recorded")}
+									</div>
+								) : (
+									<div className="max-h-56 space-y-2 overflow-y-auto">
+										{userHwids.map((hw, i) => (
+											<div
+												key={hw.hwid || i}
+												className="flex items-center justify-between rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-xs"
+											>
+												<div className="min-w-0">
+													<div className="truncate font-mono text-ink">{hw.hwid}</div>
+													<div className="text-[11px] text-ink-tertiary">
+														{hw.device_model || hw.platform || "Device"}
+													</div>
+												</div>
+												<Badge>{hw.platform || "HWID"}</Badge>
+											</div>
+										))}
+									</div>
+								)}
+							</div>
+						)}
 					</div>
 				)}
 			</Modal>
