@@ -117,13 +117,16 @@ func (r Repository) systemUsage(ctx context.Context) (int64, int64, error) {
 		ctx,
 		"SELECT COALESCE(uplink, 0), COALESCE(downlink, 0) FROM `master_usage` ORDER BY id LIMIT 1",
 	).Scan(&uplink, &downlink)
-	if err == sql.ErrNoRows {
-		return 0, 0, nil
-	}
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return 0, 0, err
 	}
-	return nullInt64(uplink), nullInt64(downlink), nil
+	var nodeUplink int64
+	var nodeDownlink int64
+	_ = r.db.QueryRowContext(
+		ctx,
+		`SELECT COALESCE(SUM(uplink), 0), COALESCE(SUM(downlink), 0) FROM node_usages`,
+	).Scan(&nodeUplink, &nodeDownlink)
+	return nullInt64(uplink) + nodeUplink, nullInt64(downlink) + nodeDownlink, nil
 }
 
 func (r Repository) adminByUsername(ctx context.Context, username string) (adminRow, bool, error) {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dashboardapp "github.com/rebeccapanel/rebecca/internal/app/dashboard"
+	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -93,6 +94,14 @@ func (s *Server) systemStatsForRequest(ctx context.Context, r *http.Request) (sy
 	total := s.liveUserSpeedTotalFor(principal)
 	stats.OnlineUsersUploadRate = total.Upload
 	stats.OnlineUsersDownloadRate = total.Download
+	nodeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	if result, nodeErr := s.nodeController.List(nodeCtx, nodecontroller.Request{}); nodeErr == nil {
+		for _, node := range result.Nodes {
+			stats.IncomingBandwidthRate += int64(node.Transfer.DownloadSpeed)
+			stats.OutgoingBandwidthRate += int64(node.Transfer.UploadSpeed)
+		}
+	}
+	cancel()
 	return stats, nil
 }
 
