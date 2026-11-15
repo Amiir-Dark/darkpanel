@@ -1,3 +1,4 @@
+import * as Flags from "country-flag-icons/react/3x2";
 import { Fragment, memo, useMemo, useState } from "react";
 const APPLE_EMOJI_BASE = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@16.0.0/img/apple/64/";
 const EMOJI_GRAPHEME = /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20e3/u;
@@ -5,6 +6,15 @@ const EMOJI_PRESENTATION = /\p{Emoji_Presentation}/u;
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const failedSources = new Set();
 const resolvedSources = new Map();
+
+const getCountryCodeFromFlag = (value) => {
+    const cps = Array.from(value, (ch) => ch.codePointAt(0) ?? 0);
+    if (cps.length !== 2)
+        return null;
+    if (cps[0] < 0x1f1e6 || cps[0] > 0x1f1ff || cps[1] < 0x1f1e6 || cps[1] > 0x1f1ff)
+        return null;
+    return String.fromCharCode(cps[0] - 0x1f1e6 + 65, cps[1] - 0x1f1e6 + 65);
+};
 const toCodePoint = (value) => Array.from(value, (character) => character.codePointAt(0)?.toString(16) ?? "")
     .filter(Boolean)
     .filter((codePoint) => codePoint !== "fe0e");
@@ -29,9 +39,16 @@ const getSources = (value) => {
         !failedSources.has(source));
 };
 const AppleEmojiGlyph = memo(({ value }) => {
-    const sources = useMemo(() => getSources(value), [value]);
+    const countryCode = useMemo(() => getCountryCodeFromFlag(value), [value]);
+    const FlagIcon = countryCode ? Flags[countryCode] : null;
+    const sources = useMemo(() => (FlagIcon ? [] : getSources(value)), [FlagIcon, value]);
     const [sourceIndex, setSourceIndex] = useState(0);
     const [isLoaded, setIsLoaded] = useState(false);
+    if (FlagIcon) {
+        return (<span className="inline-flex items-center align-middle mx-[0.1em]" role="img" aria-label={value}>
+				<FlagIcon className="h-[0.95em] w-[1.35em] rounded-[2px] shadow-xs"/>
+			</span>);
+    }
     const source = sources[sourceIndex];
     return (<span className="apple-emoji-glyph" data-loaded={isLoaded || undefined} role="img" aria-label={value}>
 			<span className="apple-emoji-native" aria-hidden="true">
@@ -52,7 +69,7 @@ const AppleEmojiGlyph = memo(({ value }) => {
 });
 export const AppleEmojiText = memo(({ children }) => {
     const segments = useMemo(() => {
-        if (!EMOJI_GRAPHEME.test(children))
+        if (typeof children !== "string" || !EMOJI_GRAPHEME.test(children))
             return null;
         return Array.from(segmenter.segment(children), ({ index, segment }) => ({
             key: `${index}-${segment}`,

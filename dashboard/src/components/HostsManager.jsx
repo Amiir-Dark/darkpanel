@@ -2286,7 +2286,7 @@ export const HostsManager = () => {
 										<div className="min-w-0">
 											<div className="flex items-center gap-1.5 min-w-0">
 												<span className="truncate text-[13px] font-semibold text-zinc-100" title={hostName}>
-													{hostName}
+													<AppleEmojiText>{hostName}</AppleEmojiText>
 												</span>
 												{isDirty && (<span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title={t("hostsPage.unsaved")}/>)}
 											</div>
@@ -2363,7 +2363,7 @@ export const HostsManager = () => {
 									<div className="min-w-0">
 										<div className="flex items-center gap-1.5 min-w-0">
 											<span className="truncate text-[13px] font-medium text-zinc-100" title={hostName}>
-												{hostName}
+												<AppleEmojiText>{hostName}</AppleEmojiText>
 											</span>
 											{isDirty && (<span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title={t("hostsPage.unsaved")}/>)}
 										</div>
