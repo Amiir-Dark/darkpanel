@@ -223,8 +223,10 @@ export const UserDialog = () => {
 		setError("");
 		try {
 			await resetDataUsage(editingUser);
+			const nextStatus = status === "limited" ? "active" : status;
 			setUsedTraffic(0);
-			onEditingUser({ ...editingUser, used_traffic: 0 });
+			setStatus(nextStatus);
+			onEditingUser({ ...editingUser, used_traffic: 0, status: nextStatus });
 			appToast({
 				title: t("resetUsage.success", "Data usage reset to 0"),
 				status: "success",
@@ -253,8 +255,10 @@ export const UserDialog = () => {
 		setSaving(true);
 		try {
 			if (isEditing) {
+				const editableStatus =
+					status === "active" || status === "disabled" || status === "on_hold" ? status : undefined;
 				const body = {
-					status,
+					...(editableStatus ? { status: editableStatus } : {}),
 					service_id: serviceId ? Number(serviceId) : null,
 					data_limit: parsedLimit,
 					data_limit_reset_strategy: parsedLimit ? resetStrategy : "no_reset",
