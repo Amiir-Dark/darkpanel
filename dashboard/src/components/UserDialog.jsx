@@ -4,6 +4,7 @@ import {
 	ChevronDownIcon,
 	ClipboardDocumentIcon,
 	ExclamationTriangleIcon,
+	KeyIcon,
 	MagnifyingGlassIcon,
 	PowerIcon,
 	QrCodeIcon,
@@ -44,6 +45,7 @@ export const UserDialog = () => {
 	const editUser = useDashboard((s) => s.editUser);
 	const deleteUser = useDashboard((s) => s.deleteUser);
 	const resetDataUsage = useDashboard((s) => s.resetDataUsage);
+	const revokeSubscription = useDashboard((s) => s.revokeSubscription);
 	const refetchUsers = useDashboard((s) => s.refetchUsers);
 	const setQRCode = useDashboard((s) => s.setQRCode);
 	const setSubLink = useDashboard((s) => s.setSubLink);
@@ -67,6 +69,7 @@ export const UserDialog = () => {
 	const [deleting, setDeleting] = useState(false);
 	const [togglingPower, setTogglingPower] = useState(false);
 	const [resettingUsage, setResettingUsage] = useState(false);
+	const [revokingLink, setRevokingLink] = useState(false);
 	const [error, setError] = useState("");
 	const [copiedKey, setCopiedKey] = useState("");
 	const [serviceSearch, setServiceSearch] = useState("");
@@ -238,6 +241,23 @@ export const UserDialog = () => {
 		}
 	};
 
+	const handleRevokeNewLink = async () => {
+		if (!editingUser || revokingLink) return;
+		setRevokingLink(true);
+		setError("");
+		try {
+			await revokeSubscription(editingUser);
+			appToast({
+				title: t("revokeSubscription.success", "New link & UUID generated"),
+				status: "success",
+			});
+		} catch (err) {
+			setError(err?.response?._data?.detail || err?.message || "Failed to generate new link");
+		} finally {
+			setRevokingLink(false);
+		}
+	};
+
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setError("");
@@ -360,8 +380,8 @@ export const UserDialog = () => {
 			maxWidth="max-w-xl"
 			footer={
 				activeTab === "edit" ? (
-					<div className="flex w-full items-center justify-between gap-2">
-						<div className="flex items-center gap-2">
+					<div className="flex w-full flex-wrap items-center justify-between gap-2">
+						<div className="flex flex-wrap items-center gap-2">
 							{isEditing && (
 								<>
 									<Button variant="danger" size="sm" loading={deleting} onClick={() => void handleDelete()}>
@@ -371,6 +391,10 @@ export const UserDialog = () => {
 									<Button size="sm" loading={resettingUsage} onClick={() => void handleQuickResetUsage()}>
 										<ArrowPathIcon className="h-3.5 w-3.5" />
 										<span>{t("resetUsage.title", "Reset Usage")}</span>
+									</Button>
+									<Button size="sm" loading={revokingLink} onClick={() => void handleRevokeNewLink()}>
+										<KeyIcon className="h-3.5 w-3.5 text-amber-400" />
+										<span>{t("userDialog.newLink", "New Link")}</span>
 									</Button>
 									<Button
 										size="sm"
@@ -690,8 +714,14 @@ export const UserDialog = () => {
 			{activeTab === "links" && (
 				<div className="space-y-4">
 					<div>
-						<div className="mb-1.5 text-xs font-medium text-ink-muted">
-							{t("userDialog.links.subscription", "Subscription Link")}
+						<div className="mb-1.5 flex items-center justify-between gap-2">
+							<span className="text-xs font-medium text-ink-muted">
+								{t("userDialog.links.subscription", "Subscription Link")}
+							</span>
+							<Button size="xs" loading={revokingLink} onClick={() => void handleRevokeNewLink()}>
+								<KeyIcon className="h-3.5 w-3.5 text-amber-400" />
+								<span>{t("userDialog.newLink", "New Link")}</span>
+							</Button>
 						</div>
 						{subLink ? (
 							<div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2">
